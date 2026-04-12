@@ -1,0 +1,9 @@
+@use "../Styles/Variables.scss" as *;
+.Page {
+  display: flex;
+  height: 100vh;
+}
+.mainContent {
+  width: 100%;
+  background-color: $color-bg;
+}

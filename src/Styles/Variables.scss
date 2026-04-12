@@ -1,0 +1,133 @@
+// ========================================
+// NOVX UI KIT — VARIABLES
+// ========================================
+
+// 🎨 COLORS
+// ========================================
+
+$color-bg: #000000;
+$color-surface: #0a0a0a;
+$color-surface-2: #050505;
+
+$color-border: #1a1a1a;
+$color-border-hover: #2a2a2a;
+
+$color-text-primary: #ffffff;
+$color-text-secondary: #8a8a8a;
+$color-text-muted: #5a5a5a;
+
+// states
+$color-hover: rgba(255, 255, 255, 0.05);
+$color-active: rgba(255, 255, 255, 0.1);
+
+// 🔤 TYPOGRAPHY
+// ========================================
+
+$font-family-base: "Inter", "SF Pro Display", system-ui, sans-serif;
+
+$font-size-h1: 40px;
+$font-size-h2: 24px;
+$font-size-h3: 18px;
+
+$font-size-body: 14px;
+$font-size-small: 12px;
+
+$font-weight-regular: 400;
+$font-weight-medium: 500;
+$font-weight-semibold: 600;
+
+$letter-spacing-heading: 0.02em;
+
+// 📏 SPACING (8px grid)
+// ========================================
+
+$space-1: 4px;
+$space-2: 8px;
+$space-3: 12px;
+$space-4: 16px;
+$space-5: 24px;
+$space-6: 32px;
+$space-7: 40px;
+
+// 🧩 RADIUS
+// ========================================
+
+$radius-sm: 8px;
+$radius-md: 10px;
+$radius-lg: 12px;
+$radius-xl: 16px;
+$radius-full: 999px;
+
+// 🌫️ SHADOWS (очень аккуратно)
+// ========================================
+
+$shadow-sm: 0 0 0 1px rgba(255, 255, 255, 0.02);
+$shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
+
+// 🔲 BORDERS
+// ========================================
+
+$border-default: 1px solid $color-border;
+$border-hover: 1px solid $color-border-hover;
+
+// 🔘 BUTTONS
+// ========================================
+
+$btn-height: 36px;
+$btn-padding-x: 16px;
+
+$btn-radius: $radius-md;
+
+$btn-font-size: $font-size-body;
+$btn-font-weight: $font-weight-medium;
+
+// primary
+$btn-primary-bg: #ffffff;
+$btn-primary-text: #000000;
+
+// secondary
+$btn-secondary-bg: transparent;
+$btn-secondary-border: $color-border;
+$btn-secondary-text: #ffffff;
+
+// 🧱 CARDS
+// ========================================
+
+$card-bg: $color-surface;
+$card-border: $color-border;
+$card-radius: $radius-lg;
+$card-padding: $space-4;
+
+// 📊 METRICS
+// ========================================
+
+$metric-value-size: 32px;
+$metric-label-size: $font-size-small;
+
+// 📈 PROGRESS BAR
+// ========================================
+
+$progress-height: 4px;
+$progress-bg: $color-border;
+$progress-fill: #ffffff;
+
+// 🧭 LAYOUT
+// ========================================
+
+$sidebar-width: 220px;
+$header-height: 64px;
+
+$container-max-width: 1200px;
+
+// 🖱️ TRANSITIONS
+// ========================================
+
+$transition-fast: 0.15s ease;
+$transition-base: 0.2s ease;
+
+// 🧪 Z-INDEX
+// ========================================
+
+$z-header: 100;
+$z-sidebar: 90;
+$z-modal: 1000;
