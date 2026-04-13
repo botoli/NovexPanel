@@ -5,7 +5,7 @@
   border-right: 1px solid $color-border;
 }
 .tab {
-  font-weight: 100;
+  font-weight: $font-weight-semibold;
   display: flex;
   align-items: center;
   gap: $space-3;

@@ -103,7 +103,7 @@ const LeftPanel = observer(() => {
                   onClick={() => toogleActive(tab.name)}
                 >
                   {getIcon(tab.name)}
-                  <h2>{tab.name}</h2>
+                  <p>{tab.name}</p>
                 </div>
               </Link>
             );
