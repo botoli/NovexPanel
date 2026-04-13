@@ -1,0 +1,321 @@
+openapi: 3.0.3
+info:
+  title: Novex Backend API
+  version: 1.0.0
+  description: REST API for NovexPanel backend.
+servers:
+  - url: http://localhost:8080
+
+tags:
+  - name: Auth
+  - name: Servers
+  - name: Deploys
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+    AgentTokenCreateResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        agent_token:
+          type: string
+        token_prefix:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+    ServerItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        ip:
+          type: string
+        online:
+          type: boolean
+        last_metrics:
+          type: object
+          additionalProperties: true
+    MetricsPoint:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        cpu:
+          type: number
+        ram:
+          type: number
+        disk:
+          type: number
+    RunCommandRequest:
+      type: object
+      required: [command]
+      properties:
+        command:
+          type: string
+    DeployRequest:
+      type: object
+      required: [source]
+      properties:
+        source:
+          type: string
+          enum: [github, zip]
+        repo_url:
+          type: string
+        branch:
+          type: string
+        project_type:
+          type: string
+          enum: [auto, node, react, go, docker]
+        zip_data:
+          type: string
+
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: OK
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Created
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: JWT issued
+        "401":
+          description: Invalid credentials
+
+  /auth/tokens:
+    post:
+      tags: [Auth]
+      summary: Create new agent token
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Token created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentTokenCreateResponse"
+    get:
+      tags: [Auth]
+      summary: List agent tokens
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Token list
+
+  /auth/tokens/{id}:
+    delete:
+      tags: [Auth]
+      summary: Revoke agent token
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Revoked
+
+  /servers:
+    get:
+      tags: [Servers]
+      summary: List user servers
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Server list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ServerItem"
+
+  /servers/{id}/metrics:
+    get:
+      tags: [Servers]
+      summary: Metrics history for last N days
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Metrics history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MetricsPoint"
+
+  /servers/{id}/processes:
+    get:
+      tags: [Servers]
+      summary: Current process list from agent
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Process list
+
+  /servers/{id}/command:
+    post:
+      tags: [Servers]
+      summary: Execute command on server (MVP test endpoint)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RunCommandRequest"
+      responses:
+        "200":
+          description: Command output
+
+  /servers/{id}/deploy:
+    post:
+      tags: [Servers]
+      summary: Start deploy on server
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeployRequest"
+      responses:
+        "202":
+          description: Deploy accepted
+
+  /servers/{id}/processes/{pid}:
+    delete:
+      tags: [Servers]
+      summary: Kill process
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: pid
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Kill result
+
+  /deploys/{id}/logs:
+    get:
+      tags: [Deploys]
+      summary: Get deploy logs
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deploy logs and status

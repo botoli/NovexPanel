@@ -1,11 +1,307 @@
 @use "../Styles/Variables.scss" as *;
+
 .Page {
   display: flex;
   flex-direction: row;
-  height: 100vh;
+  min-height: 100vh;
+  background: $color-bg;
 }
+
 .mainContent {
-  width: 100%;
-  background-color: $color-bg;
+  flex: 1;
   color: $btn-secondary-text;
+  background-color: $color-bg;
+  overflow-y: auto;
+}
+
+.contentWrap {
+  width: 100%;
+  max-width: $container-max-width;
+  margin: 0 auto;
+  padding: $space-7 $space-6;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $space-4;
+}
+
+.pageTitle h1 {
+  font-size: $font-size-h1;
+  letter-spacing: $letter-spacing-heading;
+}
+
+.ActionBtn {
+  height: $btn-height;
+  border: $border-default;
+  background: $btn-secondary-bg;
+  color: $color-text-primary;
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  padding: 0 $btn-padding-x;
+  border-radius: $btn-radius;
+  cursor: pointer;
+  font-size: $btn-font-size;
+  font-weight: $btn-font-weight;
+  transition: border-color $transition-base;
+
+  &:hover {
+    border-color: $color-border-hover;
+  }
+}
+
+.serverRow {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  margin-bottom: $space-5;
+}
+
+.serverName {
+  font-size: $font-size-h2;
+  font-weight: $font-weight-semibold;
+}
+
+.serverStatus {
+  text-transform: capitalize;
+  color: $color-text-secondary;
+  font-size: $font-size-body;
+}
+
+.online {
+  width: $space-3;
+  height: $space-3;
+  flex-shrink: 0;
+  border-radius: $radius-full;
+  background-color: $color-status-online;
+  box-shadow: 0 0 10px rgba($color-status-online, 0.8);
+}
+
+.offline {
+  width: $space-3;
+  height: $space-3;
+  flex-shrink: 0;
+  border-radius: $radius-full;
+  background-color: $color-status-offline;
+  box-shadow: 0 0 10px rgba($color-status-offline, 0.8);
+}
+
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(200px, 1fr));
+  gap: $space-4;
+  margin-bottom: $space-4;
+}
+
+.card {
+  border: $border-default;
+  border-radius: $card-radius;
+  background: $card-bg;
+  box-shadow: $shadow-md;
+  padding: $card-padding;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $space-3;
+}
+
+.cardTitleWrap {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  color: $color-text-primary;
+
+  h3 {
+    font-weight: $font-weight-medium;
+    font-size: $font-size-h3;
+  }
+}
+
+.metricValue {
+  display: flex;
+  align-items: baseline;
+  gap: $space-2;
+  margin-bottom: $space-4;
+
+  span {
+    font-size: $metric-value-size;
+    line-height: 1;
+    font-weight: $font-weight-semibold;
+  }
+
+  p {
+    color: $color-text-secondary;
+    font-size: $font-size-body;
+  }
+}
+
+.progressTrack {
+  width: 100%;
+  height: $progress-height;
+  border-radius: $radius-full;
+  background: $progress-bg;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: $progress-fill;
+  border-radius: inherit;
+}
+
+.highlightsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: $space-4;
+  margin-bottom: $space-6;
+}
+
+.smallCard {
+  border: $border-default;
+  border-radius: $card-radius;
+  background: $card-bg;
+  box-shadow: $shadow-md;
+  padding: $card-padding;
+}
+
+.smallCardValue {
+  margin-top: $space-3;
+  font-size: $font-size-h1;
+  line-height: 1;
+  font-weight: $font-weight-semibold;
+}
+
+.smallCardNote {
+  margin-top: $space-2;
+  color: $color-text-secondary;
+  display: inline-block;
+}
+
+.activitySection h2 {
+  margin-bottom: $space-3;
+  font-size: $font-size-h2;
+  font-weight: $font-weight-semibold;
+}
+
+.activityCard {
+  border: $border-default;
+  border-radius: $card-radius;
+  background: $card-bg;
+  box-shadow: $shadow-md;
+  overflow: hidden;
+}
+
+.activityRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-4;
+  padding: $space-3 $space-4;
+  border-bottom: 1px solid $color-border;
+}
+
+.activityLeft {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  min-width: 0;
+}
+
+.activityIcon {
+  color: $color-text-secondary;
+  display: inline-flex;
+}
+
+.activityText {
+  font-size: $font-size-h3;
+  color: $color-text-primary;
+
+  span {
+    color: $color-text-primary;
+    font-weight: $font-weight-semibold;
+  }
+}
+
+.activityTime {
+  font-size: $font-size-body;
+  color: $color-text-secondary;
+  white-space: nowrap;
+}
+
+.activityFooter {
+  display: flex;
+  justify-content: flex-end;
+  padding: $space-3 $space-4;
+}
+
+.viewAllBtn {
+  background: transparent;
+  border: none;
+  color: $color-text-primary;
+  cursor: pointer;
+  font-size: $font-size-body;
+}
+
+@media (max-width: 1100px) {
+  .contentWrap {
+    padding: $space-6;
+  }
+
+  .metricsGrid {
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+  }
+
+  .activityText {
+    font-size: $font-size-body;
+  }
+
+  .activityTime {
+    font-size: $font-size-small;
+  }
+}
+
+@media (max-width: 760px) {
+  .contentWrap {
+    padding: $space-4 $space-3 $space-5;
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: $space-3;
+  }
+
+  .serverName {
+    font-size: $font-size-h3;
+  }
+
+  .metricsGrid,
+  .highlightsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .metricValue span,
+  .smallCardValue {
+    font-size: $metric-value-size;
+  }
+
+  .activityRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: $space-2;
+  }
+
+  .activityText {
+    font-size: $font-size-body;
+  }
+
+  .activityTime {
+    font-size: $font-size-small;
+  }
 }
