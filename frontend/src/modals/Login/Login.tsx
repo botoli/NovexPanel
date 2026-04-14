@@ -1,6 +1,6 @@
 import { Icon } from '@iconify/react';
 import { observer } from 'mobx-react-lite';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { tokenStore } from '../../Store/TokenStore';
 import styles from './Login.module.scss';
@@ -10,7 +10,7 @@ const Login = observer(() => {
   const [password, setPassword] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [token, setToken] = useState('');
+
   const navigate = useNavigate();
   const handleSubmit = async () => {
     // Валидация

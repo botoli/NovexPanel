@@ -1,165 +1,242 @@
 import { Icon } from '@iconify/react';
+import { getAlertTitleUtilityClass } from '@mui/material';
 import { observer } from 'mobx-react-lite';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { agentTokenStore } from '../../Store/AgentTokenStore';
+import { tokenStore } from '../../Store/TokenStore';
 import LeftPanel from '../LeftPanel/LeftPanel';
-import { dashboardMock } from './Data';
 import styles from './Home.module.scss';
-export const Menu = () => <Icon icon='mdi:menu' fontSize='30' />;
-export const KeyboardArrowDown = () => <Icon icon='mdi:keyboard-arrow-down' fontSize='30' />;
-export const ComputerOutlined = () => <Icon icon='ri:cpu-line' fontSize='25' />;
-export const LayersOutlined = () => <Icon icon='lucide:memory-stick' fontSize='25' />;
-export const StorageOutlined = () => <Icon icon='mdi:harddisk' fontSize='25' />;
-export const DnsOutlined = () => <Icon icon='mdi:dns' fontSize='25' />;
-export const DeployOutlined = () => <Icon icon='eos-icons:code-deploy' fontSize='25' />;
-export const CheckCircleOutlined = () => <Icon icon='mdi:check-circle' fontSize='25' />;
-export const ErrorOutlined = () => <Icon icon='mdi:error' fontSize='25' />;
-const renderMetricIcon = (icon: string) => {
-  switch (icon) {
-    case 'cpu':
-      return <ComputerOutlined />;
-    case 'memory':
-      return <LayersOutlined />;
-    case 'disk':
-      return <StorageOutlined />;
-    default:
-      return <ComputerOutlined />;
-  }
+
+type TopProcess = {
+  cpu: number;
+  mem: number;
+  pid: number;
+  name: string;
 };
 
-const renderHighlightIcon = (icon: string) => {
-  switch (icon) {
-    case 'containers':
-      return <DnsOutlined />;
-    case 'deploy':
-      return <DeployOutlined />;
-    default:
-      return <DnsOutlined />;
-  }
+type ServerItem = {
+  id: number;
+  ip: string;
+  name: string | null;
+  online: boolean;
+  last_metrics: {
+    cpu: {
+      cores: number;
+      usage: number;
+      load_avg: number[];
+    };
+    ram: {
+      free: number;
+      used: number;
+      total: number;
+      percent: number;
+    };
+    disk: {
+      free: number;
+      used: number;
+      total: number;
+      percent: number;
+    };
+    uptime: number;
+    network: {
+      rx_bytes: number;
+      rx_speed: number;
+      tx_bytes: number;
+      tx_speed: number;
+    };
+    temperature: number;
+    top_processes: TopProcess[];
+  };
 };
 
-const renderActivityIcon = (type: string) => {
-  switch (type) {
-    case 'success':
-      return <CheckCircleOutlined />;
-    case 'error':
-      return <ErrorOutlined />;
-    default:
-      return <DeployOutlined />;
-  }
-};
+const clampPercent = (value: number) => Math.max(0, Math.min(100, value));
+const formatPercent = (value: number) => `${Math.round(clampPercent(value))}%`;
+const formatTemperature = (value: number) => `${Math.round(value)}C`;
 
 const HomePage = observer(() => {
+  const [fetchData, setFetchData] = useState<ServerItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
   useEffect(() => {
-    async function fetchData() {
+    let isMounted = true;
+    let isRequestInFlight = false;
+
+    async function loadServers() {
+      if (isRequestInFlight) {
+        return;
+      }
+
+      isRequestInFlight = true;
       try {
-        const response = await fetch('http://localhost:8380/servers');
+        const response = await fetch('http://localhost:8380/servers', {
+          headers: {
+            Authorization: `Bearer ${tokenStore.getToken()}`,
+          },
+        });
+
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        const data = await response.json();
-        console.log('Fetched dashboard data:', data);
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+
+        const data = (await response.json()) as ServerItem[];
+        if (isMounted) {
+          setFetchData(data);
+        }
+      } catch (fetchError) {
+        console.error('Error fetching dashboard data:', fetchError);
+      } finally {
+        isRequestInFlight = false;
       }
     }
 
-    fetchData();
+    loadServers();
+    const intervalId = window.setInterval(() => {
+      loadServers();
+    }, 2000);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
+    };
   }, []);
+
+  const getAgentToken = async () => {
+    if (!tokenStore.getToken()) {
+      setError('Authentication token is missing. Please log in again.');
+      setTimeout(() => {
+        navigate('/login');
+      }, 800);
+      return;
+    }
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await fetch('http://localhost:8380/auth/tokens', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${tokenStore.getToken()}`,
+        },
+      });
+
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const data = await response.json();
+      agentTokenStore.setAgentToken(data.agent_token);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Произошла ошибка');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className={styles.Page}>
       <LeftPanel />
-      <div className={styles.mainContent}>
-        <div className={styles.contentWrap}>
-          <div className={styles.header}>
-            <div className={styles.pageTitle}>
-              <h1>{dashboardMock.title}</h1>
-            </div>
-            <button className={styles.ActionBtn}>
-              <Menu />
-              Actions
-              <KeyboardArrowDown />
+      <div className={styles.agentTokenModal}>
+        {agentTokenStore.getAgentToken() && (
+          <div className={styles.tokenCard}>
+            <h2>Agent Token</h2>
+            <p className={styles.tokenValue}>{agentTokenStore.getAgentToken()}</p>
+            <button
+              type='button'
+              className={styles.closeBtn}
+              onClick={() => agentTokenStore.clearAgentToken()}
+            >
+              <Icon icon='mdi:close' className={styles.closeIcon} />
             </button>
           </div>
-
-          <div className={styles.serverRow}>
-            <div
-              className={dashboardMock.server.status === 'online'
-                ? styles.online
-                : styles.offline}
-            >
-            </div>
-            <p className={styles.serverName}>{dashboardMock.server.name}</p>
-            <span className={styles.serverStatus}>
-              {dashboardMock.server.status}
-            </span>
-          </div>
-
-          <section className={styles.metricsGrid}>
-            {dashboardMock.metrics.map((metric) => (
-              <article key={metric.id} className={styles.card}>
-                <div className={styles.cardHeader}>
-                  <div className={styles.cardTitleWrap}>
-                    {renderMetricIcon(metric.icon)}
-                    <h3>{metric.label}</h3>
+        )}
+      </div>
+      <div className={styles.mainContent}>
+        <div className={styles.contentWrap}>
+          {fetchData.length > 0
+            ? (
+              <>
+                <div className={styles.header}>
+                  <div className={styles.pageTitle}>
+                    <h1>Servers</h1>
+                    <p>{fetchData.length} active cards</p>
                   </div>
                 </div>
 
-                <div className={styles.metricValue}>
-                  <span>{metric.value}%</span>
-                  <p>
-                    {metric.used} {metric.unit} / {metric.total} {metric.unit}
-                  </p>
-                </div>
+                <section className={styles.serverGrid}>
+                  {fetchData.map(server => (
+                    <article className={styles.serverCard} key={server.id}>
+                      <div className={styles.serverTop}>
+                        <div className={styles.serverIdentity}>
+                          <div className={server.online ? styles.online : styles.offline}></div>
+                          <h2>{server.name ?? `Server #${server.id}`}</h2>
+                        </div>
+                        <span className={styles.serverStatus}>
+                          {server.online ? 'Online' : 'Offline'}
+                        </span>
+                      </div>
 
-                <div className={styles.progressTrack}>
-                  <div
-                    className={styles.progressFill}
-                    style={{ width: `${metric.value}%` }}
-                  >
-                  </div>
-                </div>
-              </article>
-            ))}
-          </section>
+                      <p className={styles.serverIp}>{server.ip}</p>
 
-          <section className={styles.highlightsGrid}>
-            {dashboardMock.highlights.map((item) => (
-              <article key={item.id} className={styles.smallCard}>
-                <div className={styles.cardTitleWrap}>
-                  {renderHighlightIcon(item.icon)}
-                  <h3>{item.label}</h3>
-                </div>
-                <p className={styles.smallCardValue}>{item.value}</p>
-                <span className={styles.smallCardNote}>{item.note}</span>
-              </article>
-            ))}
-          </section>
-
-          <section className={styles.activitySection}>
-            <h2>Recent Activity</h2>
-            <div className={styles.activityCard}>
-              {dashboardMock.activity.map((event) => (
-                <div key={event.id} className={styles.activityRow}>
-                  <div className={styles.activityLeft}>
-                    <div className={styles.activityIcon}>
-                      {renderActivityIcon(event.type)}
+                      <div className={styles.serverStack}>
+                        {[
+                          {
+                            key: 'cpu',
+                            label: 'CPU',
+                            value: formatPercent(server.last_metrics.cpu.usage || 0),
+                          },
+                          {
+                            key: 'ram',
+                            label: 'RAM',
+                            value: formatPercent(server.last_metrics.ram.percent || 0),
+                          },
+                          {
+                            key: 'disk',
+                            label: 'Disk',
+                            value: formatPercent(server.last_metrics.disk.percent || 0),
+                          },
+                          {
+                            key: 'cpu-temperature',
+                            label: 'CPU Temp',
+                            value: formatTemperature(server.last_metrics.temperature || 0),
+                          },
+                        ].map(layer => (
+                          <div className={styles.stackLayer} key={layer.key}>
+                            <span className={styles.layerLabel}>{layer.label}</span>
+                            <strong className={styles.layerValue}>{layer.value}</strong>
+                          </div>
+                        ))}
+                      </div>
+                    </article>
+                  ))}
+                  <article className={styles.addserverCard} onClick={getAgentToken}>
+                    <div className={styles.addServer}>
+                      <Icon icon='icons8:plus' fontSize='120' color='' />
+                      <h1>Add server</h1>
                     </div>
-                    <p className={styles.activityText}>
-                      {event.message} <span>{event.target}</span>
-                    </p>
+                  </article>
+                </section>
+              </>
+            )
+            : (
+              <div className={styles.noServers}>
+                <div className={styles.emptyStateCard}>
+                  <div className={styles.emptyIconWrap}>
+                    <Icon icon='qlementine-icons:server-16' fontSize='132' />
                   </div>
-                  <span className={styles.activityTime}>{event.ago}</span>
-                </div>
-              ))}
+                  <h1>No servers yet</h1>
+                  <p className={styles.emptyDescription}>
+                    Connect your first agent to start receiving live metrics.
+                  </p>
 
-              <div className={styles.activityFooter}>
-                <button className={styles.viewAllBtn}>View all</button>
+                  {error && <p className={styles.emptyError}>{error}</p>}
+                </div>
               </div>
-            </div>
-          </section>
+            )}
         </div>
       </div>
     </div>
   );
 });
+
 export default HomePage;

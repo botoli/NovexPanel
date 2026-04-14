@@ -16,21 +16,28 @@
 
 .contentWrap {
   width: 100%;
-  max-width: $container-max-width;
-  margin: 0 auto;
-  padding: $space-7 $space-6;
+  max-width: 1320px;
+  margin: 0 auto 0 28px;
+  padding: $space-4;
 }
 
 .header {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  margin-bottom: $space-4;
+  margin-bottom: $space-3;
 }
 
 .pageTitle h1 {
-  font-size: $font-size-h1;
+  margin: 0;
+  font-size: clamp(26px, 2.2vw, 34px);
   letter-spacing: $letter-spacing-heading;
+}
+
+.pageTitle p {
+  margin: $space-1 0 0;
+  color: $color-text-secondary;
+  font-size: $font-size-small;
 }
 
 .ActionBtn {
@@ -66,9 +73,14 @@
 }
 
 .serverStatus {
-  text-transform: capitalize;
+  padding: 2px 10px;
+  border-radius: $radius-full;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
   color: $color-text-secondary;
-  font-size: $font-size-body;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .online {
@@ -87,6 +99,108 @@
   border-radius: $radius-full;
   background-color: $color-status-offline;
   box-shadow: 0 0 10px rgba($color-status-offline, 0.8);
+}
+
+.serverGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: $space-3;
+}
+
+.serverCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+  min-height: 188px;
+  padding: 12px;
+  border-radius: $card-radius;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+
+  overflow: hidden;
+}
+
+.serverCard::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background-color: $color-status-online;
+}
+
+
+.serverTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-2;
+}
+
+.serverIdentity {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  min-width: 0;
+
+  h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: $font-weight-semibold;
+    color: $color-text-primary;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.serverIp {
+  margin: 0;
+  color: $color-text-secondary;
+  font-size: $font-size-small;
+  overflow-wrap: anywhere;
+}
+
+.serverStack {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.stackLayer {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: $space-2;
+  padding: 6px 10px;
+  border-radius: $radius-sm;
+  
+}
+
+.stackLayer::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.layerLabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: $color-text-secondary;
+}
+
+.layerValue {
+  font-size: 14px;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
 }
 
 .metricsGrid {
@@ -157,7 +271,7 @@
 
 .highlightsGrid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
   gap: $space-4;
   margin-bottom: $space-6;
 }
@@ -172,9 +286,10 @@
 
 .smallCardValue {
   margin-top: $space-3;
-  font-size: $font-size-h1;
+  font-size: clamp(20px, 2.1vw, 30px);
   line-height: 1;
   font-weight: $font-weight-semibold;
+  overflow-wrap: anywhere;
 }
 
 .smallCardNote {
@@ -248,12 +363,216 @@
   font-size: $font-size-body;
 }
 
+.noServers {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: clamp(24px, 5vw, 56px);
+  color: $color-text-secondary;
+
+  p {
+    margin-bottom: 0;
+  }
+}
+
+.emptyStateCard {
+  width: min(100%, 560px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: $space-3;
+  padding: clamp(28px, 4vw, 44px);
+  text-align: center;
+  
+  border-radius: $radius-xl;
+  background: linear-gradient(
+    180deg,
+    rgba($color-text-primary, 0.03) 0%,
+    $color-surface 45%,
+    $color-surface-2 100%
+  );
+  box-shadow: $shadow-md;
+}
+
+.emptyIconWrap {
+  width: clamp(192px, 12vw, 228px);
+  height: clamp(192px, 12vw, 228px);
+  display: grid;
+  place-items: center;
+
+  color: $color-text-secondary;
+
+  svg {
+    width: 64%;
+    height: 64%;
+  }
+}
+
+.emptyStateCard h1 {
+  font-size: clamp(24px, 2.5vw, 32px);
+  line-height: 1.15;
+  letter-spacing: $letter-spacing-heading;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+}
+
+.emptyDescription {
+  margin: 0;
+  max-width: 420px;
+  font-size: $font-size-body;
+  line-height: 1.5;
+  color: $color-text-secondary;
+}
+.addServer{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-2;
+  color: $color-text-secondary;
+
+
+}
+.addserverCard{
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+  min-height: 188px;
+  padding: 12px;
+  border-radius: $card-radius;
+  border: 1px solid rgba(60, 60, 60, 0.554);
+  overflow: hidden;
+   transition: background-color $transition-base, border-color $transition-base, transform $transition-fast;
+  &:hover{
+   
+    border-color: $color-border-hover;
+    background-color: $color-hover;
+  }
+}
+
+.agentTokenModal {
+  position: fixed;
+  top: $space-5;
+  right: $space-5;
+  width: min(560px, calc(100vw - #{$space-6}));
+  z-index: $z-modal;
+  pointer-events: none;
+}
+
+.tokenCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+  padding: $space-4;
+  border: $border-default;
+  border-radius: $radius-lg;
+  background-color: $color-surface;
+  box-shadow: $shadow-md;
+  pointer-events: auto;
+
+  h2 {
+    margin: 0;
+    padding-right: 32px;
+    font-size: $font-size-h3;
+    font-weight: $font-weight-semibold;
+    color: $color-text-primary;
+    letter-spacing: $letter-spacing-heading;
+  }
+}
+
+.tokenValue {
+  margin: 0;
+  padding: $space-2 $space-3;
+  border: 1px solid $color-border;
+  border-radius: $radius-sm;
+  background-color: $color-surface-2;
+  color: $color-text-primary;
+  font-size: $font-size-body;
+  line-height: 1.45;
+  word-break: break-all;
+  font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.closeBtn {
+  position: absolute;
+  top: $space-2;
+  right: $space-2;
+  width: 28px;
+  height: 28px;
+  border: 1px solid $color-border;
+  border-radius: $radius-sm;
+  background-color: transparent;
+  color: $color-text-secondary;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background-color $transition-base, border-color $transition-base, color $transition-base;
+
+  &:hover {
+    border-color: $color-border-hover;
+    background-color: $color-hover;
+    color: $color-text-primary;
+  }
+}
+
+.closeIcon {
+  font-size: 18px;
+}
+
+.addServerBtn {
+  min-height: 64px;
+  min-width: 290px;
+  margin-top: $space-1;
+  border: $border-default;
+  background: $color-surface-2;
+  color: $color-text-primary;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: $space-2;
+  padding: 0 $space-5;
+  border-radius: $btn-radius;
+  cursor: pointer;
+  font-size: 20px;
+  font-weight: $font-weight-regular;
+  letter-spacing: 0.01em;
+  transition: background-color $transition-base, border-color $transition-base, transform $transition-fast;
+
+  &:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  &:hover:not(:disabled) {
+    background: $color-hover;
+    border-color: $color-border-hover;
+  }
+}
+
+.emptyError {
+  margin: 0;
+  color: $color-status-offline;
+  font-size: $font-size-small;
+}
+
 @media (max-width: 1100px) {
   .contentWrap {
-    padding: $space-6;
+    margin: 0 auto;
+    padding: $space-4;
+  }
+
+  .serverGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .metricsGrid {
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+  }
+
+  .highlightsGrid {
     grid-template-columns: repeat(2, minmax(220px, 1fr));
   }
 
@@ -264,17 +583,46 @@
   .activityTime {
     font-size: $font-size-small;
   }
+
+  .noServers {
+    padding: $space-5 $space-3;
+  }
 }
 
 @media (max-width: 760px) {
   .contentWrap {
+    margin: 0;
     padding: $space-4 $space-3 $space-5;
+  }
+
+  .agentTokenModal {
+    top: $space-3;
+    right: $space-3;
+    left: $space-3;
+    width: auto;
+  }
+
+  .tokenCard {
+    padding: $space-3;
+  }
+
+  .serverGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .serverCard {
+    min-height: 0;
   }
 
   .header {
     flex-direction: column;
     align-items: flex-start;
     gap: $space-3;
+  }
+
+  .serverTop {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .serverName {
@@ -303,5 +651,18 @@
 
   .activityTime {
     font-size: $font-size-small;
+  }
+
+  .emptyStateCard {
+    padding: $space-5 $space-4;
+    gap: $space-2;
+  }
+
+  .emptyDescription {
+    font-size: $font-size-small;
+  }
+
+  .addServerBtn {
+    width: 100%;
   }
 }

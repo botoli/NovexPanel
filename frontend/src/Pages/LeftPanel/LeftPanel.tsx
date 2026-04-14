@@ -4,6 +4,7 @@ import { observer } from 'mobx-react-lite';
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { LogoIcon } from '../../Icons/Icon.tsx';
+import { agentTokenStore } from '../../Store/AgentTokenStore.tsx';
 import styles from './LeftPanel.module.scss';
 import { type Tab, Tabs } from './tabs.ts';
 export const AppsIcon = () => <Icon icon='icon-park-solid:page-template' fontSize='25' />;

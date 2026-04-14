@@ -24,13 +24,13 @@ func Load() (Config, error) {
 	_ = godotenv.Load()
 
 	cfg := Config{
-		HTTPAddr:    getEnv("HTTP_ADDR", ":8080"),
+		HTTPAddr:    getEnv("HTTP_ADDR", ":8380"),
 		DatabaseURL: getEnv("DATABASE_URL", "novex.db"),
 		JWTSecret:   getEnv("JWT_SECRET", ""),
 	}
 
 	if cfg.JWTSecret == "" {
-		return Config{}, fmt.Errorf("JWT_SECRET is required")
+		return Config{}, fmt.Errorf("JWT_SECRET is required") 
 	}
 
 	jwtExpiry, err := parseDurationWithDays(getEnv("JWT_EXPIRY", "24h"))

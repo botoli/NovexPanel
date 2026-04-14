@@ -1,11 +1,12 @@
 import { Icon } from '@iconify/react';
 import { observer } from 'mobx-react-lite';
-import { useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { agentTokenStore } from '../../Store/AgentTokenStore';
 import { tokenStore } from '../../Store/TokenStore';
 import styles from './Account.module.scss';
 
 const Account = observer(() => {
+  const navigate = useNavigate();
   return (
     <div className={styles.contentWrap}>
       <Link to='/' className={styles.returnBtn}>
@@ -48,8 +49,19 @@ const Account = observer(() => {
               </section>
 
               <div className={styles.actions}>
-                <button type='button' className={styles.ghostBtn}>
-                  <Icon icon='mdi:logout' className={styles.btnIcon} />
+                <button
+                  type='button'
+                  className={styles.ghostBtn}
+                  onClick={() => {
+                    tokenStore.clearToken();
+                    agentTokenStore.clearAgentToken();
+                    navigate('/');
+                  }}
+                >
+                  <Icon
+                    icon='mdi:logout'
+                    className={styles.btnIcon}
+                  />
                   Log out
                 </button>
                 <button type='button' className={styles.deleteBtn}>
