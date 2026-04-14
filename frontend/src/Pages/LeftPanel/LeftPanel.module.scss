@@ -1,0 +1,71 @@
+@use "../../Styles/Variables.scss" as *;
+.allheader {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  width: $sidebar-width;
+  background-color: $color-bg;
+  color: $btn-primary-bg;
+  border-right: 1px solid $color-border;
+}
+.tab {
+  width: 100%;
+  font-weight: $font-weight-semibold;
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  padding: $space-3;
+  cursor: pointer;
+  &.active {
+    background-color: $color-active;
+    color: $color-text-primary;
+  }
+}
+.logo_Container {
+  svg {
+    width: 40px;
+    height: 40px;
+  }
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  padding: $space-4;
+}
+
+.Tabs {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+  padding: 0 $space-3;
+}
+
+.accountLink {
+  margin-top: auto;
+  padding: 0 $space-4 $space-4;
+  text-decoration: none;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $space-2;
+  width: 100%;
+  height: $btn-height;
+  border-radius: $btn-radius;
+  border: $border-default;
+  background: $btn-secondary-bg;
+  color: $color-text-primary;
+  cursor: pointer;
+  transition: border-color $transition-base, background-color $transition-base;
+
+  &:hover {
+    border: $border-hover;
+    background-color: $color-hover;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $color-border-hover;
+    outline-offset: 2px;
+  }
+}

@@ -1,0 +1,140 @@
+@use "../../Styles/Variables.scss" as *;
+
+.contentWrap {
+	width: 100%;
+	max-width: 520px;
+	margin: 0 auto;
+	padding: $space-7 $space-5;
+	display: flex;
+	flex-direction: column;
+	gap: $space-5;
+}
+
+.returnBtn {
+	text-decoration: none;
+	width: fit-content;
+	height: 36px;
+	padding: 0 $space-2 0 $space-1;
+	border: $border-default;
+	border-radius: $radius-full;
+	color: $color-text-secondary;
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	font-size: $font-size-small;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	transition:
+		border-color $transition-base,
+		color $transition-base,
+		background-color $transition-base;
+
+	&:hover {
+		border-color: $color-border-hover;
+		color: $color-text-primary;
+		background-color: $color-hover;
+	}
+}
+
+.returnIcon {
+	font-size: 20px;
+}
+
+.panel {
+	display: flex;
+	flex-direction: column;
+	gap: $space-4;
+}
+
+.header {
+	border-bottom: $border-default;
+	padding-bottom: $space-3;
+}
+
+.title {
+	font-size: clamp(34px, 7vw, 52px);
+	line-height: 1;
+	font-weight: $font-weight-semibold;
+	letter-spacing: -0.03em;
+}
+
+.subtitle {
+	margin-top: $space-2;
+	color: $color-text-muted;
+	font-size: $font-size-body;
+}
+
+.formWrap {
+	display: flex;
+	flex-direction: column;
+	gap: $space-3;
+}
+
+.field {
+	display: flex;
+	flex-direction: column;
+	gap: $space-2;
+
+	span {
+		font-size: 13px;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		color: $color-text-secondary;
+	}
+
+	input {
+		width: 100%;
+		height: 42px;
+		border: $border-default;
+		border-radius: $radius-sm;
+		background: transparent;
+		color: $color-text-primary;
+		padding: 0 $space-3;
+		font-size: $font-size-body;
+
+		&::placeholder {
+			color: $color-text-muted;
+		}
+
+		&:focus {
+			outline: none;
+			border-color: $color-border-hover;
+		}
+	}
+}
+
+.primaryBtn {
+	margin-top: $space-1;
+	width: 100%;
+	height: 42px;
+	border: none;
+	border-radius: $radius-sm;
+	background: $btn-primary-bg;
+	color: $btn-primary-text;
+	font-size: $font-size-body;
+	font-weight: $font-weight-medium;
+	cursor: pointer;
+}
+
+.footerText {
+	color: $color-text-muted;
+	font-size: $font-size-small;
+
+	a {
+		margin-left: $space-1;
+		color: $color-text-primary;
+		text-decoration: none;
+		border-bottom: 1px solid transparent;
+		transition: border-color $transition-base;
+
+		&:hover {
+			border-color: $color-text-primary;
+		}
+	}
+}
+
+@media (max-width: 640px) {
+	.contentWrap {
+		padding: $space-5 $space-4;
+	}
+}

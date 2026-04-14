@@ -1,0 +1,266 @@
+@use "../../Styles/Variables.scss" as *;
+
+.contentWrap {
+    width: 100%;
+    max-width: 680px;
+    margin: 0 auto;
+    padding: $space-7 $space-5;
+    display: flex;
+    flex-direction: column;
+    gap: $space-6;
+}
+
+.authPanel {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+}
+
+.returnBtn {
+    text-decoration: none;
+    width: fit-content;
+    height: 36px;
+    padding: 0 $space-2 0 $space-1;
+    border: $border-default;
+    border-radius: $radius-full;
+    background: transparent;
+    color: $color-text-secondary;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: $font-size-small;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition:
+        border-color $transition-base,
+        color $transition-base,
+        background-color $transition-base;
+
+    &:hover {
+        border-color: $color-border-hover;
+        color: $color-text-primary;
+        background-color: $color-hover;
+    }
+
+    &:focus-visible {
+        outline: none;
+        border-color: $color-border-hover;
+        color: $color-text-primary;
+    }
+}
+
+.returnIcon {
+    font-size: 20px;
+}
+
+.authButtons {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: $space-3;
+    padding-top: $space-4;
+}
+
+.loginBtn,
+.registerBtn {
+    width: 100%;
+    min-height: 132px;
+    border-radius: $radius-lg;
+    border: $border-default;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+    color: $color-text-primary;
+    padding: 0 $space-5;
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    text-align: left;
+    cursor: pointer;
+    font-size: clamp(24px, 4vw, 34px);
+    font-weight: $font-weight-medium;
+    letter-spacing: -0.01em;
+    transition:
+        border-color $transition-base,
+        background-color $transition-base,
+        transform $transition-base;
+
+    &:hover {
+        border-color: $color-border-hover;
+        background: rgba(255, 255, 255, 0.04);
+        transform: translateY(-1px);
+    }
+
+    &:focus-visible {
+        outline: none;
+        border-color: $color-border-hover;
+    }
+}
+
+.authButtonText {
+    display: flex;
+    flex-direction: column;
+    gap: $space-1;
+}
+
+.authButtonHint {
+    color: $color-text-muted;
+    font-size: $font-size-small;
+    font-weight: $font-weight-regular;
+    line-height: 1.4;
+    letter-spacing: 0;
+    text-transform: none;
+    max-width: 20ch;
+}
+
+.registerBtn {
+    border-color: rgba(255, 255, 255, 0.16);
+}
+
+.loginIcon,
+.registerIcon {
+    font-size: 28px;
+    color: $color-text-secondary;
+}
+
+.header {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    border-bottom: $border-default;
+    padding-bottom: $space-4;
+}
+
+.title {
+    font-size: clamp(34px, 5vw, 56px);
+    line-height: 1;
+    font-weight: $font-weight-semibold;
+    letter-spacing: -0.03em;
+}
+
+.smallText {
+    color: $color-text-secondary;
+    font-weight: $font-weight-regular;
+}
+
+.subtitle {
+    color: $color-text-muted;
+    font-size: $font-size-body;
+}
+
+.formWrap {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+}
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+}
+
+.sectionLabel {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-2;
+
+    h2 {
+        font-size: 13px;
+        font-weight: $font-weight-medium;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: $color-text-secondary;
+    }
+}
+
+.icon {
+    font-size: 16px;
+    color: $color-text-muted;
+}
+
+input {
+    width: 100%;
+    height: 42px;
+    background: transparent;
+    border: $border-default;
+    border-radius: $radius-sm;
+    padding: 0 $space-3;
+    color: $color-text-primary;
+    font-size: $font-size-body;
+    transition: border-color $transition-base;
+
+    &::placeholder {
+        color: $color-text-muted;
+    }
+
+    &:focus {
+        outline: none;
+        border-color: $color-border-hover;
+    }
+}
+
+.actions {
+    display: flex;
+    gap: $space-2;
+    padding-top: $space-2;
+}
+
+.ghostBtn,
+.deleteBtn {
+    height: 40px;
+    border-radius: $radius-sm;
+    border: $border-default;
+    background: transparent;
+    color: $color-text-primary;
+    font-size: $font-size-body;
+    padding: 0 $space-3;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: $space-2;
+    cursor: pointer;
+    transition:
+        border-color $transition-base,
+        background-color $transition-base,
+        color $transition-base;
+}
+
+.ghostBtn {
+    flex: 1;
+
+    &:hover {
+        border-color: $color-border-hover;
+        background: $color-hover;
+    }
+}
+
+.deleteBtn {
+    border-color: rgba($color-status-offline, 0.35);
+    color: $color-status-offline;
+
+    &:hover {
+        background: rgba($color-status-offline, 0.08);
+        border-color: rgba($color-status-offline, 0.6);
+    }
+}
+
+.btnIcon {
+    font-size: 16px;
+}
+
+@media (max-width: 720px) {
+    .contentWrap {
+        padding: $space-5 $space-4;
+        gap: $space-5;
+    }
+
+    .loginBtn,
+    .registerBtn {
+        min-height: 116px;
+        font-size: clamp(18px, 6vw, 24px);
+        padding: $space-3;
+    }
+
+    .actions {
+        flex-direction: column;
+    }
+}

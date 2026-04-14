@@ -40,13 +40,23 @@ body {
   height: 100%;
 }
 h1 {
-  font-weight: $font-weight-medium;
+  font-size: $font-size-h1;
+ 
+}
+h2{
+    font-size:$font-size-h2
+}
+h3{
+    font-size:$font-size-h3
 }
 #root {
+  color:$color-text-primary;
+  background-color: $color-bg;
   min-height: 100vh;
   height: 100%;
   margin: 0;
   padding: 0;
+  
 }
 a {
   text-decoration: none;

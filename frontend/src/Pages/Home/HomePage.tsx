@@ -1,5 +1,8 @@
 import { Icon } from '@iconify/react';
 import { observer } from 'mobx-react-lite';
+import { useEffect } from 'react';
+import LeftPanel from '../LeftPanel/LeftPanel';
+import { dashboardMock } from './Data';
 import styles from './Home.module.scss';
 export const Menu = () => <Icon icon='mdi:menu' fontSize='30' />;
 export const KeyboardArrowDown = () => <Icon icon='mdi:keyboard-arrow-down' fontSize='30' />;
@@ -46,6 +49,22 @@ const renderActivityIcon = (type: string) => {
 };
 
 const HomePage = observer(() => {
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const response = await fetch('http://localhost:8380/servers');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        console.log('Fetched dashboard data:', data);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      }
+    }
+
+    fetchData();
+  }, []);
   return (
     <div className={styles.Page}>
       <LeftPanel />
