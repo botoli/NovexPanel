@@ -1,0 +1,68 @@
+@use "../../Styles/Variables.scss" as *;
+ 
+.authButtons {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: $space-3;
+    padding-top: $space-4;
+}
+
+.loginBtn,
+.registerBtn {
+    width: 100%;
+    min-height: 132px;
+    border-radius: $radius-lg;
+    border: $border-default;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+    color: $color-text-primary;
+    padding: 0 $space-5;
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    text-align: left;
+    cursor: pointer;
+    font-size: clamp(24px, 4vw, 34px);
+    font-weight: $font-weight-medium;
+    letter-spacing: -0.01em;
+    transition:
+        border-color $transition-base,
+        background-color $transition-base,
+        transform $transition-base;
+
+    &:hover {
+        border-color: $color-border-hover;
+        background: rgba(255, 255, 255, 0.04);
+        transform: translateY(-1px);
+    }
+
+    &:focus-visible {
+        outline: none;
+        border-color: $color-border-hover;
+    }
+}
+
+.authButtonText {
+    display: flex;
+    flex-direction: column;
+    gap: $space-1;
+}
+
+.authButtonHint {
+    color: $color-text-muted;
+    font-size: $font-size-small;
+    font-weight: $font-weight-regular;
+    line-height: 1.4;
+    letter-spacing: 0;
+    text-transform: none;
+    max-width: 20ch;
+}
+
+.registerBtn {
+    border-color: rgba(255, 255, 255, 0.16);
+}
+
+.loginIcon,
+.registerIcon {
+    font-size: 28px;
+    color: $color-text-secondary;
+}

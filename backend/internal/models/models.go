@@ -17,6 +17,7 @@ type User struct {
 type AgentToken struct {
 	ID          uint       `gorm:"primaryKey" json:"id"`
 	UserID      uint       `gorm:"index;not null" json:"user_id"`
+	Name        *string    `gorm:"type:text" json:"name"`
 	TokenHash   string     `gorm:"uniqueIndex;size:64;not null" json:"-"`
 	TokenPrefix string     `gorm:"size:24;not null" json:"token_prefix"`
 	Revoked     bool       `gorm:"index;default:false" json:"revoked"`

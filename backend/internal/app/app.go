@@ -64,6 +64,7 @@ func (a *App) Router() *gin.Engine {
 	{
 		authGroup.POST("/auth/tokens", a.handleCreateAgentToken)
 		authGroup.GET("/auth/tokens", a.handleListAgentTokens)
+		authGroup.PATCH("/auth/tokens/:id", a.handleUpdateAgentTokenName)
 		authGroup.DELETE("/auth/tokens/:id", a.handleRevokeAgentToken)
 
 		authGroup.GET("/servers", a.handleListServers)

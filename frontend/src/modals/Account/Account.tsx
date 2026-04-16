@@ -1,19 +1,78 @@
 import { Icon } from '@iconify/react';
 import { observer } from 'mobx-react-lite';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import AuthBtns from '../../common/AuthBtns/AuthBtns';
 import { agentTokenStore } from '../../Store/AgentTokenStore';
 import { tokenStore } from '../../Store/TokenStore';
 import styles from './Account.module.scss';
-
+export interface TokenData {
+  created_at: string;
+  expires_at: string;
+  id: number;
+  last_used_at: string;
+  name: string;
+  revoked: boolean;
+  server: {
+    id: number;
+    ip: string;
+    name: string;
+    online: boolean;
+  };
+  token_prefix: string;
+}
 const Account = observer(() => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [tokensData, setTokensData] = useState<TokenData[]>([]);
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetch('http://localhost:8380/auth/tokens', {
+        headers: {
+          Authorization: `Bearer ${tokenStore.token}`,
+        },
+      });
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const data = await response.json();
+      setTokensData(data);
+      console.log(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Произошла ошибка');
+    } finally {
+      setLoading(false);
+    }
+  }, [tokenStore]);
+  useEffect(() => {
+    fetchData();
+  }, []);
+  const deleteToken = async (tokenId: number) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetch(`http://localhost:8380/auth/tokens/${tokenId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${tokenStore.getToken()}`,
+        },
+      });
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      await fetchData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Произошла ошибка');
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <div className={styles.contentWrap}>
       <Link to='/' className={styles.returnBtn}>
         <Icon icon='mdi:arrow-left' className={styles.returnIcon} />
         Return
       </Link>
-      {tokenStore.token
+      {tokenStore.getToken()
         ? (
           <div className={styles.authPanel}>
             <header className={styles.header}>
@@ -22,32 +81,55 @@ const Account = observer(() => {
               </h1>
               <p className={styles.subtitle}>Update your profile details and security.</p>
             </header>
-
+            <section className={styles.serversTokensTable}>
+              <div className={styles.tableCard}>
+                <div className={styles.tableScroll}>
+                  <table className={styles.table} aria-label='Servers and tokens'>
+                    <thead>
+                      <tr>
+                        <th>Server</th>
+                        <th>Agent token</th>
+                        <th>Created</th>
+                        <th>Name</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tokensData.filter(token => !token.revoked).map(token => (
+                        <tr key={token.id}>
+                          <td>
+                            {token.name}
+                          </td>
+                          <td>
+                            {token.token_prefix}***
+                          </td>
+                          <td>
+                            {new Date(token.created_at).toLocaleDateString()}
+                          </td>
+                          <td>
+                            {token.server?.name}
+                          </td>
+                          <td>
+                            {token.server?.online
+                              ? <span className={styles.statusOnline}>Online</span>
+                              : <span className={styles.statusOffline}>Offline</span>}
+                          </td>
+                          <td>
+                            <button
+                              className={styles.deleteBtn}
+                              onClick={() => deleteToken(token.id)}
+                            >
+                              Delete Token
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
             <div className={styles.formWrap}>
-              <section className={styles.section}>
-                <div className={styles.sectionLabel}>
-                  <Icon icon='mdi:email-outline' className={styles.icon} />
-                  <h2>Email</h2>
-                </div>
-                <input type='email' placeholder='name@example.com' />
-              </section>
-
-              <section className={styles.section}>
-                <div className={styles.sectionLabel}>
-                  <Icon icon='solar:password-bold' className={styles.icon} />
-                  <h2>Password</h2>
-                </div>
-                <input type='password' placeholder='New password' />
-              </section>
-
-              <section className={styles.section}>
-                <div className={styles.sectionLabel}>
-                  <Icon icon='mdi:account-outline' className={styles.icon} />
-                  <h2>Username</h2>
-                </div>
-                <input type='text' placeholder='Username' />
-              </section>
-
               <div className={styles.actions}>
                 <button
                   type='button'
@@ -72,26 +154,7 @@ const Account = observer(() => {
             </div>
           </div>
         )
-        : (
-          <div className={styles.authButtons}>
-            <Link to='/login' className={styles.loginBtn}>
-              <span className={styles.authButtonText}>
-                <span>Login</span>
-                <span className={styles.authButtonHint}>
-                  Sign in to continue with your profile.
-                </span>
-              </span>
-              <Icon icon='mdi:login' className={styles.loginIcon} />
-            </Link>
-            <Link to='/register' className={styles.registerBtn}>
-              <span className={styles.authButtonText}>
-                <span>Register</span>
-                <span className={styles.authButtonHint}>Create a new account in a few steps.</span>
-              </span>
-              <Icon icon='mdi:account-plus' className={styles.registerIcon} />
-            </Link>
-          </div>
-        )}
+        : <AuthBtns />}
     </div>
   );
 });

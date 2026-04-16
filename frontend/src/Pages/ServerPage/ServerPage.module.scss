@@ -1,0 +1,422 @@
+@use "../../Styles/Variables.scss" as *;
+
+.Page {
+  display: flex;
+  min-height: 100vh;
+  background: $color-bg;
+}
+
+.mainContent {
+  margin-left: $sidebar-width;
+  flex: 1;
+  background: $color-bg;
+  overflow-y: auto;
+}
+
+.contentWrap {
+  width: 100%;
+  max-width: $container-max-width;
+  margin: 0 auto;
+  padding: $space-5 $space-4;
+}
+
+.topBar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: $space-4;
+  margin-bottom: $space-4;
+}
+
+.serverHeading {
+  min-width: 0;
+}
+
+.serverTitleRow {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+}
+
+.serverTitle {
+  margin: 0;
+  font-size: clamp(26px, 2.4vw, 34px);
+  font-weight: $font-weight-semibold;
+  letter-spacing: $letter-spacing-heading;
+}
+
+.iconBtn {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: $radius-md;
+  border: $border-default;
+  background: transparent;
+  color: $color-text-secondary;
+  cursor: pointer;
+  transition:
+    border-color $transition-base,
+    background-color $transition-base,
+    color $transition-base;
+
+  &:hover {
+    border-color: $color-border-hover;
+    background: $color-hover;
+    color: $color-text-primary;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $color-border-hover;
+    outline-offset: 2px;
+  }
+}
+
+.serverMeta {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  margin-top: $space-1;
+  color: $color-text-secondary;
+  font-size: $font-size-small;
+}
+
+.serverIp {
+  overflow-wrap: anywhere;
+}
+
+.statusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: $radius-full;
+  background: $color-status-online;
+  box-shadow: 0 0 10px rgba($color-status-online, 0.8);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  flex-wrap: wrap;
+}
+
+.actionBtn {
+  height: $btn-height;
+  border: $border-default;
+  background: $btn-secondary-bg;
+  color: $color-text-primary;
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  padding: 0 $btn-padding-x;
+  border-radius: $btn-radius;
+  cursor: pointer;
+  font-size: $btn-font-size;
+  font-weight: $btn-font-weight;
+  transition:
+    border-color $transition-base,
+    background-color $transition-base,
+    color $transition-base;
+
+  &:hover {
+    border-color: $color-border-hover;
+    background: $color-hover;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $color-border-hover;
+    outline-offset: 2px;
+  }
+}
+
+.tabs {
+  display: flex;
+  align-items: center;
+  gap: $space-4;
+  border-bottom: 1px solid rgba($color-text-primary, 0.08);
+  margin-bottom: $space-4;
+}
+
+.tab {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: $color-text-secondary;
+  font-size: $font-size-body;
+  font-weight: $font-weight-medium;
+  padding: $space-2 0 $space-3;
+  cursor: pointer;
+  transition: color $transition-base;
+
+  &:hover {
+    color: $color-text-primary;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $color-border-hover;
+    outline-offset: 4px;
+    border-radius: $radius-sm;
+  }
+}
+
+.activeTab {
+  color: $color-text-primary;
+  position: relative;
+
+  &::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    background: rgba($color-text-primary, 0.9);
+    border-radius: $radius-full;
+  }
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: $space-3;
+  margin-bottom: $space-4;
+}
+
+.statCard {
+  --accent: #{$color-text-primary};
+
+  border: 1px solid rgba($color-text-primary, 0.08);
+  border-radius: $card-radius;
+  background: $card-bg;
+  box-shadow: $shadow-md;
+  padding: $space-4;
+}
+
+.statCardCpu {
+  --accent: #{$color-status-online};
+}
+
+.statCardRam {
+  --accent: #{$color-text-primary};
+}
+
+.statCardDisk {
+  --accent: #{$color-text-primary};
+}
+
+.statCardNetwork {
+  --accent: #{$color-status-online};
+}
+
+.statHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $space-2;
+}
+
+.statLabel {
+  margin: 0;
+  font-size: 11px;
+  color: $color-text-secondary;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.statPill {
+  border-radius: $radius-full;
+  border: 1px solid rgba($color-text-primary, 0.08);
+  background: rgba($color-text-primary, 0.04);
+  color: $color-text-secondary;
+  font-size: 11px;
+  padding: 2px 10px;
+  white-space: nowrap;
+}
+
+.statValueRow {
+  display: flex;
+  align-items: baseline;
+  gap: $space-2;
+  margin-bottom: $space-2;
+}
+
+.statValue {
+  margin: 0;
+  font-size: 32px;
+  line-height: 1;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+}
+
+.statUnit {
+  margin-left: 4px;
+  font-size: 14px;
+  color: $color-text-secondary;
+  font-weight: $font-weight-medium;
+}
+
+.statSubValue {
+  margin: 0;
+  color: $color-text-secondary;
+  font-size: 14px;
+}
+.loadAVG{
+    display: flex;
+    flex-direction: column;
+    gap: $space-1;
+}
+.statHint {
+  margin: 0 0 $space-3;
+  color: $color-text-secondary;
+  font-size: $font-size-small;
+}
+
+.progressTrack {
+  width: 100%;
+  height: $progress-height;
+  border-radius: $radius-full;
+  background: rgba($color-text-primary, 0.08);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  opacity: 0.9;
+}
+
+.chartsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: $space-3;
+}
+
+.chartCard {
+  border: 1px solid rgba($color-text-primary, 0.08);
+  border-radius: $card-radius;
+  background: $card-bg;
+  box-shadow: $shadow-md;
+  padding: $space-4;
+  min-width: 0;
+}
+
+.chartCardCpu {
+  --chart-accent: #{$color-status-online};
+}
+
+.chartCardRam {
+  --chart-accent: #{$color-text-primary};
+}
+
+.chartCardDiskIo {
+  --chart-accent-1: #{$color-text-primary};
+  --chart-accent-2: rgba($color-text-primary, 0.55);
+}
+
+.chartCardNetwork {
+  --chart-accent-1: #{$color-status-online};
+  --chart-accent-2: rgba($color-text-primary, 0.55);
+}
+
+.chartHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-3;
+  margin-bottom: $space-3;
+}
+
+.chartTitle {
+  margin: 0;
+  font-size: 13px;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+}
+
+.chartRange {
+  border-radius: $radius-full;
+  border: 1px solid rgba($color-text-primary, 0.08);
+  background: rgba($color-text-primary, 0.04);
+  color: $color-text-secondary;
+  font-size: 11px;
+  padding: 2px 10px;
+  white-space: nowrap;
+}
+
+.chartBody {
+  width: 100%;
+  min-width: 0;
+  height: 240px;
+  min-height: 240px;
+}
+
+.chartLegend {
+  margin-top: $space-3;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: $space-3;
+  color: $color-text-secondary;
+  font-size: $font-size-small;
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legendDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: $color-text-primary;
+  opacity: 0.85;
+}
+
+.legendDotRead {
+  background: $color-text-primary;
+}
+
+.legendDotWrite {
+  background: rgba($color-text-primary, 0.55);
+}
+
+.legendDotIncoming {
+  background: $color-status-online;
+}
+
+.legendDotOutgoing {
+  background: rgba($color-text-primary, 0.55);
+}
+
+@media (max-width: 1200px) {
+  .statsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .chartsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .contentWrap {
+    padding: $space-4;
+  }
+
+  .topBar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .actions {
+    justify-content: flex-start;
+  }
+
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+}

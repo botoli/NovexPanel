@@ -38,6 +38,7 @@ func (a *App) handleAgentWS(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 		return
 	}
+	serverName := strings.TrimSpace(c.Query("name"))
 
 	now := time.Now()
 	if token.ExpiresAt != nil && token.ExpiresAt.Before(now) {
@@ -60,10 +61,13 @@ func (a *App) handleAgentWS(c *gin.Context) {
 	err = a.db.Where("token_id = ?", token.ID).First(&server).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			if serverName == "" {
+				serverName = "Server " + strconv.FormatUint(uint64(token.ID), 10)
+			}
 			server = models.Server{
 				UserID:      token.UserID,
 				TokenID:     token.ID,
-				Name:        "Server " + strconv.FormatUint(uint64(token.ID), 10),
+				Name:        serverName,
 				IP:          ip,
 				Online:      true,
 				ConnectedAt: &now,
@@ -75,12 +79,16 @@ func (a *App) handleAgentWS(c *gin.Context) {
 			return
 		}
 	} else {
-		if err := a.db.Model(&server).Updates(map[string]any{
+		updates := map[string]any{
 			"ip":              ip,
 			"online":          true,
 			"connected_at":    &now,
 			"disconnected_at": nil,
-		}).Error; err != nil {
+		}
+		if serverName != "" {
+			updates["name"] = serverName
+		}
+		if err := a.db.Model(&server).Updates(updates).Error; err != nil {
 			return
 		}
 	}

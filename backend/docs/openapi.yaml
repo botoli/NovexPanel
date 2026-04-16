@@ -42,6 +42,11 @@ components:
           format: email
         password:
           type: string
+    AgentTokenCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
     AgentTokenCreateResponse:
       type: object
       properties:
@@ -54,6 +59,53 @@ components:
         expires_at:
           type: string
           format: date-time
+        name:
+          type: string
+          nullable: true
+    AgentTokenLinkedServer:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        ip:
+          type: string
+        online:
+          type: boolean
+    AgentTokenListItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+          nullable: true
+        token_prefix:
+          type: string
+        revoked:
+          type: boolean
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        server:
+          allOf:
+            - $ref: "#/components/schemas/AgentTokenLinkedServer"
+          nullable: true
+    AgentTokenRenameRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
     ServerItem:
       type: object
       properties:
@@ -153,6 +205,12 @@ paths:
       summary: Create new agent token
       security:
         - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentTokenCreateRequest"
       responses:
         "201":
           description: Token created
@@ -168,8 +226,34 @@ paths:
       responses:
         "200":
           description: Token list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AgentTokenListItem"
 
   /auth/tokens/{id}:
+    patch:
+      tags: [Auth]
+      summary: Update agent token name
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentTokenRenameRequest"
+      responses:
+        "204":
+          description: Updated
     delete:
       tags: [Auth]
       summary: Revoke agent token
@@ -205,6 +289,7 @@ paths:
     get:
       tags: [Servers]
       summary: Metrics history for last N days
+      description: For interval values larger than 1 second, CPU/RAM/disk are returned as averages per bucket.
       security:
         - bearerAuth: []
       parameters:
@@ -213,6 +298,14 @@ paths:
           required: true
           schema:
             type: integer
+        - in: query
+          name: interval
+          required: false
+          description: Aggregation interval for metrics points.
+          schema:
+            type: string
+            enum: [1s, 1m, 5m, 1h]
+            default: 1s
       responses:
         "200":
           description: Metrics history

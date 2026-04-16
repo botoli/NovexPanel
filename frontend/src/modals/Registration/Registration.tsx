@@ -1,6 +1,6 @@
 import { Icon } from '@iconify/react';
-import { useEffect, useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import styles from './Registration.module.scss';
 export interface Registration {
   email: string;

@@ -4,7 +4,7 @@
 
 Connection:
 
-`wss://<backend>/agent/ws?token=<agent_token>`
+`wss://<backend>/agent/ws?token=<agent_token>&name=<server_name_optional>`
 
 ### Messages Backend -> Agent
 

@@ -1,9 +1,10 @@
 import { Icon } from '@iconify/react';
-import { getAlertTitleUtilityClass } from '@mui/material';
 import { observer } from 'mobx-react-lite';
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import AuthBtns from '../../common/AuthBtns/AuthBtns';
 import { agentTokenStore } from '../../Store/AgentTokenStore';
+import { serverMetricsStore } from '../../Store/ServerMetricsStore';
 import { tokenStore } from '../../Store/TokenStore';
 import LeftPanel from '../LeftPanel/LeftPanel';
 import styles from './Home.module.scss';
@@ -15,7 +16,7 @@ type TopProcess = {
   name: string;
 };
 
-type ServerItem = {
+export type ServerItem = {
   id: number;
   ip: string;
   name: string | null;
@@ -55,52 +56,12 @@ const formatPercent = (value: number) => `${Math.round(clampPercent(value))}%`;
 const formatTemperature = (value: number) => `${Math.round(value)}C`;
 
 const HomePage = observer(() => {
-  const [fetchData, setFetchData] = useState<ServerItem[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [isAddServerModalOpen, setIsAddServerModalOpen] = useState<boolean>(false);
+  const [serverName, setServerName] = useState<string>('');
+  const hasServers = serverMetricsStore.getServerMetrics().length > 0;
   const navigate = useNavigate();
-  useEffect(() => {
-    let isMounted = true;
-    let isRequestInFlight = false;
-
-    async function loadServers() {
-      if (isRequestInFlight) {
-        return;
-      }
-
-      isRequestInFlight = true;
-      try {
-        const response = await fetch('http://localhost:8380/servers', {
-          headers: {
-            Authorization: `Bearer ${tokenStore.getToken()}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = (await response.json()) as ServerItem[];
-        if (isMounted) {
-          setFetchData(data);
-        }
-      } catch (fetchError) {
-        console.error('Error fetching dashboard data:', fetchError);
-      } finally {
-        isRequestInFlight = false;
-      }
-    }
-
-    loadServers();
-    const intervalId = window.setInterval(() => {
-      loadServers();
-    }, 2000);
-
-    return () => {
-      isMounted = false;
-      window.clearInterval(intervalId);
-    };
-  }, []);
 
   const getAgentToken = async () => {
     if (!tokenStore.getToken()) {
@@ -112,7 +73,6 @@ const HomePage = observer(() => {
     }
     try {
       setLoading(true);
-      setError(null);
 
       const response = await fetch('http://localhost:8380/auth/tokens', {
         method: 'POST',
@@ -120,11 +80,13 @@ const HomePage = observer(() => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${tokenStore.getToken()}`,
         },
+        body: JSON.stringify({ name: serverName }),
       });
 
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const data = await response.json();
       agentTokenStore.setAgentToken(data.agent_token);
+      console.log(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Произошла ошибка');
       throw err;
@@ -136,6 +98,7 @@ const HomePage = observer(() => {
   return (
     <div className={styles.Page}>
       <LeftPanel />
+
       <div className={styles.agentTokenModal}>
         {agentTokenStore.getAgentToken() && (
           <div className={styles.tokenCard}>
@@ -151,68 +114,177 @@ const HomePage = observer(() => {
           </div>
         )}
       </div>
+
+      {isAddServerModalOpen && (
+        <div
+          className={styles.modalOverlay}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) {
+              setIsAddServerModalOpen(false);
+            }
+          }}
+        >
+          <div className={styles.modalCard}>
+            <div className={styles.modalHeader}>
+              <div>
+                <h2 className={styles.modalTitle}>Add server</h2>
+                <p className={styles.modalSubtitle}>Server name is optional.</p>
+              </div>
+              <button
+                type='button'
+                className={styles.modalCloseBtn}
+                onClick={() => setIsAddServerModalOpen(false)}
+              >
+                <Icon icon='mdi:close' className={styles.closeIcon} />
+              </button>
+            </div>
+
+            <label className={styles.modalLabel}>
+              Server name (optional)
+              <input
+                className={styles.modalInput}
+                value={serverName}
+                onChange={(e) => setServerName(e.target.value)}
+                placeholder='My VPS'
+              />
+            </label>
+
+            <div className={styles.modalActions}>
+              <button
+                type='button'
+                className={styles.modalPrimaryBtn}
+                onClick={async () => {
+                  try {
+                    await getAgentToken();
+                    setIsAddServerModalOpen(false);
+                  } catch {
+                    // error is already shown on the page
+                  }
+                }}
+                disabled={loading}
+              >
+                {loading ? 'Loading...' : 'Get agent token'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className={styles.mainContent}>
         <div className={styles.contentWrap}>
-          {fetchData.length > 0
+          {!tokenStore.getToken()
+            ? (
+              <div className={styles.emptyError}>
+                <h1>You are not logged in</h1>
+                <AuthBtns />
+              </div>
+            )
+            : error
+            ? (
+              <div className={styles.emptyError}>
+                <div className={styles.errorIconWrap}>
+                  <Icon icon='mdi:alert-outline' />
+                </div>
+                <h2>Error</h2>
+                <p>{error}</p>
+                <div className={styles.errorActions}>
+                  <button
+                    type='button'
+                    className={styles.retryBtn}
+                    // onClick={loadServers}
+                    disabled={loading}
+                  >
+                    Retry
+                  </button>
+                  <button
+                    type='button'
+                    className={styles.homeBtn}
+                    onClick={() => navigate('/')}
+                  >
+                    Return Home
+                  </button>
+                </div>
+              </div>
+            )
+            : hasServers
             ? (
               <>
                 <div className={styles.header}>
                   <div className={styles.pageTitle}>
                     <h1>Servers</h1>
-                    <p>{fetchData.length} active cards</p>
+                    <p>
+                      {serverMetricsStore.getNowServers().filter(server => server.online).length}
+
+                      Active servers
+                    </p>
                   </div>
                 </div>
 
                 <section className={styles.serverGrid}>
-                  {fetchData.map(server => (
-                    <article className={styles.serverCard} key={server.id}>
-                      <div className={styles.serverTop}>
-                        <div className={styles.serverIdentity}>
-                          <div className={server.online ? styles.online : styles.offline}></div>
-                          <h2>{server.name ?? `Server #${server.id}`}</h2>
-                        </div>
-                        <span className={styles.serverStatus}>
-                          {server.online ? 'Online' : 'Offline'}
-                        </span>
-                      </div>
-
-                      <p className={styles.serverIp}>{server.ip}</p>
-
-                      <div className={styles.serverStack}>
-                        {[
-                          {
-                            key: 'cpu',
-                            label: 'CPU',
-                            value: formatPercent(server.last_metrics.cpu.usage || 0),
-                          },
-                          {
-                            key: 'ram',
-                            label: 'RAM',
-                            value: formatPercent(server.last_metrics.ram.percent || 0),
-                          },
-                          {
-                            key: 'disk',
-                            label: 'Disk',
-                            value: formatPercent(server.last_metrics.disk.percent || 0),
-                          },
-                          {
-                            key: 'cpu-temperature',
-                            label: 'CPU Temp',
-                            value: formatTemperature(server.last_metrics.temperature || 0),
-                          },
-                        ].map(layer => (
-                          <div className={styles.stackLayer} key={layer.key}>
-                            <span className={styles.layerLabel}>{layer.label}</span>
-                            <strong className={styles.layerValue}>{layer.value}</strong>
+                  {serverMetricsStore.getNowServers().map(server => (
+                    <Link
+                      to={`/servers/${server.id}`}
+                      key={server.id}
+                      className={styles.serverLink}
+                    >
+                      <article
+                        // TODO: объединить serverCardOnline и serverCardOffline в один класс с модификатором
+                        className={server.online
+                          ? styles.serverCardOnline
+                          : styles.serverCardOffline}
+                        key={server.id}
+                      >
+                        <div className={styles.serverTop}>
+                          <div className={styles.serverIdentity}>
+                            <div className={server.online ? styles.online : styles.offline}></div>
+                            <h2>{server.name ?? `Server #${server.id}`}</h2>
                           </div>
-                        ))}
-                      </div>
-                    </article>
+                          <span className={styles.serverStatus}>
+                            {server.online ? 'Online' : 'Offline'}
+                          </span>
+                        </div>
+
+                        <p className={styles.serverIp}>{server.ip}</p>
+
+                        <div className={styles.serverStack}>
+                          {[
+                            {
+                              key: 'cpu',
+                              label: 'CPU',
+                              value: formatPercent(server.last_metrics.cpu.usage || 0),
+                            },
+                            {
+                              key: 'ram',
+                              label: 'RAM',
+                              value: formatPercent(server.last_metrics.ram.percent || 0),
+                            },
+                            {
+                              key: 'disk',
+                              label: 'Disk',
+                              value: formatPercent(server.last_metrics.disk.percent || 0),
+                            },
+                            {
+                              key: 'cpu-temperature',
+                              label: 'CPU Temp',
+                              value: formatTemperature(server.last_metrics.temperature || 0),
+                            },
+                          ].map(layer => (
+                            <div className={styles.stackLayer} key={layer.key}>
+                              <span className={styles.layerLabel}>{layer.label}</span>
+                              <strong className={styles.layerValue}>{layer.value}</strong>
+                            </div>
+                          ))}
+                        </div>
+                      </article>
+                    </Link>
                   ))}
-                  <article className={styles.addserverCard} onClick={getAgentToken}>
+                  <article
+                    className={styles.addserverCard}
+                    onClick={!loading ? () => setIsAddServerModalOpen(true) : undefined}
+                  >
                     <div className={styles.addServer}>
                       <Icon icon='icons8:plus' fontSize='120' color='' />
-                      <h1>Add server</h1>
+                      <h1>{loading ? 'Loading...' : 'Add server'}</h1>
                     </div>
                   </article>
                 </section>
@@ -228,8 +300,13 @@ const HomePage = observer(() => {
                   <p className={styles.emptyDescription}>
                     Connect your first agent to start receiving live metrics.
                   </p>
-
-                  {error && <p className={styles.emptyError}>{error}</p>}
+                  <button
+                    onClick={() => setIsAddServerModalOpen(true)}
+                    className={styles.addServerBtn}
+                    disabled={loading}
+                  >
+                    {loading ? 'Loading...' : 'Add Server'}
+                  </button>
                 </div>
               </div>
             )}

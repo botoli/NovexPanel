@@ -247,6 +247,76 @@ input {
     font-size: 16px;
 }
 
+.serversTokensTable {
+    display: flex;
+    flex-direction: column;
+    gap: $space-3;
+}
+
+.tableCard {
+    border: $border-default;
+    border-radius: $radius-lg;
+    background: $color-surface;
+    box-shadow: $shadow-md;
+    overflow: hidden;
+}
+
+.tableScroll {
+    overflow-x: auto;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 560px;
+
+    thead {
+        background: $color-surface-2;
+    }
+
+    th,
+    td {
+        padding: $space-3;
+        text-align: left;
+        font-size: $font-size-body;
+        border-bottom: 1px solid rgba($color-text-primary, 0.08);
+    }
+
+    th {
+        color: $color-text-secondary;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-weight: $font-weight-medium;
+        white-space: nowrap;
+    }
+
+    tbody tr {
+        transition: background-color $transition-base;
+
+        &:hover {
+            background-color: $color-hover;
+        }
+    }
+
+    tbody tr:last-child td {
+        border-bottom: 0;
+    }
+}
+
+.emptyState {
+    color: $color-text-muted;
+    text-align: center;
+    padding: $space-5 $space-3;
+}
+.statusOnline{
+    color: $color-status-online;
+    font-weight: $font-weight-medium;
+}
+.statusOffline{
+    color: $color-status-offline;
+    font-weight: $font-weight-medium;
+}
 @media (max-width: 720px) {
     .contentWrap {
         padding: $space-5 $space-4;

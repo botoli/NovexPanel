@@ -5,11 +5,11 @@ Go backend for NovexPanel with JWT auth, agent management over WebSocket, real-t
 ## What Is Implemented
 
 - User registration and login (`/auth/register`, `/auth/login`)
-- Agent token management (`POST/GET/DELETE /auth/tokens`)
+- Agent token management (`POST/GET/PATCH/DELETE /auth/tokens`)
 - Agent WebSocket (`/agent/ws?token=...`)
 - Site WebSocket (`/site/ws?token=...`)
 - Server list + latest metrics (`GET /servers`)
-- Metrics history for 7 days (`GET /servers/:id/metrics`)
+- Metrics history for 7 days (`GET /servers/:id/metrics?interval=1s|1m|5m|1h`, default: `1s`)
 - Process list and kill process (`GET /servers/:id/processes`, `DELETE /servers/:id/processes/:pid`)
 - Command execution (`POST /servers/:id/command`)
 - Deploy request + logs (`POST /servers/:id/deploy`, `GET /deploys/:id/logs`)
@@ -74,13 +74,24 @@ curl -X POST http://localhost:8080/auth/login \
 
 ```bash
 curl -X POST http://localhost:8080/auth/tokens \
-  -H "Authorization: Bearer <JWT>"
+  -H "Authorization: Bearer <JWT>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"thinkpad"}'
+```
+
+You can rename an existing token later:
+
+```bash
+curl -X PATCH http://localhost:8080/auth/tokens/<TOKEN_ID> \
+  -H "Authorization: Bearer <JWT>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"new-name"}'
 ```
 
 ### 7) Run agent on Linux server
 
 ```bash
-go run ./cmd/agent -backend ws://<backend-host>:8080 -token <AGENT_TOKEN>
+go run ./cmd/agent -backend ws://<backend-host>:8080 -token <AGENT_TOKEN> -name "server-1"
 ```
 
 Agent auto reconnects and sends metrics every 2 seconds.

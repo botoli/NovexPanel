@@ -1,6 +1,9 @@
 package app
 
 import (
+	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -19,6 +22,14 @@ type registerRequest struct {
 type loginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+}
+
+type createAgentTokenRequest struct {
+	Name *string `json:"name"`
+}
+
+type updateAgentTokenNameRequest struct {
+	Name *string `json:"name"`
 }
 
 func (a *App) handleRegister(c *gin.Context) {
@@ -96,6 +107,13 @@ func (a *App) handleCreateAgentToken(c *gin.Context) {
 		return
 	}
 
+	var req createAgentTokenRequest
+	if err := decodeJSONBodyAllowEmpty(c, &req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+	tokenName := normalizeOptionalName(req.Name)
+
 	rawToken, tokenHash, tokenPrefix, err := auth.GenerateAgentToken()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to generate token"})
@@ -105,6 +123,7 @@ func (a *App) handleCreateAgentToken(c *gin.Context) {
 	expiresAt := time.Now().Add(a.cfg.AgentTokenExpiry)
 	model := models.AgentToken{
 		UserID:      userID,
+		Name:        tokenName,
 		TokenHash:   tokenHash,
 		TokenPrefix: tokenPrefix,
 		ExpiresAt:   &expiresAt,
@@ -120,6 +139,7 @@ func (a *App) handleCreateAgentToken(c *gin.Context) {
 		"agent_token":  rawToken,
 		"token_prefix": model.TokenPrefix,
 		"expires_at":   model.ExpiresAt,
+		"name":         model.Name,
 	})
 }
 
@@ -155,20 +175,65 @@ func (a *App) handleListAgentTokens(c *gin.Context) {
 	for _, token := range tokens {
 		item := gin.H{
 			"id":           token.ID,
+			"name":         token.Name,
 			"token_prefix": token.TokenPrefix,
 			"revoked":      token.Revoked,
 			"last_used_at": token.LastUsedAt,
 			"expires_at":   token.ExpiresAt,
 			"created_at":   token.CreatedAt,
+			"server":       nil,
 		}
 		if server, ok := serversByToken[token.ID]; ok {
-			item["server_id"] = server.ID
-			item["server_online"] = server.Online
+			item["server"] = gin.H{
+				"id":     server.ID,
+				"name":   server.Name,
+				"ip":     server.IP,
+				"online": server.Online,
+			}
 		}
 		response = append(response, item)
 	}
 
 	c.JSON(http.StatusOK, response)
+}
+
+func (a *App) handleUpdateAgentTokenName(c *gin.Context) {
+	userID, ok := userIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	tokenID, err := parseUintParam(c, "id")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid token id"})
+		return
+	}
+
+	var req updateAgentTokenNameRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+	if req.Name == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "name is required"})
+		return
+	}
+
+	name := normalizeOptionalName(req.Name)
+
+	var token models.AgentToken
+	if err := a.db.Where("id = ? AND user_id = ?", tokenID, userID).First(&token).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "token not found"})
+		return
+	}
+
+	if err := a.db.Model(&token).Update("name", name).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to update token name"})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }
 
 func (a *App) handleRevokeAgentToken(c *gin.Context) {
@@ -203,4 +268,34 @@ func (a *App) handleRevokeAgentToken(c *gin.Context) {
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+func decodeJSONBodyAllowEmpty(c *gin.Context, dst any) error {
+	decoder := json.NewDecoder(c.Request.Body)
+	decoder.DisallowUnknownFields()
+
+	if err := decoder.Decode(dst); err != nil {
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		return err
+	}
+
+	var extra any
+	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
+		return errors.New("request body must contain a single json object")
+	}
+
+	return nil
+}
+
+func normalizeOptionalName(name *string) *string {
+	if name == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*name)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
 }

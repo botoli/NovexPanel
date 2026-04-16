@@ -2,6 +2,7 @@
 .allheader {
   display: flex;
   flex-direction: column;
+  position: fixed;
   min-height: 100vh;
   width: $sidebar-width;
   background-color: $color-bg;

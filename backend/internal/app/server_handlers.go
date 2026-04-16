@@ -3,6 +3,7 @@ package app
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -23,6 +24,20 @@ type deployRequest struct {
 	Branch      string `json:"branch"`
 	ProjectType string `json:"project_type"`
 	ZipData     string `json:"zip_data"`
+}
+
+type metricsHistoryPoint struct {
+	Timestamp time.Time
+	CPU       float64
+	RAM       float64
+	Disk      float64
+}
+
+type aggregatedMetricsRow struct {
+	BucketUnix int64   `gorm:"column:bucket_unix"`
+	CPU        float64 `gorm:"column:cpu"`
+	RAM        float64 `gorm:"column:ram"`
+	Disk       float64 `gorm:"column:disk"`
 }
 
 func (a *App) handleListServers(c *gin.Context) {
@@ -75,9 +90,15 @@ func (a *App) handleServerMetricsHistory(c *gin.Context) {
 		return
 	}
 
+	interval, err := parseMetricsInterval(c.Query("interval"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid interval, allowed values: 1s, 1m, 5m, 1h"})
+		return
+	}
+
 	since := time.Now().Add(-time.Duration(a.cfg.MetricsHistoryDays) * 24 * time.Hour)
-	var points []models.MetricPoint
-	if err := a.db.Where("server_id = ? AND timestamp >= ?", serverID, since).Order("timestamp asc").Find(&points).Error; err != nil {
+	points, err := a.loadMetricsHistory(serverID, since, interval)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load metrics"})
 		return
 	}
@@ -86,13 +107,104 @@ func (a *App) handleServerMetricsHistory(c *gin.Context) {
 	for _, point := range points {
 		response = append(response, gin.H{
 			"timestamp": point.Timestamp,
-			"cpu":       point.CPUUsage,
-			"ram":       point.RAMPercent,
-			"disk":      point.DiskPercent,
+			"cpu":       point.CPU,
+			"ram":       point.RAM,
+			"disk":      point.Disk,
 		})
 	}
 
 	c.JSON(http.StatusOK, response)
+}
+
+func parseMetricsInterval(raw string) (string, error) {
+	interval := strings.TrimSpace(strings.ToLower(raw))
+	if interval == "" {
+		return "1s", nil
+	}
+
+	switch interval {
+	case "1s", "1m", "5m", "1h":
+		return interval, nil
+	default:
+		return "", fmt.Errorf("unsupported interval %q", interval)
+	}
+}
+
+func (a *App) loadMetricsHistory(serverID uint, since time.Time, interval string) ([]metricsHistoryPoint, error) {
+	if interval == "1s" {
+		var points []models.MetricPoint
+		if err := a.db.Where("server_id = ? AND timestamp >= ?", serverID, since).Order("timestamp asc").Find(&points).Error; err != nil {
+			return nil, err
+		}
+
+		response := make([]metricsHistoryPoint, 0, len(points))
+		for _, point := range points {
+			response = append(response, metricsHistoryPoint{
+				Timestamp: point.Timestamp,
+				CPU:       point.CPUUsage,
+				RAM:       point.RAMPercent,
+				Disk:      point.DiskPercent,
+			})
+		}
+		return response, nil
+	}
+
+	bucketExpr, err := metricBucketExpression(a.db.Dialector.Name(), interval)
+	if err != nil {
+		return nil, err
+	}
+
+	query := fmt.Sprintf(`
+SELECT %s AS bucket_unix,
+       AVG(cpu_usage) AS cpu,
+       AVG(ram_percent) AS ram,
+       AVG(disk_percent) AS disk
+FROM metric_points
+WHERE server_id = ? AND timestamp >= ?
+GROUP BY 1
+ORDER BY 1 ASC`, bucketExpr)
+
+	rows := make([]aggregatedMetricsRow, 0)
+	if err := a.db.Raw(query, serverID, since).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	response := make([]metricsHistoryPoint, 0, len(rows))
+	for _, row := range rows {
+		response = append(response, metricsHistoryPoint{
+			Timestamp: time.Unix(row.BucketUnix, 0).UTC(),
+			CPU:       row.CPU,
+			RAM:       row.RAM,
+			Disk:      row.Disk,
+		})
+	}
+
+	return response, nil
+}
+
+func metricBucketExpression(dialect, interval string) (string, error) {
+	switch dialect {
+	case "postgres":
+		switch interval {
+		case "1m":
+			return "CAST(FLOOR(EXTRACT(EPOCH FROM DATE_TRUNC('minute', timestamp))) AS BIGINT)", nil
+		case "5m":
+			return "CAST(FLOOR(EXTRACT(EPOCH FROM timestamp) / 300) * 300 AS BIGINT)", nil
+		case "1h":
+			return "CAST(FLOOR(EXTRACT(EPOCH FROM DATE_TRUNC('hour', timestamp))) AS BIGINT)", nil
+		}
+	case "sqlite":
+		switch interval {
+		case "1m":
+			return "CAST((CAST(strftime('%s', timestamp) AS INTEGER) / 60) * 60 AS INTEGER)", nil
+		case "5m":
+			return "CAST((CAST(strftime('%s', timestamp) AS INTEGER) / 300) * 300 AS INTEGER)", nil
+		case "1h":
+			return "CAST((CAST(strftime('%s', timestamp) AS INTEGER) / 3600) * 3600 AS INTEGER)", nil
+		}
+	}
+
+	return "", fmt.Errorf("unsupported interval %q for db dialect %q", interval, dialect)
 }
 
 func (a *App) handleServerProcesses(c *gin.Context) {
