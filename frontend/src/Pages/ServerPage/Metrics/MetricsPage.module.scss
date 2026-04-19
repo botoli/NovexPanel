@@ -1,0 +1,476 @@
+@use "../../../Styles/Variables.scss" as *;
+
+@keyframes shimmerPulse {
+  0% {
+    opacity: 0.55;
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0.55;
+  }
+}
+
+@keyframes chartReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mainContent {
+  display: flex;
+  flex-direction: column;
+  gap: $space-5;
+}
+
+.stateMessage {
+  padding: $space-5;
+  border-radius: $card-radius;
+  border: 1px solid rgba($color-text-primary, 0.08);
+  background: linear-gradient(160deg, rgba($color-text-primary, 0.03), rgba($color-bg, 0.2));
+  color: $color-text-secondary;
+  font-size: $font-size-body;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: $space-4;
+}
+
+.statCard {
+  --accent: #{$color-text-primary};
+
+  position: relative;
+  min-height: 160px;
+  overflow: hidden;
+  border: 1px solid rgba($color-text-primary, 0.09);
+  border-radius: $card-radius;
+  background:
+    radial-gradient(140% 100% at 100% -10%, rgba($color-text-primary, 0.06), transparent 52%),
+    linear-gradient(170deg, rgba($color-text-primary, 0.02), rgba($color-bg, 0.24)),
+    $card-bg;
+  padding: $space-5;
+  transition:
+    transform $transition-base,
+    border-color $transition-base,
+    background-color $transition-base;
+
+  &:hover {
+    border-color: rgba($color-text-primary, 0.15);
+  }
+}
+
+.cardGhostIcon {
+  position: absolute;
+  right: -8px;
+  top: -8px;
+  font-size: 78px;
+  color: $color-text-primary;
+  opacity: 0.04;
+  pointer-events: none;
+}
+
+.statCardCpu {
+  --accent: #{$color-status-online};
+}
+
+.statCardRam {
+  --accent: #{$color-text-primary};
+}
+
+.statCardDisk {
+  --accent: #{$color-text-secondary};
+}
+
+.statCardNetwork {
+  --accent: #{$color-status-online};
+}
+
+.overheated {
+  --accent: #{$color-status-offline};
+
+  border-color: rgba($color-status-offline, 0.45);
+}
+
+.overheated .statPillTemperature {
+  border-color: rgba($color-status-offline, 0.45);
+  background: rgba($color-status-offline, 0.1);
+  color: $color-status-offline;
+}
+
+.statHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-2;
+  margin-bottom: $space-3;
+}
+
+.statLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1;
+  margin: 0;
+  font-size: 11px;
+  color: $color-text-secondary;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.statLabelIcon {
+  font-size: 14px;
+}
+
+.statPill,
+.statPillTemperature {
+  border-radius: $radius-full;
+  border: 1px solid rgba($color-text-primary, 0.09);
+  background: rgba($color-text-primary, 0.04);
+  color: $color-text-secondary;
+  font-size: 11px;
+  padding: 3px 10px;
+  white-space: nowrap;
+}
+
+.statValueRow {
+  display: flex;
+  align-items: baseline;
+  gap: $space-2;
+  margin-bottom: $space-2;
+}
+
+.statValue {
+  margin: 0;
+  font-size: clamp(28px, 2.2vw, 34px);
+  line-height: 1;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+}
+
+.statUnit {
+  margin-left: 4px;
+  font-size: $font-size-body;
+  color: $color-text-secondary;
+  font-weight: $font-weight-medium;
+}
+
+.statSubValue {
+  margin: 0;
+  color: $color-text-secondary;
+  font-size: $font-size-body;
+}
+
+.loadAVG {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+  margin-top: $space-3;
+  color: $color-text-secondary;
+  font-size: $font-size-small;
+}
+
+.statHint {
+  margin: 0;
+  color: $color-text-secondary;
+  font-size: $font-size-small;
+}
+
+.progressTrack {
+  width: 100%;
+  height: 5px;
+  border-radius: $radius-full;
+  background: rgba($color-text-primary, 0.08);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba($color-text-primary, 0.35), var(--accent));
+  opacity: 0.9;
+  transition: width 220ms ease;
+}
+
+.overheatMsg {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1;
+  width: fit-content;
+  margin-top: $space-1;
+  padding: 4px 9px;
+  border-radius: $radius-full;
+  border: 1px solid rgba($color-status-offline, 0.42);
+  background: rgba($color-status-offline, 0.1);
+  color: $color-status-offline;
+  font-size: $font-size-small;
+
+  svg {
+    width: 15px;
+    height: 15px;
+  }
+}
+
+.chartsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: $space-4;
+}
+
+.chartCard {
+  --chart-glow: rgba(255, 255, 255, 0.06);
+
+  position: relative;
+  border: 1px solid rgba($color-text-primary, 0.09);
+  border-radius: $card-radius;
+  background:
+    radial-gradient(100% 80% at 88% 0%, var(--chart-glow), transparent 58%),
+    linear-gradient(180deg, rgba($color-surface, 0.78), rgba($color-surface-2, 0.96));
+  padding: $space-5;
+  min-width: 0;
+  overflow: hidden;
+  transition: border-color $transition-base, transform $transition-base;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba($color-text-primary, 0.01) 0,
+      rgba($color-text-primary, 0.01) 1px,
+      transparent 1px,
+      transparent 28px
+    );
+    pointer-events: none;
+  }
+
+  &:hover {
+    border-color: rgba($color-text-primary, 0.16);
+  }
+}
+
+.chartCardCpu {
+  --chart-line: #{rgba($color-status-online, 0.92)};
+  --chart-fill: #{rgba($color-status-online, 0.32)};
+}
+
+.chartCardRam {
+  --chart-fill: #{rgba($color-text-primary, 0.32)};
+  --chart-line: #{rgba($color-text-primary, 0.95)};
+}
+
+.chartCardDiskIo {
+  --chart-line: #{rgba($color-text-secondary, 0.92)};
+  --chart-fill: #{rgba($color-text-secondary, 0.34)};
+}
+
+.chartCardNetwork {
+  --chart-line-1: #{rgba($color-status-online, 0.92)};
+  --chart-fill-1: #{rgba($color-status-online, 0.32)};
+  --chart-line-2: #{rgba($color-text-primary, 0.8)};
+  --chart-fill-2: #{rgba($color-text-primary, 0.28)};
+}
+
+.chartHeader {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-3;
+  margin-bottom: $space-3;
+}
+
+.chartTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1;
+  margin: 0;
+  font-size: 13px;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+  letter-spacing: 0.02em;
+}
+
+.chartTitleIcon {
+  font-size: 14px;
+  color: $color-text-secondary;
+}
+
+.rangeButtons {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: $space-1;
+  flex-wrap: wrap;
+}
+
+.rangeButtons button {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: $radius-full;
+  border: 1px solid rgba($color-text-primary, 0.1);
+  background: rgba($color-text-primary, 0.03);
+  color: $color-text-secondary;
+  font-size: 11px;
+  font-weight: $font-weight-medium;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition:
+    border-color $transition-base,
+    background-color $transition-base,
+    color $transition-base,
+    transform $transition-base;
+
+  &[aria-pressed="true"] {
+    background: rgba($color-text-primary, 0.9);
+    color: $btn-primary-text;
+    border-color: rgba($btn-primary-bg, 0.7);
+  }
+
+  &:hover {
+    border-color: rgba($color-text-primary, 0.22);
+    color: $color-text-primary;
+  }
+
+  &:active {
+    background: $color-active;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $color-border-hover;
+    outline-offset: 2px;
+  }
+}
+
+.chartBody {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  min-width: 0;
+  height: 240px;
+  min-height: 240px;
+  animation: chartReveal 260ms ease;
+  transition: opacity 220ms ease;
+}
+
+.chartBodySwitching {
+  opacity: 0.72;
+}
+
+.chartSkeleton {
+  width: 100%;
+  height: 100%;
+  border-radius: $radius-md;
+  border: 1px solid rgba($color-text-primary, 0.06);
+  background:
+    linear-gradient(110deg, rgba($color-text-primary, 0.05), rgba($color-text-primary, 0.08), rgba($color-text-primary, 0.05));
+  background-size: 220% 100%;
+  animation: shimmerPulse 1.4s ease-in-out infinite;
+}
+
+.chartLegend {
+  margin-top: $space-3;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: $space-3;
+  color: $color-text-secondary;
+  font-size: $font-size-small;
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.legendDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: $color-text-primary;
+  opacity: 0.9;
+}
+
+.legendDotIncoming {
+  background: var(--chart-line-1);
+}
+
+.legendDotOutgoing {
+  background: var(--chart-line-2);
+}
+
+.skeletonCard {
+  pointer-events: none;
+}
+
+.skeletonHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $space-3;
+}
+
+.skeletonLine {
+  height: 10px;
+  width: 36%;
+  border-radius: $radius-full;
+  background:
+    linear-gradient(110deg, rgba($color-text-primary, 0.04), rgba($color-text-primary, 0.1), rgba($color-text-primary, 0.04));
+  animation: shimmerPulse 1.3s ease-in-out infinite;
+}
+
+.skeletonLineWide {
+  width: 72%;
+  margin-top: $space-3;
+}
+
+.skeletonLineShort {
+  width: 44%;
+  margin-top: $space-2;
+}
+
+.skeletonLineMedium {
+  width: 26%;
+}
+
+@media (max-width: 1240px) {
+  .statsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .chartsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .statCard,
+  .chartCard {
+    padding: $space-4;
+  }
+
+  .chartHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .rangeButtons {
+    justify-content: flex-start;
+  }
+}

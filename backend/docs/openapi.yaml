@@ -132,6 +132,18 @@ components:
           type: number
         disk:
           type: number
+        disk_read:
+          type: number
+          description: Average disk read speed in bytes per second.
+        disk_write:
+          type: number
+          description: Average disk write speed in bytes per second.
+        network_rx:
+          type: number
+          description: Average network receive speed in bytes per second.
+        network_tx:
+          type: number
+          description: Average network transmit speed in bytes per second.
     RunCommandRequest:
       type: object
       required: [command]
@@ -288,8 +300,8 @@ paths:
   /servers/{id}/metrics:
     get:
       tags: [Servers]
-      summary: Metrics history for last N days
-      description: For interval values larger than 1 second, CPU/RAM/disk are returned as averages per bucket.
+      summary: Metrics history for selected range
+      description: Range defines the time window (NOW-range to NOW). For interval values larger than 1 second, CPU/RAM/disk are returned as averages per bucket aligned to UTC+3 calendar boundaries.
       security:
         - bearerAuth: []
       parameters:
@@ -299,12 +311,20 @@ paths:
           schema:
             type: integer
         - in: query
-          name: interval
+          name: range
           required: false
-          description: Aggregation interval for metrics points.
+          description: Time window to return metrics for.
           schema:
             type: string
-            enum: [1s, 1m, 5m, 1h]
+            enum: [10m, 30m, 1h, 2h, 1d, 7d]
+            default: 7d
+        - in: query
+          name: interval
+          required: false
+          description: Aggregation interval for metrics points within selected range.
+          schema:
+            type: string
+            enum: [1s, 10s, 1m, 5m, 10m, 1h, 1d]
             default: 1s
       responses:
         "200":

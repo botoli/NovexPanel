@@ -17,8 +17,8 @@ export const useLoadServers = () => {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       if (isMounted.current) {
-        serverMetricsStore.setServerMetrics(data);
         serverMetricsStore.setNowServers(data);
+
         serverMetricsStore.setServerMetricsError(null);
       }
     } catch (err) {

@@ -26,7 +26,7 @@ const Account = observer(() => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tokensData, setTokensData] = useState<TokenData[]>([]);
-  const fetchData = useCallback(async () => {
+  const getTokensData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -46,7 +46,7 @@ const Account = observer(() => {
     }
   }, [tokenStore]);
   useEffect(() => {
-    fetchData();
+    getTokensData();
   }, []);
   const deleteToken = async (tokenId: number) => {
     try {
@@ -59,7 +59,7 @@ const Account = observer(() => {
         },
       });
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      await fetchData();
+      await getTokensData();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Произошла ошибка');
     } finally {

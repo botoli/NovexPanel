@@ -9,7 +9,7 @@ Go backend for NovexPanel with JWT auth, agent management over WebSocket, real-t
 - Agent WebSocket (`/agent/ws?token=...`)
 - Site WebSocket (`/site/ws?token=...`)
 - Server list + latest metrics (`GET /servers`)
-- Metrics history for 7 days (`GET /servers/:id/metrics?interval=1s|1m|5m|1h`, default: `1s`)
+- Metrics history by range (`GET /servers/:id/metrics?range=10m|30m|1h|2h|1d|7d&interval=1s|10s|1m|5m|10m|1h|1d`, defaults: `range=7d`, `interval=1s`)
 - Process list and kill process (`GET /servers/:id/processes`, `DELETE /servers/:id/processes/:pid`)
 - Command execution (`POST /servers/:id/command`)
 - Deploy request + logs (`POST /servers/:id/deploy`, `GET /deploys/:id/logs`)
@@ -91,10 +91,29 @@ curl -X PATCH http://localhost:8080/auth/tokens/<TOKEN_ID> \
 ### 7) Run agent on Linux server
 
 ```bash
+go run ./cmd/agent
+```
+
+On first run agent asks for:
+
+- agent token
+- server name (if empty, system hostname is used)
+
+Config is saved to `~/.config/novex/agent.json`, so next runs can use the same command without flags.
+
+If your backend is not local, set it once:
+
+```bash
+go run ./cmd/agent -backend ws://<backend-host>:8080
+```
+
+You can still override any value manually:
+
+```bash
 go run ./cmd/agent -backend ws://<backend-host>:8080 -token <AGENT_TOKEN> -name "server-1"
 ```
 
-Agent auto reconnects and sends metrics every 2 seconds.
+Agent auto reconnects, sends metrics every 2 seconds, and prints colored logs.
 
 ## Build Binaries
 

@@ -405,6 +405,37 @@ func (h *Hub) TerminalInput(site *SiteClient, serverID uint, sessionID, data str
 	})
 }
 
+func (h *Hub) TerminalResize(site *SiteClient, serverID uint, sessionID string, rows, cols int) error {
+	h.mu.RLock()
+	if sessionID == "" {
+		if serverID != 0 {
+			sessionID = site.activeTerminals[serverID]
+		} else if len(site.activeTerminals) == 1 {
+			for srvID, sid := range site.activeTerminals {
+				serverID = srvID
+				sessionID = sid
+			}
+		}
+	}
+	if serverID == 0 && sessionID != "" {
+		if session := h.terminals[sessionID]; session != nil {
+			serverID = session.ServerID
+		}
+	}
+	h.mu.RUnlock()
+
+	if sessionID == "" || serverID == 0 {
+		return errors.New("terminal session not found")
+	}
+
+	return h.SendAgentEvent(serverID, map[string]any{
+		"type":       "terminal_resize",
+		"session_id": sessionID,
+		"rows":       rows,
+		"cols":       cols,
+	})
+}
+
 func (h *Hub) CloseTerminal(site *SiteClient, serverID uint) {
 	var sessionID string
 	h.mu.Lock()

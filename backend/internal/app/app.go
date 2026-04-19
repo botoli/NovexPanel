@@ -79,6 +79,7 @@ func (a *App) Router() *gin.Engine {
 
 	r.GET("/agent/ws", a.handleAgentWS)
 	r.GET("/site/ws", a.handleSiteWS)
+	r.GET("/terminal/:id", a.handleTerminalWS)
 
 	return r
 }

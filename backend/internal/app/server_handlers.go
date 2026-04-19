@@ -31,6 +31,10 @@ type metricsHistoryPoint struct {
 	CPU       float64
 	RAM       float64
 	Disk      float64
+	DiskRead  float64
+	DiskWrite float64
+	NetworkRX float64
+	NetworkTX float64
 }
 
 type aggregatedMetricsRow struct {
@@ -38,6 +42,10 @@ type aggregatedMetricsRow struct {
 	CPU        float64 `gorm:"column:cpu"`
 	RAM        float64 `gorm:"column:ram"`
 	Disk       float64 `gorm:"column:disk"`
+	DiskRead   float64 `gorm:"column:disk_read"`
+	DiskWrite  float64 `gorm:"column:disk_write"`
+	NetworkRX  float64 `gorm:"column:network_rx"`
+	NetworkTX  float64 `gorm:"column:network_tx"`
 }
 
 func (a *App) handleListServers(c *gin.Context) {
@@ -92,12 +100,19 @@ func (a *App) handleServerMetricsHistory(c *gin.Context) {
 
 	interval, err := parseMetricsInterval(c.Query("interval"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid interval, allowed values: 1s, 1m, 5m, 1h"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid interval, allowed values: 1s, 10s, 1m, 5m, 10m, 1h, 1d"})
 		return
 	}
 
-	since := time.Now().Add(-time.Duration(a.cfg.MetricsHistoryDays) * 24 * time.Hour)
-	points, err := a.loadMetricsHistory(serverID, since, interval)
+	rangeDuration, err := parseMetricsRange(c.Query("range"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid range, allowed values: 10m, 30m, 1h, 2h, 1d, 7d"})
+		return
+	}
+
+	now := time.Now()
+	since := now.Add(-rangeDuration)
+	points, err := a.loadMetricsHistory(serverID, since, now, interval)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load metrics"})
 		return
@@ -106,10 +121,14 @@ func (a *App) handleServerMetricsHistory(c *gin.Context) {
 	response := make([]gin.H, 0, len(points))
 	for _, point := range points {
 		response = append(response, gin.H{
-			"timestamp": point.Timestamp,
-			"cpu":       point.CPU,
-			"ram":       point.RAM,
-			"disk":      point.Disk,
+			"timestamp":  point.Timestamp,
+			"cpu":        point.CPU,
+			"ram":        point.RAM,
+			"disk":       point.Disk,
+			"disk_read":  point.DiskRead,
+			"disk_write": point.DiskWrite,
+			"network_rx": point.NetworkRX,
+			"network_tx": point.NetworkTX,
 		})
 	}
 
@@ -123,17 +142,62 @@ func parseMetricsInterval(raw string) (string, error) {
 	}
 
 	switch interval {
-	case "1s", "1m", "5m", "1h":
+	case "1s", "10s", "1m", "5m", "10m", "1h", "1d":
 		return interval, nil
 	default:
 		return "", fmt.Errorf("unsupported interval %q", interval)
 	}
 }
 
-func (a *App) loadMetricsHistory(serverID uint, since time.Time, interval string) ([]metricsHistoryPoint, error) {
+func parseMetricsRange(raw string) (time.Duration, error) {
+	rangeValue := strings.TrimSpace(strings.ToLower(raw))
+	if rangeValue == "" {
+		return 7 * 24 * time.Hour, nil
+	}
+
+	switch rangeValue {
+	case "10m":
+		return 10 * time.Minute, nil
+	case "30m":
+		return 30 * time.Minute, nil
+	case "1h":
+		return time.Hour, nil
+	case "2h":
+		return 2 * time.Hour, nil
+	case "1d":
+		return 24 * time.Hour, nil
+	case "7d":
+		return 7 * 24 * time.Hour, nil
+	default:
+		return 0, fmt.Errorf("unsupported range %q", rangeValue)
+	}
+}
+
+func metricsIntervalSeconds(interval string) (int64, error) {
+	switch interval {
+	case "1s":
+		return 1, nil
+	case "10s":
+		return 10, nil
+	case "1m":
+		return 60, nil
+	case "5m":
+		return 300, nil
+	case "10m":
+		return 600, nil
+	case "1h":
+		return 3600, nil
+	case "1d":
+		return 86400, nil
+	default:
+		return 0, fmt.Errorf("unsupported interval %q", interval)
+	}
+}
+
+func (a *App) loadMetricsHistory(serverID uint, since, until time.Time, interval string) ([]metricsHistoryPoint, error) {
 	if interval == "1s" {
 		var points []models.MetricPoint
-		if err := a.db.Where("server_id = ? AND timestamp >= ?", serverID, since).Order("timestamp asc").Find(&points).Error; err != nil {
+		if err := a.db.Where("server_id = ? AND timestamp >= ? AND timestamp <= ?", serverID, since, until).Order("timestamp asc").Find(&points).Error; err != nil {
 			return nil, err
 		}
 
@@ -144,12 +208,21 @@ func (a *App) loadMetricsHistory(serverID uint, since time.Time, interval string
 				CPU:       point.CPUUsage,
 				RAM:       point.RAMPercent,
 				Disk:      point.DiskPercent,
+				DiskRead:  point.DiskReadBytes,
+				DiskWrite: point.DiskWriteBytes,
+				NetworkRX: point.NetworkRXBytes,
+				NetworkTX: point.NetworkTXBytes,
 			})
 		}
 		return response, nil
 	}
 
-	bucketExpr, err := metricBucketExpression(a.db.Dialector.Name(), interval)
+	bucketSeconds, err := metricsIntervalSeconds(interval)
+	if err != nil {
+		return nil, err
+	}
+
+	bucketExpr, err := metricBucketExpression(a.db.Dialector.Name(), bucketSeconds)
 	if err != nil {
 		return nil, err
 	}
@@ -158,14 +231,18 @@ func (a *App) loadMetricsHistory(serverID uint, since time.Time, interval string
 SELECT %s AS bucket_unix,
        AVG(cpu_usage) AS cpu,
        AVG(ram_percent) AS ram,
-       AVG(disk_percent) AS disk
+	AVG(disk_percent) AS disk,
+	COALESCE(AVG(disk_read_bytes), 0) AS disk_read,
+	COALESCE(AVG(disk_write_bytes), 0) AS disk_write,
+	COALESCE(AVG(network_rx_bytes), 0) AS network_rx,
+	COALESCE(AVG(network_tx_bytes), 0) AS network_tx
 FROM metric_points
-WHERE server_id = ? AND timestamp >= ?
+WHERE server_id = ? AND timestamp >= ? AND timestamp <= ?
 GROUP BY 1
 ORDER BY 1 ASC`, bucketExpr)
 
 	rows := make([]aggregatedMetricsRow, 0)
-	if err := a.db.Raw(query, serverID, since).Scan(&rows).Error; err != nil {
+	if err := a.db.Raw(query, serverID, since, until).Scan(&rows).Error; err != nil {
 		return nil, err
 	}
 
@@ -176,35 +253,39 @@ ORDER BY 1 ASC`, bucketExpr)
 			CPU:       row.CPU,
 			RAM:       row.RAM,
 			Disk:      row.Disk,
+			DiskRead:  row.DiskRead,
+			DiskWrite: row.DiskWrite,
+			NetworkRX: row.NetworkRX,
+			NetworkTX: row.NetworkTX,
 		})
 	}
 
 	return response, nil
 }
 
-func metricBucketExpression(dialect, interval string) (string, error) {
+func metricBucketExpression(dialect string, bucketSeconds int64) (string, error) {
+	const tzOffsetSeconds = int64(3 * 60 * 60)
+
 	switch dialect {
 	case "postgres":
-		switch interval {
-		case "1m":
-			return "CAST(FLOOR(EXTRACT(EPOCH FROM DATE_TRUNC('minute', timestamp))) AS BIGINT)", nil
-		case "5m":
-			return "CAST(FLOOR(EXTRACT(EPOCH FROM timestamp) / 300) * 300 AS BIGINT)", nil
-		case "1h":
-			return "CAST(FLOOR(EXTRACT(EPOCH FROM DATE_TRUNC('hour', timestamp))) AS BIGINT)", nil
-		}
+		return fmt.Sprintf(
+			"CAST(FLOOR((EXTRACT(EPOCH FROM timestamp) + %d) / %d) * %d - %d AS BIGINT)",
+			tzOffsetSeconds,
+			bucketSeconds,
+			bucketSeconds,
+			tzOffsetSeconds,
+		), nil
 	case "sqlite":
-		switch interval {
-		case "1m":
-			return "CAST((CAST(strftime('%s', timestamp) AS INTEGER) / 60) * 60 AS INTEGER)", nil
-		case "5m":
-			return "CAST((CAST(strftime('%s', timestamp) AS INTEGER) / 300) * 300 AS INTEGER)", nil
-		case "1h":
-			return "CAST((CAST(strftime('%s', timestamp) AS INTEGER) / 3600) * 3600 AS INTEGER)", nil
-		}
+		return fmt.Sprintf(
+			"CAST((((CAST(strftime('%%s', timestamp) AS INTEGER) + %d) / %d) * %d) - %d AS INTEGER)",
+			tzOffsetSeconds,
+			bucketSeconds,
+			bucketSeconds,
+			tzOffsetSeconds,
+		), nil
 	}
 
-	return "", fmt.Errorf("unsupported interval %q for db dialect %q", interval, dialect)
+	return "", fmt.Errorf("unsupported db dialect %q", dialect)
 }
 
 func (a *App) handleServerProcesses(c *gin.Context) {

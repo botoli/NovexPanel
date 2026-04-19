@@ -22,6 +22,19 @@
     color: $color-text-primary;
   }
 }
+.tabactive {
+  width: 100%;
+      background-color: $color-active;
+    color: $color-text-primary;
+
+  font-weight: $font-weight-semibold;
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  padding: $space-3;
+  cursor: pointer;
+ 
+}
 .logo_Container {
   svg {
     width: 40px;

@@ -42,14 +42,18 @@ type Server struct {
 }
 
 type MetricPoint struct {
-	ID          uint           `gorm:"primaryKey" json:"id"`
-	ServerID    uint           `gorm:"index:idx_metric_server_ts,priority:1;not null" json:"server_id"`
-	Timestamp   time.Time      `gorm:"index:idx_metric_server_ts,priority:2;not null" json:"timestamp"`
-	CPUUsage    float64        `json:"cpu_usage"`
-	RAMPercent  float64        `json:"ram_percent"`
-	DiskPercent float64        `json:"disk_percent"`
-	Raw         datatypes.JSON `json:"raw"`
-	CreatedAt   time.Time
+	ID             uint           `gorm:"primaryKey" json:"id"`
+	ServerID       uint           `gorm:"index:idx_metric_server_ts,priority:1;not null" json:"server_id"`
+	Timestamp      time.Time      `gorm:"index:idx_metric_server_ts,priority:2;not null" json:"timestamp"`
+	CPUUsage       float64        `json:"cpu_usage"`
+	RAMPercent     float64        `json:"ram_percent"`
+	DiskPercent    float64        `json:"disk_percent"`
+	DiskReadBytes  float64        `gorm:"not null;default:0" json:"disk_read_bytes"`
+	DiskWriteBytes float64        `gorm:"not null;default:0" json:"disk_write_bytes"`
+	NetworkRXBytes float64        `gorm:"not null;default:0" json:"network_rx_bytes"`
+	NetworkTXBytes float64        `gorm:"not null;default:0" json:"network_tx_bytes"`
+	Raw            datatypes.JSON `json:"raw"`
+	CreatedAt      time.Time
 }
 
 type Deploy struct {

@@ -33,6 +33,7 @@ Terminal stream:
 
 ```json
 { "type": "terminal_input", "session_id": "uuid", "data": "ls\n" }
+{ "type": "terminal_resize", "session_id": "uuid", "rows": 24, "cols": 80 }
 { "type": "terminal_close", "session_id": "uuid" }
 ```
 
@@ -52,7 +53,14 @@ Command response:
 Metrics push every 2s:
 
 ```json
-{ "type": "metrics", "data": { "cpu": { "usage": 12.5 } } }
+{
+  "type": "metrics",
+  "data": {
+    "cpu": { "usage": 12.5 },
+    "disk": { "read_speed": 102400, "write_speed": 51200 },
+    "network": { "rx_speed": 150000, "tx_speed": 80000 }
+  }
+}
 ```
 
 Terminal output:
@@ -88,6 +96,7 @@ Terminal:
 ```json
 { "type": "open_terminal", "server_id": 123, "rows": 24, "cols": 80 }
 { "type": "terminal_input", "server_id": 123, "data": "ls\n" }
+{ "type": "terminal_resize", "server_id": 123, "session_id": "uuid", "rows": 24, "cols": 80 }
 { "type": "close_terminal", "server_id": 123 }
 ```
 

@@ -61,115 +61,91 @@
   }
 }
 
-.serverRow {
-  display: flex;
-  align-items: center;
-  gap: $space-3;
-  margin-bottom: $space-5;
-}
-
-.serverName {
-  font-size: $font-size-h2;
-  font-weight: $font-weight-semibold;
-}
-
-.serverStatus {
-  padding: 2px 10px;
-  border-radius: $radius-full;
-  border: 1px solid rgba($color-text-primary, 0.08);
-  background: rgba($color-text-primary, 0.04);
-  color: $color-text-secondary;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.online {
-  width: $space-3;
-  height: $space-3;
-  flex-shrink: 0;
-  border-radius: $radius-full;
-  background-color: $color-status-online;
-  box-shadow: 0 0 10px rgba($color-status-online, 0.8);
-}
-
-.offline {
-  width: $space-3;
-  height: $space-3;
-  flex-shrink: 0;
-  border-radius: $radius-full;
-  background-color: $color-status-offline;
-  box-shadow: 0 0 10px rgba($color-status-offline, 0.8);
-}
-
 .serverGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: $space-4;
+}
+
+@keyframes statusPulseRing {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.35;
+  }
+
+  70% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+.serverCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
   gap: $space-3;
+  min-height: 246px;
+  padding: $space-4;
+  border-radius: $radius-lg;
+  border: 1px solid $color-border;
+  background: $color-surface;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color $transition-base, background-color $transition-base, transform $transition-base;
+
+  &:hover,
+  &:focus-visible {
+    border-color: $color-border-hover;
+    background-color: #070707;
+    transform: translateY(-2px);
+  }
+
+  &:focus-visible {
+    outline: none;
+  }
 }
-// TODO: объединить serverCardOnline и serverCardOffline в один класс с модификатором
+
 .serverCardOnline {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: $space-2;
-  min-height: 188px;
-  padding: 12px;
-  border-radius: $card-radius;
-  border: 1px solid rgba($color-text-primary, 0.08);
-  overflow: hidden;
-   transition: all 0.3s ease;
+  border-color: rgba($color-status-online, 0.22);
 }
 
-.serverCardOnline::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 3px;
-  background-color: $color-status-online;
-}
 .serverCardOffline {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: $space-2;
-  min-height: 188px;
-  padding: 12px;
-  border-radius: $card-radius;
-  border: 1px solid rgba($color-text-primary, 0.08);
-  overflow: hidden;
-  transition: all 0.3s ease;
+  border-color: rgba($color-status-offline, 0.18);
 }
 
-.serverCardOffline::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 3px;
-  background-color: $color-status-offline;
+.serverCardOnline .serverStatus {
+  border-color: rgba($color-status-online, 0.26);
+  color: rgba($color-status-online, 0.95);
 }
 
+.serverCardOffline .serverStatus {
+  border-color: rgba($color-status-offline, 0.24);
+  color: rgba($color-status-offline, 0.94);
+}
 
-.serverTop {
+.serverHeader {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: $space-2;
+  gap: $space-3;
 }
 
 .serverIdentity {
   display: flex;
-  align-items: center;
-  gap: $space-2;
+  flex-direction: column;
+  gap: $space-1;
+  flex: 1;
   min-width: 0;
 
   h2 {
     margin: 0;
-    font-size: 16px;
+    font-size: clamp(18px, 1.4vw, 22px);
+    line-height: 1.12;
     font-weight: $font-weight-semibold;
     color: $color-text-primary;
     white-space: nowrap;
@@ -178,52 +154,247 @@
   }
 }
 
+.serverNameLine {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  min-width: 0;
+}
+
+.online,
+.offline {
+  position: relative;
+  width: 9px;
+  height: 9px;
+  flex-shrink: 0;
+  border-radius: $radius-full;
+  background-color: currentColor;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: -5px;
+    border: 1px solid currentColor;
+    border-radius: $radius-full;
+    animation: statusPulseRing 1.6s ease-out infinite;
+  }
+}
+
+.online {
+  color: $color-status-online;
+}
+
+.offline {
+  color: $color-status-offline;
+
+  &::after {
+    animation-duration: 2.2s;
+    opacity: 0.22;
+  }
+}
+
 .serverIp {
   margin: 0;
-  color: $color-text-secondary;
+  color: rgba($color-text-primary, 0.52);
   font-size: $font-size-small;
+  line-height: 1.3;
   overflow-wrap: anywhere;
 }
 
-.serverStack {
+.serverHeaderRight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: $space-2;
+}
+
+.serverStatus {
+  padding: 3px 9px;
+  border-radius: $radius-full;
+  border: 1px solid rgba($color-text-primary, 0.08);
+  color: rgba($color-text-primary, 0.55);
+  font-size: 10px;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.serverActions {
+  display: flex;
+  gap: $space-1;
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  transition: opacity $transition-base, transform $transition-base;
+}
+
+.serverCard:hover .serverActions,
+.serverCard:focus-visible .serverActions {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.actionBtn {
+  width: 30px;
+  height: 30px;
+  border: 1px solid $color-border;
+  border-radius: $radius-sm;
+  background-color: $color-surface-2;
+  color: rgba($color-text-primary, 0.72);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: border-color $transition-base, color $transition-base, background-color $transition-base;
+
+  &:hover {
+    border-color: $color-border-hover;
+    color: $color-text-primary;
+    background-color: rgba($color-text-primary, 0.04);
+  }
+
+  svg {
+    font-size: 16px;
+  }
+}
+
+.cpuSection {
   margin-top: auto;
   display: flex;
   flex-direction: column;
-  gap: 5px;
-}
-
-.stackLayer {
-  position: relative;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
   gap: $space-2;
-  padding: 6px 10px;
-  border-radius: $radius-sm;
-  
 }
 
-.stackLayer::before {
-  content: "";
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  top: 0;
-  height: 1px;
+.primaryMetricHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: $space-3;
+}
+
+.primaryMetricLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  color: rgba($color-text-primary, 0.48);
+}
+
+.monoValue {
+  font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.primaryMetricValue {
+  margin: 0;
+  font-size: clamp(35px, 3vw, 46px);
+  line-height: 0.95;
+  font-weight: $font-weight-semibold;
+  color: var(--load-color, $color-text-primary);
+  transition: color $transition-base;
+}
+
+.progressTrackThin {
+  width: 100%;
+  height: 3px;
+  border-radius: $radius-full;
   background: rgba($color-text-primary, 0.12);
+  overflow: hidden;
 }
 
-.layerLabel {
-  font-size: 11px;
+.progressFillThin {
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background-color: var(--load-color, rgba($color-text-primary, 0.88));
+  transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1), background-color $transition-base;
+}
+
+.sparklineSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sparkline {
+  width: 100%;
+  height: 36px;
+  display: block;
+}
+
+.sparklineFill {
+  fill: var(--load-color, rgba($color-text-primary, 0.88));
+  opacity: 0.12;
+  transition: fill $transition-base;
+}
+
+.sparklineLine {
+  fill: none;
+  stroke: var(--load-color, rgba($color-text-primary, 0.88));
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke $transition-base;
+}
+
+.sparklineLabel {
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: $color-text-secondary;
+  color: rgba($color-text-primary, 0.42);
 }
 
-.layerValue {
-  font-size: 14px;
-  font-weight: $font-weight-semibold;
-  color: $color-text-primary;
+.secondaryMetrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: $space-2;
+}
+
+.secondaryMetric {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: $space-2 10px;
+  border-radius: $radius-sm;
+  border: 1px solid rgba($color-text-primary, 0.05);
+  background: $color-surface-2;
+}
+
+.secondaryMetricHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: $space-2;
+}
+
+.secondaryMetricLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba($color-text-primary, 0.48);
+}
+
+.secondaryMetricValue {
+  font-size: 15px;
+  line-height: 1;
+  font-weight: $font-weight-medium;
+  color: var(--load-color, rgba($color-text-primary, 0.9));
+  transition: color $transition-base;
+}
+
+.toneLow {
+  --load-color: #{rgba($color-status-online, 0.78)};
+}
+
+.toneMedium {
+  --load-color: #{rgba($color-text-primary, 0.84)};
+}
+
+.toneHigh {
+  --load-color: #{rgba($color-status-offline, 0.74)};
+}
+
+.toneCritical {
+  --load-color: #{$color-status-offline};
 }
 
 .metricsGrid {
@@ -839,6 +1010,7 @@
 
   .serverCard {
     min-height: 0;
+    padding: $space-3;
   }
 
   .header {
@@ -847,13 +1019,29 @@
     gap: $space-3;
   }
 
-  .serverTop {
-    flex-direction: column;
+  .serverHeader {
     align-items: flex-start;
   }
 
-  .serverName {
-    font-size: $font-size-h3;
+  .serverHeaderRight {
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .serverActions {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+
+  .secondaryMetrics {
+    grid-template-columns: 1fr;
+  }
+
+  .primaryMetricValue {
+    font-size: clamp(30px, 11vw, 38px);
   }
 
   .metricsGrid,

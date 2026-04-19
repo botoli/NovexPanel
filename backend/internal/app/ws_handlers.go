@@ -221,8 +221,14 @@ func (a *App) persistMetrics(serverID uint, raw json.RawMessage) {
 			Percent float64 `json:"percent"`
 		} `json:"ram"`
 		Disk struct {
-			Percent float64 `json:"percent"`
+			Percent    float64 `json:"percent"`
+			ReadSpeed  float64 `json:"read_speed"`
+			WriteSpeed float64 `json:"write_speed"`
 		} `json:"disk"`
+		Network struct {
+			RXSpeed float64 `json:"rx_speed"`
+			TXSpeed float64 `json:"tx_speed"`
+		} `json:"network"`
 	}
 	_ = json.Unmarshal(copied, &m)
 
@@ -230,12 +236,16 @@ func (a *App) persistMetrics(serverID uint, raw json.RawMessage) {
 	lastMetrics := datatypes.JSON(copied)
 	_ = a.db.Model(&models.Server{}).Where("id = ?", serverID).Update("last_metrics", lastMetrics).Error
 	_ = a.db.Create(&models.MetricPoint{
-		ServerID:    serverID,
-		Timestamp:   now,
-		CPUUsage:    m.CPU.Usage,
-		RAMPercent:  m.RAM.Percent,
-		DiskPercent: m.Disk.Percent,
-		Raw:         datatypes.JSON(copied),
+		ServerID:       serverID,
+		Timestamp:      now,
+		CPUUsage:       m.CPU.Usage,
+		RAMPercent:     m.RAM.Percent,
+		DiskPercent:    m.Disk.Percent,
+		DiskReadBytes:  m.Disk.ReadSpeed,
+		DiskWriteBytes: m.Disk.WriteSpeed,
+		NetworkRXBytes: m.Network.RXSpeed,
+		NetworkTXBytes: m.Network.TXSpeed,
+		Raw:            datatypes.JSON(copied),
 	}).Error
 }
 
@@ -347,6 +357,28 @@ func (a *App) handleSiteMessage(site *SiteClient, payload []byte) {
 			return
 		}
 		if err := a.hub.TerminalInput(site, msg.ServerID, msg.SessionID, msg.Data); err != nil {
+			a.sendSiteError(site, err.Error())
+		}
+	case "terminal_resize":
+		var msg struct {
+			ServerID  uint   `json:"server_id"`
+			SessionID string `json:"session_id"`
+			Rows      int    `json:"rows"`
+			Cols      int    `json:"cols"`
+		}
+		if err := json.Unmarshal(payload, &msg); err != nil {
+			a.sendSiteError(site, "invalid terminal_resize payload")
+			return
+		}
+		if msg.Rows <= 0 || msg.Cols <= 0 {
+			a.sendSiteError(site, "invalid terminal_resize dimensions")
+			return
+		}
+		if msg.Rows > 1000 || msg.Cols > 1000 {
+			a.sendSiteError(site, "terminal_resize dimensions are too large")
+			return
+		}
+		if err := a.hub.TerminalResize(site, msg.ServerID, msg.SessionID, msg.Rows, msg.Cols); err != nil {
 			a.sendSiteError(site, err.Error())
 		}
 	case "close_terminal":
