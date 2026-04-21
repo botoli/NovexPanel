@@ -1,0 +1,424 @@
+@use "../../../Styles/Variables.scss" as *;
+
+// 🧭 PAGE HEADER
+// ========================================
+
+.pageHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $space-5 0;
+  border-bottom: $border-default;
+  margin-bottom: $space-5;
+
+  .headerContent {
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+  }
+
+  h1 {
+    font-size: $font-size-h2;
+    font-weight: $font-weight-semibold;
+    color: $color-text-primary;
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+    margin: 0;
+    letter-spacing: $letter-spacing-heading;
+  }
+
+  .headerIcon {
+    color: $color-text-secondary;
+    font-size: 20px;
+  }
+
+  .deployCount {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 $space-2;
+    background: $color-surface-2;
+    border: $border-default;
+    border-radius: $radius-full;
+    font-size: $font-size-small;
+    font-weight: $font-weight-medium;
+    color: $color-text-secondary;
+  }
+}
+
+// 🔘 HEADER BUTTON
+// ========================================
+
+.headerBtn {
+  height: $btn-height;
+  padding: 0 $btn-padding-x;
+  border-radius: $btn-radius;
+  font-size: $btn-font-size;
+  font-weight: $btn-font-weight;
+  font-family: $font-family-base;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: $space-2;
+  white-space: nowrap;
+  border: none;
+  background: $btn-primary-bg;
+  color: $btn-primary-text;
+
+  &:hover {
+    opacity: 0.92;
+  }
+
+  &:active {
+    opacity: 0.88;
+  }
+
+  .icon {
+    font-size: 16px;
+    line-height: 1;
+  }
+}
+
+// 📊 TABLE CONTAINER
+// ========================================
+
+.DeploysTable {
+  .tableCard {
+    background: $card-bg;
+    border: $border-default;
+    border-radius: $card-radius;
+    overflow: hidden;
+  }
+
+  .tableScroll {
+    overflow-x: auto;
+
+    &::-webkit-scrollbar {
+      height: 4px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: $color-surface-2;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: $color-border;
+      border-radius: $radius-full;
+
+      &:hover {
+        background: $color-border-hover;
+      }
+    }
+  }
+}
+
+// 📋 TABLE BASE
+// ========================================
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: $font-family-base;
+  font-size: $font-size-body;
+  color: $color-text-primary;
+
+  thead {
+    tr {
+      border-bottom: $border-default;
+      background: $color-surface-2;
+
+      th {
+        padding: $space-4 $card-padding;
+        text-align: left;
+        font-size: $font-size-small;
+        font-weight: $font-weight-semibold;
+        color: $color-text-secondary;
+        text-transform: uppercase;
+        letter-spacing: $letter-spacing-heading;
+        white-space: nowrap;
+
+        .thIcon {
+          margin-right: $space-2;
+          vertical-align: -2px;
+          opacity: 0.8;
+        }
+
+        &.actionsTh {
+          text-align: right;
+          width: 1%;
+        }
+      }
+    }
+  }
+
+  tbody {
+    .tableRow {
+      border-bottom: 1px solid rgba($color-border, 0.5);
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      &:hover {
+        background: $color-hover;
+  
+      }
+    }
+
+    td {
+      padding: $space-4 $card-padding;
+      vertical-align: middle;
+      color: $color-text-primary;
+
+      // 🔹 Язык — бейдж
+      .langBadge {
+        display: inline-flex;
+        align-items: center;
+        padding: $space-1 $space-3;
+        background: rgba($color-text-secondary, 0.1);
+        border: 1px solid rgba($color-border, 0.8);
+        border-radius: $radius-sm;
+        font-size: $font-size-small;
+        font-weight: $font-weight-medium;
+        color: $color-text-primary;
+      }
+
+      // 🔹 Иконки в ячейках
+      .cellIcon {
+        margin-right: $space-2;
+        color: $color-text-muted;
+        font-size: 14px;
+        vertical-align: -2px;
+        opacity: 0.7;
+      }
+
+      // 🔹 Репозиторий — моноширинный
+      .repoCode {
+        font-family: "JetBrains Mono", "Fira Code", monospace;
+        font-size: $font-size-small;
+        color: $color-text-secondary;
+        background: rgba($color-border, 0.1);
+        padding: $space-1 $space-2;
+        border-radius: $radius-sm;
+        border: 1px solid transparent;
+
+        &:hover {
+          border-color: $color-border;
+        }
+      }
+
+      // 🔹 Статус — бейдж с индикатором
+      .statusBadge {
+        display: inline-flex;
+        align-items: center;
+        gap: $space-2;
+        padding: $space-1 $space-3;
+        border-radius: $radius-full;
+        font-size: $font-size-small;
+        font-weight: $font-weight-medium;
+        border: 1px solid transparent;
+
+        .statusDot {
+          width: 6px;
+          height: 6px;
+          border-radius: $radius-full;
+          background: currentColor;
+        }
+      }
+
+      .status-online {
+        background: rgba($color-status-online, 0.12);
+        color: $color-status-online;
+        border-color: rgba($color-status-online, 0.3);
+      }
+
+      .status-offline {
+        background: rgba($color-status-offline, 0.12);
+        color: $color-status-offline;
+        border-color: rgba($color-status-offline, 0.3);
+      }
+
+      .status-pending,
+      .status-building,
+      .status-deploying {
+        background: rgba($color-text-secondary, 0.12);
+        color: $color-text-secondary;
+        border-color: rgba($color-text-secondary, 0.3);
+      }
+
+      // 🔹 Ссылка — минималистичная
+      .urlLink {
+        display: inline-flex;
+        align-items: center;
+        gap: $space-2;
+        color: $color-text-primary;
+        text-decoration: none;
+        font-size: $font-size-small;
+        border-bottom: 1px dashed transparent;
+
+        .linkIcon {
+          color: $color-text-muted;
+          font-size: 12px;
+          opacity: 0.8;
+        }
+
+        &:hover {
+          border-bottom-color: $color-border-hover;
+          .linkIcon {
+            opacity: 1;
+          }
+        }
+      }
+
+      .urlEmpty {
+        color: $color-text-muted;
+        font-style: italic;
+      }
+
+      // 🔹 Кнопка действий
+      &.colActions {
+        text-align: right;
+        padding-right: $card-padding;
+      }
+    }
+  }
+}
+
+// 🔘 STOP BUTTON
+// ========================================
+
+.deleteBtn {
+  height: 32px;
+  width: 32px;
+  min-width: 32px;
+  padding: 0;
+  border-radius: $radius-md;
+  font-size: 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid $color-status-offline;
+  background: transparent;
+  color: $color-status-offline;
+
+  .icon {
+    font-size: 16px;
+    line-height: 1;
+  }
+
+  &:hover {
+    background: rgba($color-status-offline, 0.08);
+  }
+
+  &:active {
+    background: rgba($color-status-offline, 0.15);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    border-color: $color-border;
+    color: $color-text-muted;
+
+    &:hover {
+      background: transparent;
+    }
+  }
+}
+
+// 🧭 EMPTY STATE
+// ========================================
+
+.emptyState {
+  text-align: center;
+  padding: $space-7 $card-padding;
+  color: $color-text-muted;
+
+  .emptyIcon {
+    font-size: 48px;
+    color: $color-border;
+    margin-bottom: $space-4;
+    opacity: 0.6;
+  }
+
+  p {
+    font-size: $font-size-body;
+    font-weight: $font-weight-medium;
+    color: $color-text-secondary;
+    margin: 0 0 $space-2 0;
+  }
+
+  .emptyHint {
+    font-size: $font-size-small;
+    color: $color-text-muted;
+  }
+}
+
+// ♿ ACCESSIBILITY & REDUCED MOTION
+// ========================================
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}
+
+.deleteBtn,
+.headerBtn,
+.urlLink {
+  &:focus-visible {
+    outline: 2px solid $color-status-online;
+    outline-offset: 2px;
+  }
+}
+
+// 📱 RESPONSIVE
+// ========================================
+
+@media (max-width: 1024px) {
+  .table {
+    th:nth-child(4), // repo
+    td:nth-child(4) {
+      display: none;
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .pageHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: $space-4;
+
+    .headerContent {
+      width: 100%;
+      justify-content: space-between;
+    }
+  }
+
+  .headerBtn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .table {
+    font-size: $font-size-small;
+
+    thead th,
+    tbody td {
+      padding: $space-3;
+    }
+
+    th:nth-child(2), // branch
+    td:nth-child(2),
+    th:nth-child(6), // url
+    td:nth-child(6) {
+      display: none;
+    }
+  }
+}

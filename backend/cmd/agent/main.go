@@ -82,6 +82,14 @@ type Agent struct {
 	lastDiskRead  uint64
 	lastDiskWrite uint64
 	lastDiskAt    time.Time
+
+	deployMu      sync.Mutex
+	activeDeploys map[uint]deployRuntime
+}
+
+type deployRuntime struct {
+	ContainerName string
+	PID           int
 }
 
 type terminalSession struct {
@@ -97,12 +105,56 @@ type commandMessage struct {
 }
 
 type deployPayload struct {
-	DeployID    uint   `json:"deploy_id"`
-	Source      string `json:"source"`
-	RepoURL     string `json:"repo_url"`
-	Branch      string `json:"branch"`
-	ProjectType string `json:"project_type"`
-	ZipData     string `json:"zip_data"`
+	DeployID          uint   `json:"deploy_id"`
+	DeployIDCamel     uint   `json:"deployId"`
+	Source            string `json:"source"`
+	RepoURL           string `json:"repo_url"`
+	RepoURLCamel      string `json:"repoUrl"`
+	Branch            string `json:"branch"`
+	Type              string `json:"type"`
+	ProjectType       string `json:"project_type"`
+	ProjectTypeCamel  string `json:"projectType"`
+	Subdirectory      string `json:"subdirectory"`
+	SubdirectoryAlt   string `json:"sub_directory"`
+	SubdirectoryCamel string `json:"subDirectory"`
+	BuildCommand      string `json:"build_command"`
+	BuildCommandAlt   string `json:"buildCommand"`
+	OutputDir         string `json:"output_dir"`
+	OutputDirAlt      string `json:"outputDir"`
+	ZipData           string `json:"zip_data"`
+}
+
+func (p *deployPayload) normalize() {
+	if p.DeployID == 0 {
+		p.DeployID = p.DeployIDCamel
+	}
+	if strings.TrimSpace(p.RepoURL) == "" {
+		p.RepoURL = strings.TrimSpace(p.RepoURLCamel)
+	}
+	if strings.TrimSpace(p.ProjectType) == "" {
+		p.ProjectType = strings.TrimSpace(p.ProjectTypeCamel)
+	}
+	if strings.TrimSpace(p.ProjectType) == "" {
+		p.ProjectType = strings.TrimSpace(p.Type)
+	}
+	if strings.TrimSpace(p.Subdirectory) == "" {
+		p.Subdirectory = strings.TrimSpace(p.SubdirectoryAlt)
+	}
+	if strings.TrimSpace(p.Subdirectory) == "" {
+		p.Subdirectory = strings.TrimSpace(p.SubdirectoryCamel)
+	}
+	if strings.TrimSpace(p.BuildCommand) == "" {
+		p.BuildCommand = strings.TrimSpace(p.BuildCommandAlt)
+	}
+	if strings.TrimSpace(p.OutputDir) == "" {
+		p.OutputDir = strings.TrimSpace(p.OutputDirAlt)
+	}
+	if strings.TrimSpace(p.Source) == "" {
+		p.Source = "github"
+	}
+	if strings.TrimSpace(p.Branch) == "" {
+		p.Branch = "main"
+	}
 }
 
 func main() {
@@ -137,8 +189,9 @@ func main() {
 	logInfo("agent started: backend=%s, name=%q, metrics_interval=%s", cfg.BackendURL, cfg.Name, cfg.MetricsInterval)
 
 	agent := &Agent{
-		cfg:       cfg,
-		terminals: make(map[string]*terminalSession),
+		cfg:           cfg,
+		terminals:     make(map[string]*terminalSession),
+		activeDeploys: make(map[uint]deployRuntime),
 	}
 	agent.runForever()
 }
@@ -476,10 +529,13 @@ func (a *Agent) connectAndRun() error {
 }
 
 func (a *Agent) handleMessage(payload []byte) {
+	logInfo("agent received message: %s", truncateLogPayload(payload, 2048))
+
 	var envelope struct {
 		Type string `json:"type"`
 	}
 	if err := json.Unmarshal(payload, &envelope); err != nil {
+		logWarn("agent message unmarshal failed: %v", err)
 		return
 	}
 
@@ -487,9 +543,44 @@ func (a *Agent) handleMessage(payload []byte) {
 	case "command":
 		var msg commandMessage
 		if err := json.Unmarshal(payload, &msg); err != nil {
+			logWarn("agent command envelope unmarshal failed: %v", err)
 			return
 		}
+		logInfo("agent received command envelope: command=%s request_id=%s", msg.Command, msg.RequestID)
 		go a.handleCommand(msg)
+	case "deploy":
+		var deployMsg deployPayload
+		if err := json.Unmarshal(payload, &deployMsg); err != nil {
+			logWarn("agent deploy event unmarshal failed: %v", err)
+			return
+		}
+		deployMsg.normalize()
+		if deployMsg.DeployID == 0 {
+			logWarn("agent deploy event ignored: missing deploy_id")
+			return
+		}
+		logInfo("agent received deploy event: deploy_id=%d repo=%q branch=%q", deployMsg.DeployID, deployMsg.RepoURL, deployMsg.Branch)
+		go a.runDeploy(deployMsg)
+	case "stop_deploy":
+		var msg struct {
+			DeployID      uint `json:"deploy_id"`
+			DeployIDCamel uint `json:"deployId"`
+		}
+		if err := json.Unmarshal(payload, &msg); err != nil {
+			logWarn("agent stop_deploy event unmarshal failed: %v", err)
+			return
+		}
+		if msg.DeployID == 0 {
+			msg.DeployID = msg.DeployIDCamel
+		}
+		if msg.DeployID == 0 {
+			logWarn("agent stop_deploy event ignored: missing deploy_id")
+			return
+		}
+		logInfo("agent received stop_deploy event: deploy_id=%d", msg.DeployID)
+		if err := a.stopDeploy(msg.DeployID); err != nil {
+			logWarn("stop_deploy failed (deploy_id=%d): %v", msg.DeployID, err)
+		}
 	case "terminal_input":
 		var msg struct {
 			SessionID string `json:"session_id"`
@@ -519,10 +610,14 @@ func (a *Agent) handleMessage(payload []byte) {
 		a.closeTerminal(msg.SessionID)
 	case "ping":
 		_ = a.sendJSON(map[string]any{"type": "pong"})
+	default:
+		logWarn("agent received unknown message type: %q", envelope.Type)
 	}
 }
 
 func (a *Agent) handleCommand(msg commandMessage) {
+	logInfo("agent handling command: command=%s request_id=%s", msg.Command, msg.RequestID)
+
 	respondError := func(err error) {
 		a.sendCommandResponse(msg.RequestID, false, nil, err.Error())
 	}
@@ -605,11 +700,35 @@ func (a *Agent) handleCommand(msg commandMessage) {
 			respondError(fmt.Errorf("invalid payload"))
 			return
 		}
+		payload.normalize()
 		if payload.DeployID == 0 {
 			respondError(fmt.Errorf("deploy_id is required"))
 			return
 		}
+		logInfo("agent received deploy command: deploy_id=%d repo=%q branch=%q", payload.DeployID, payload.RepoURL, payload.Branch)
 		go a.runDeploy(payload)
+		a.sendCommandResponse(msg.RequestID, true, map[string]any{"accepted": true}, "")
+	case "stop_deploy":
+		var payload struct {
+			DeployID      uint `json:"deploy_id"`
+			DeployIDCamel uint `json:"deployId"`
+		}
+		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			respondError(fmt.Errorf("invalid payload"))
+			return
+		}
+		if payload.DeployID == 0 {
+			payload.DeployID = payload.DeployIDCamel
+		}
+		if payload.DeployID == 0 {
+			respondError(fmt.Errorf("deploy_id is required"))
+			return
+		}
+		logInfo("agent received stop_deploy command: deploy_id=%d", payload.DeployID)
+		if err := a.stopDeploy(payload.DeployID); err != nil {
+			respondError(err)
+			return
+		}
 		a.sendCommandResponse(msg.RequestID, true, map[string]any{"accepted": true}, "")
 	default:
 		logError("unknown command received: %s", msg.Command)
@@ -676,6 +795,17 @@ func (a *Agent) sendCommandResponse(requestID string, success bool, data any, er
 		message["error"] = errText
 	}
 	_ = a.sendJSON(message)
+}
+
+func truncateLogPayload(payload []byte, maxLen int) string {
+	text := strings.TrimSpace(string(payload))
+	if maxLen <= 0 || len(text) <= maxLen {
+		return text
+	}
+	if maxLen <= 3 {
+		return text[:maxLen]
+	}
+	return text[:maxLen-3] + "..."
 }
 
 func (a *Agent) metricsLoop(ctx context.Context) {
@@ -1022,17 +1152,119 @@ func (a *Agent) closeAllTerminals() {
 	}
 }
 
+func (a *Agent) setDeployRuntime(deployID uint, runtime deployRuntime) {
+	a.deployMu.Lock()
+	a.activeDeploys[deployID] = runtime
+	a.deployMu.Unlock()
+}
+
+func (a *Agent) clearDeployRuntime(deployID uint) {
+	a.deployMu.Lock()
+	delete(a.activeDeploys, deployID)
+	a.deployMu.Unlock()
+}
+
+func (a *Agent) stopDeploy(deployID uint) error {
+	a.deployMu.Lock()
+	runtime, ok := a.activeDeploys[deployID]
+	if ok {
+		delete(a.activeDeploys, deployID)
+	}
+	a.deployMu.Unlock()
+
+	if runtime.ContainerName != "" {
+		_, stderr, _, err := runShellCommand("docker rm -f " + runtime.ContainerName)
+		if err != nil {
+			if strings.TrimSpace(stderr) != "" {
+				return errors.New(strings.TrimSpace(stderr))
+			}
+			return err
+		}
+		return nil
+	}
+
+	if runtime.PID > 0 {
+		proc, err := os.FindProcess(runtime.PID)
+		if err != nil {
+			return err
+		}
+		return proc.Kill()
+	}
+
+	// Best effort fallback for unknown runtime: stop docker containers by naming convention.
+	stdout, _, _, err := runShellCommand(fmt.Sprintf("docker ps -a --filter name=deploy-%d- --format '{{.Names}}'", deployID))
+	if err != nil {
+		return nil
+	}
+	for _, name := range strings.Split(strings.TrimSpace(stdout), "\n") {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		_, _, _, _ = runShellCommand("docker rm -f " + name)
+	}
+
+	return nil
+}
+
 func (a *Agent) runDeploy(payload deployPayload) {
+	payload.normalize()
+	a.clearDeployRuntime(payload.DeployID)
+
+	const stepTimeout = 5 * time.Minute
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
+
+	assignedPort := 0
+	var deployLogBuilder strings.Builder
+
+	branch := strings.TrimSpace(payload.Branch)
+	if branch == "" {
+		branch = "main"
+	}
+	requestedType := strings.ToLower(strings.TrimSpace(payload.ProjectType))
+	subdirectory := strings.TrimSpace(payload.Subdirectory)
+
+	logInfo("deploy started: deploy_id=%d repo=%q branch=%q subdirectory=%q type=%q", payload.DeployID, payload.RepoURL, branch, subdirectory, requestedType)
 
 	logf := func(line string, isErr bool) {
 		if strings.TrimSpace(line) == "" {
 			return
 		}
+		if isErr {
+			logError("deploy %d: %s", payload.DeployID, line)
+		} else {
+			logInfo("deploy %d: %s", payload.DeployID, line)
+		}
+		deployLogBuilder.WriteString(line)
+		if !strings.HasSuffix(line, "\n") {
+			deployLogBuilder.WriteByte('\n')
+		}
 		a.sendDeployLog(payload.DeployID, line, isErr)
 	}
 	finish := func(success bool, deployURL, errText string) {
+		status := "error"
+		if success {
+			status = "success"
+		} else {
+			a.clearDeployRuntime(payload.DeployID)
+		}
+
+		if success {
+			logSuccess("deploy finished: deploy_id=%d url=%s port=%d", payload.DeployID, deployURL, assignedPort)
+		} else {
+			logError("deploy failed: deploy_id=%d error=%s", payload.DeployID, strings.TrimSpace(errText))
+		}
+
+		_ = a.sendJSON(map[string]any{
+			"type":     "deploy_result",
+			"deployId": payload.DeployID,
+			"status":   status,
+			"url":      deployURL,
+			"port":     assignedPort,
+			"log":      deployLogBuilder.String(),
+			"error":    errText,
+		})
 		_ = a.sendJSON(map[string]any{
 			"type":      "deploy_complete",
 			"deploy_id": payload.DeployID,
@@ -1041,13 +1273,24 @@ func (a *Agent) runDeploy(payload deployPayload) {
 			"error":     errText,
 		})
 	}
+	fail := func(step string, commandOutput string, stepErr error) {
+		reason := step
+		if stepErr != nil {
+			reason = fmt.Sprintf("%s: %v", step, stepErr)
+		}
+		finish(false, "", formatDeployError(reason, commandOutput))
+	}
 
 	workDir, err := os.MkdirTemp("", fmt.Sprintf("novex-deploy-%d-*", payload.DeployID))
 	if err != nil {
 		finish(false, "", err.Error())
 		return
 	}
-	defer os.RemoveAll(workDir)
+	defer func() {
+		if removeErr := os.RemoveAll(workDir); removeErr != nil {
+			logWarn("cleanup deploy workdir failed: deploy_id=%d dir=%s error=%v", payload.DeployID, workDir, removeErr)
+		}
+	}()
 
 	sourceDir := filepath.Join(workDir, "src")
 	switch strings.ToLower(strings.TrimSpace(payload.Source)) {
@@ -1056,12 +1299,9 @@ func (a *Agent) runDeploy(payload deployPayload) {
 			finish(false, "", "repo_url is required")
 			return
 		}
-		branch := strings.TrimSpace(payload.Branch)
-		if branch == "" {
-			branch = "main"
-		}
-		if err := a.runLoggedCommand(ctx, payload.DeployID, workDir, nil, "git", "clone", "--branch", branch, payload.RepoURL, "src"); err != nil {
-			finish(false, "", err.Error())
+		cloneOutput, runErr := runDeployCommand(ctx, stepTimeout, workDir, logf, "git", "clone", "--depth", "1", "--branch", branch, payload.RepoURL, "src")
+		if runErr != nil {
+			fail("clone failed", cloneOutput, runErr)
 			return
 		}
 	case "zip":
@@ -1082,86 +1322,177 @@ func (a *Agent) runDeploy(payload deployPayload) {
 		return
 	}
 
-	sourceDir = normalizeSourceRoot(sourceDir)
-	projectType := detectProjectType(sourceDir, payload.ProjectType)
+	repoDir := normalizeSourceRoot(sourceDir)
+	effectiveDir := repoDir
+	if subdirectory != "" {
+		resolvedDir, resolveErr := resolveDeployWorkDir(repoDir, subdirectory)
+		if resolveErr != nil {
+			finish(false, "", resolveErr.Error())
+			return
+		}
+		effectiveDir = resolvedDir
+		logf(fmt.Sprintf("using subdirectory: %s", effectiveDir), false)
+	}
+
+	projectType := resolveDeployProjectType(requestedType, effectiveDir)
+	if !isSupportedProjectType(projectType) {
+		finish(false, "", fmt.Sprintf("unsupported project type: %s", projectType))
+		return
+	}
+	logf(fmt.Sprintf("detected project type: %s", projectType), false)
+
+	customBuild := strings.TrimSpace(payload.BuildCommand)
+	if customBuild == "" {
+		switch projectType {
+		case "go":
+			output, runErr := runDeployCommand(ctx, stepTimeout, effectiveDir, logf, "go", "mod", "download")
+			if runErr != nil {
+				fail("go mod download failed", output, runErr)
+				return
+			}
+
+			output, runErr = runDeployCommand(ctx, stepTimeout, effectiveDir, logf, "go", "build", "-o", "app", ".")
+			if runErr != nil {
+				fail("go build failed", output, runErr)
+				return
+			}
+		case "node":
+			output, runErr := runDeployCommand(ctx, stepTimeout, effectiveDir, logf, "npm", "install")
+			if runErr != nil {
+				fail("npm install failed", output, runErr)
+				return
+			}
+
+			hasBuild, buildErr := hasBuildScript(effectiveDir)
+			if buildErr != nil {
+				fail("read package.json scripts failed", "", buildErr)
+				return
+			}
+			if hasBuild {
+				output, runErr = runDeployCommand(ctx, stepTimeout, effectiveDir, logf, "npm", "run", "build")
+				if runErr != nil {
+					fail("npm run build failed", output, runErr)
+					return
+				}
+			}
+		case "python":
+			logf("python project: build step is not required", false)
+		case "static":
+			logf("static project: build step is not required", false)
+		}
+	} else {
+		output, runErr := runDeployCommand(ctx, stepTimeout, effectiveDir, logf, "bash", "-lc", customBuild)
+		if runErr != nil {
+			fail("custom build failed", output, runErr)
+			return
+		}
+	}
+
 	port, err := findFreePort()
 	if err != nil {
 		finish(false, "", err.Error())
 		return
 	}
+	assignedPort = port
 
-	logf("Detected project type: "+projectType, false)
+	if fileExists(filepath.Join(effectiveDir, "Dockerfile")) {
+		tag := fmt.Sprintf("deploy-%d", payload.DeployID)
+		output, runErr := runDeployCommand(ctx, stepTimeout, effectiveDir, logf, "docker", "build", "-t", tag, ".")
+		if runErr != nil {
+			fail("docker build failed", output, runErr)
+			return
+		}
+
+		containerName := fmt.Sprintf("deploy-%d-%d", payload.DeployID, time.Now().Unix())
+		output, runErr = runDeployCommand(ctx, stepTimeout, effectiveDir, logf, "docker", "run", "-d", "--name", containerName, "-p", fmt.Sprintf("%d:80", port), tag)
+		if runErr != nil {
+			fail("docker run failed", output, runErr)
+			return
+		}
+
+		a.setDeployRuntime(payload.DeployID, deployRuntime{ContainerName: containerName})
+		url := fmt.Sprintf("http://%s:%d", detectLocalIP(), port)
+		finish(true, url, "")
+		return
+	}
+
+	logf("Dockerfile not found, using process runtime", false)
 
 	switch projectType {
-	case "docker":
-		tag := fmt.Sprintf("deploy-%d", payload.DeployID)
-		if err := a.runLoggedCommand(ctx, payload.DeployID, sourceDir, nil, "docker", "build", "-t", tag, "."); err != nil {
-			finish(false, "", err.Error())
-			return
-		}
-		containerName := fmt.Sprintf("deploy-%d-%d", payload.DeployID, time.Now().Unix())
-		if err := a.runLoggedCommand(ctx, payload.DeployID, sourceDir, nil, "docker", "run", "-d", "--name", containerName, "-p", fmt.Sprintf("%d:80", port), tag); err != nil {
-			finish(false, "", err.Error())
-			return
-		}
 	case "go":
-		if err := a.runLoggedCommand(ctx, payload.DeployID, sourceDir, nil, "go", "build", "-o", "app", "."); err != nil {
-			finish(false, "", err.Error())
-			return
-		}
-		pid, err := startDetached(sourceDir, []string{fmt.Sprintf("PORT=%d", port)}, "./app")
-		if err != nil {
-			finish(false, "", err.Error())
-			return
-		}
-		logf(fmt.Sprintf("Started Go process pid=%d", pid), false)
-	case "react":
-		if err := a.runLoggedCommand(ctx, payload.DeployID, sourceDir, nil, "npm", "install"); err != nil {
-			finish(false, "", err.Error())
-			return
-		}
-		if err := a.runLoggedCommand(ctx, payload.DeployID, sourceDir, nil, "npm", "run", "build"); err != nil {
-			finish(false, "", err.Error())
-			return
-		}
-		pid, err := startDetached(sourceDir, nil, "npx", "--yes", "serve", "-s", "build", "-l", fmt.Sprintf("%d", port))
-		if err != nil {
-			finish(false, "", err.Error())
-			return
-		}
-		logf(fmt.Sprintf("Started static server pid=%d", pid), false)
+// Проверка бинарника
+appPath := filepath.Join(effectiveDir, "app")
+if _, err := os.Stat(appPath); err != nil {
+    finish(false, "", fmt.Sprintf("app binary not found at %s: %v", appPath, err))
+    return
+}
+
+// Проверка прав на исполнение
+info, _ := os.Stat(appPath)
+if info.Mode().Perm()&0111 == 0 {
+    finish(false, "", fmt.Sprintf("app binary not executable: %s (mode %s)", appPath, info.Mode()))
+    return
+}
+
+logf(fmt.Sprintf("app binary found and executable: %s", appPath), false)
 	case "node":
-		if err := a.runLoggedCommand(ctx, payload.DeployID, sourceDir, nil, "npm", "install"); err != nil {
-			finish(false, "", err.Error())
+		serveDir := ""
+		if resolvedOutput := resolveOutputDir(effectiveDir, payload.OutputDir); resolvedOutput != "" {
+			if !dirExists(resolvedOutput) {
+				finish(false, "", fmt.Sprintf("output directory not found: %s", resolvedOutput))
+				return
+			}
+			serveDir = resolvedOutput
+		} else {
+			for _, candidate := range []string{"build", "dist", "public"} {
+				candidateDir := filepath.Join(effectiveDir, candidate)
+				if dirExists(candidateDir) {
+					serveDir = candidateDir
+					break
+				}
+			}
+		}
+
+		if serveDir != "" {
+			pid, startErr := startDetachedChecked(effectiveDir, nil, "npx", "--yes", "serve", "-s", serveDir, "-l", fmt.Sprintf("%d", port))
+			if startErr != nil {
+				finish(false, "", startErr.Error())
+				return
+			}
+			a.setDeployRuntime(payload.DeployID, deployRuntime{PID: pid})
+			logf(fmt.Sprintf("started node static server pid=%d dir=%s", pid, serveDir), false)
+		} else {
+			pid, startErr := startDetachedChecked(effectiveDir, []string{fmt.Sprintf("PORT=%d", port)}, "npm", "start")
+			if startErr != nil {
+				finish(false, "", startErr.Error())
+				return
+			}
+			a.setDeployRuntime(payload.DeployID, deployRuntime{PID: pid})
+			logf(fmt.Sprintf("started node app process pid=%d", pid), false)
+		}
+	case "python", "static":
+		serveDir := effectiveDir
+		if resolvedOutput := resolveOutputDir(effectiveDir, payload.OutputDir); resolvedOutput != "" {
+			if !dirExists(resolvedOutput) {
+				finish(false, "", fmt.Sprintf("output directory not found: %s", resolvedOutput))
+				return
+			}
+			serveDir = resolvedOutput
+		}
+
+		pythonCmd, pythonErr := firstAvailableCommand("python3", "python")
+		if pythonErr != nil {
+			finish(false, "", pythonErr.Error())
 			return
 		}
 
-		hasBuild, _ := hasBuildScript(sourceDir)
-		if hasBuild {
-			if err := a.runLoggedCommand(ctx, payload.DeployID, sourceDir, nil, "npm", "run", "build"); err != nil {
-				finish(false, "", err.Error())
-				return
-			}
+		pid, startErr := startDetachedChecked(serveDir, nil, pythonCmd, "-m", "http.server", fmt.Sprintf("%d", port), "--bind", "0.0.0.0")
+		if startErr != nil {
+			finish(false, "", startErr.Error())
+			return
 		}
-
-		if dirExists(filepath.Join(sourceDir, "build")) {
-			pid, err := startDetached(sourceDir, nil, "npx", "--yes", "serve", "-s", "build", "-l", fmt.Sprintf("%d", port))
-			if err != nil {
-				finish(false, "", err.Error())
-				return
-			}
-			logf(fmt.Sprintf("Started build server pid=%d", pid), false)
-		} else {
-			pid, err := startDetached(sourceDir, []string{fmt.Sprintf("PORT=%d", port)}, "npm", "start")
-			if err != nil {
-				finish(false, "", err.Error())
-				return
-			}
-			logf(fmt.Sprintf("Started node process pid=%d", pid), false)
-		}
-	default:
-		finish(false, "", "unsupported project type")
-		return
+		a.setDeployRuntime(payload.DeployID, deployRuntime{PID: pid})
+		logf(fmt.Sprintf("started %s file server pid=%d dir=%s", projectType, pid, serveDir), false)
 	}
 
 	url := fmt.Sprintf("http://%s:%d", detectLocalIP(), port)
@@ -1177,13 +1508,13 @@ func (a *Agent) sendDeployLog(deployID uint, line string, isErr bool) {
 	})
 }
 
-func (a *Agent) runLoggedCommand(ctx context.Context, deployID uint, dir string, env []string, name string, args ...string) error {
-	_ = a.sendJSON(map[string]any{
-		"type":      "deploy_log",
-		"deploy_id": deployID,
-		"line":      "$ " + name + " " + strings.Join(args, " "),
-		"is_error":  false,
-	})
+func (a *Agent) runLoggedCommand(ctx context.Context, deployID uint, dir string, env []string, onLine func(string, bool), name string, args ...string) error {
+	commandLine := "$ " + name + " " + strings.Join(args, " ")
+	if onLine != nil {
+		onLine(commandLine, false)
+	} else {
+		a.sendDeployLog(deployID, commandLine, false)
+	}
 
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
@@ -1210,7 +1541,11 @@ func (a *Agent) runLoggedCommand(ctx context.Context, deployID uint, dir string,
 		scanner.Buffer(buf, 1024*1024)
 		for scanner.Scan() {
 			line := scanner.Text()
-			a.sendDeployLog(deployID, line, isErr)
+			if onLine != nil {
+				onLine(line, isErr)
+			} else {
+				a.sendDeployLog(deployID, line, isErr)
+			}
 		}
 	}
 
@@ -1226,47 +1561,189 @@ func (a *Agent) runLoggedCommand(ctx context.Context, deployID uint, dir string,
 	return nil
 }
 
-func detectProjectType(sourceDir, requested string) string {
-	requested = strings.ToLower(strings.TrimSpace(requested))
-	if requested != "" && requested != "auto" {
-		return requested
+func runDeployCommand(parentCtx context.Context, timeout time.Duration, dir string, logf func(string, bool), name string, args ...string) (string, error) {
+	commandLine := strings.TrimSpace(name + " " + strings.Join(args, " "))
+	logf(fmt.Sprintf("running: %s in %s", commandLine, dir), false)
+
+	stepCtx, cancel := context.WithTimeout(parentCtx, timeout)
+	defer cancel()
+
+	combinedOutput, stderrOutput, err := runCommandContextDetailed(stepCtx, dir, name, args...)
+	logDeployOutput(logf, combinedOutput, err != nil)
+	if err != nil {
+		errorOutput := strings.TrimSpace(stderrOutput)
+		if errorOutput == "" {
+			errorOutput = strings.TrimSpace(combinedOutput)
+		}
+		return errorOutput, fmt.Errorf("%s failed in %s: %w", commandLine, dir, err)
 	}
 
-	if fileExists(filepath.Join(sourceDir, "Dockerfile")) {
-		return "docker"
-	}
-	if fileExists(filepath.Join(sourceDir, "go.mod")) {
-		return "go"
-	}
-	if fileExists(filepath.Join(sourceDir, "package.json")) {
-		if hasReactProject(sourceDir) {
-			return "react"
-		}
-		return "node"
-	}
-	return "react"
+	return combinedOutput, nil
 }
 
-func hasReactProject(sourceDir string) bool {
-	packageJSON := filepath.Join(sourceDir, "package.json")
-	content, err := os.ReadFile(packageJSON)
+func detectProjectType(workDir string) string {
+	if fileExists(filepath.Join(workDir, "go.mod")) {
+		return "go"
+	}
+	if fileExists(filepath.Join(workDir, "package.json")) {
+		return "node"
+	}
+	if fileExists(filepath.Join(workDir, "requirements.txt")) {
+		return "python"
+	}
+	return "static"
+}
+
+func resolveDeployProjectType(requested, workDir string) string {
+	projectType := strings.ToLower(strings.TrimSpace(requested))
+	if projectType == "" || projectType == "auto" {
+		return detectProjectType(workDir)
+	}
+	if projectType == "react" {
+		return "node"
+	}
+	return projectType
+}
+
+func isSupportedProjectType(projectType string) bool {
+	switch projectType {
+	case "go", "node", "python", "static":
+		return true
+	default:
+		return false
+	}
+}
+
+func resolveDeployWorkDir(repoDir, subdirectory string) (string, error) {
+	subdirectory = strings.TrimSpace(subdirectory)
+	if subdirectory == "" {
+		return repoDir, nil
+	}
+
+	normalized := strings.ReplaceAll(subdirectory, "\\", "/")
+	normalized = filepath.Clean(normalized)
+	if normalized == "." {
+		return repoDir, nil
+	}
+	if filepath.IsAbs(normalized) || normalized == ".." || strings.HasPrefix(normalized, ".."+string(os.PathSeparator)) {
+		return "", fmt.Errorf("invalid subdirectory path: %s", subdirectory)
+	}
+
+	workDir := filepath.Join(repoDir, normalized)
+	rel, err := filepath.Rel(repoDir, workDir)
 	if err != nil {
-		return false
+		return "", err
 	}
-	var parsed struct {
-		Dependencies    map[string]any `json:"dependencies"`
-		DevDependencies map[string]any `json:"devDependencies"`
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		return "", fmt.Errorf("subdirectory escapes repository root: %s", subdirectory)
 	}
-	if err := json.Unmarshal(content, &parsed); err != nil {
-		return false
+
+	info, err := os.Stat(workDir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("subdirectory does not exist: %s", subdirectory)
+		}
+		return "", err
 	}
-	if _, ok := parsed.Dependencies["react"]; ok {
-		return true
+	if !info.IsDir() {
+		return "", fmt.Errorf("subdirectory is not a directory: %s", subdirectory)
 	}
-	if _, ok := parsed.DevDependencies["react"]; ok {
-		return true
+
+	return workDir, nil
+}
+
+func runCommand(dir, name string, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	return runCommandContext(ctx, dir, name, args...)
+}
+
+func runCommandContext(ctx context.Context, dir, name string, args ...string) (string, error) {
+	combinedOutput, _, err := runCommandContextDetailed(ctx, dir, name, args...)
+	return combinedOutput, err
+}
+
+func runCommandContextDetailed(ctx context.Context, dir, name string, args ...string) (string, string, error) {
+	if _, err := exec.LookPath(name); err != nil {
+		return "", "", fmt.Errorf("command not found: %s", name)
 	}
-	return false
+
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Dir = dir
+
+	var stdoutBuffer bytes.Buffer
+	var stderrBuffer bytes.Buffer
+	cmd.Stdout = &stdoutBuffer
+	cmd.Stderr = &stderrBuffer
+
+	err := cmd.Run()
+	combinedOutput := strings.TrimSpace(stdoutBuffer.String() + stderrBuffer.String())
+	stderrOutput := strings.TrimSpace(stderrBuffer.String())
+	if err != nil {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			if deadline, ok := ctx.Deadline(); ok {
+				return combinedOutput, stderrOutput, fmt.Errorf("command timeout at %s", deadline.Format(time.RFC3339))
+			}
+			return combinedOutput, stderrOutput, fmt.Errorf("command timeout")
+		}
+
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return combinedOutput, stderrOutput, fmt.Errorf("exit status %d", exitErr.ExitCode())
+		}
+		return combinedOutput, stderrOutput, err
+	}
+
+	return combinedOutput, stderrOutput, nil
+}
+
+func logDeployOutput(logf func(string, bool), output string, isErr bool) {
+	trimmed := strings.TrimSpace(output)
+	if trimmed == "" {
+		return
+	}
+
+	scanner := bufio.NewScanner(strings.NewReader(trimmed))
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, 1024*1024)
+	for scanner.Scan() {
+		logf(scanner.Text(), isErr)
+	}
+}
+
+func formatDeployError(reason, output string) string {
+	trimmedReason := strings.TrimSpace(reason)
+	trimmedOutput := strings.TrimSpace(output)
+	if trimmedOutput == "" {
+		return trimmedReason
+	}
+	return fmt.Sprintf("%s. output: %s", trimmedReason, truncateDeployErrorText(trimmedOutput, 500))
+}
+
+func truncateDeployErrorText(text string, maxLen int) string {
+	if maxLen <= 0 || len(text) <= maxLen {
+		return text
+	}
+	if maxLen <= 3 {
+		return text[:maxLen]
+	}
+	return text[:maxLen-3] + "..."
+}
+
+func startDetachedChecked(dir string, env []string, name string, args ...string) (int, error) {
+	if _, err := exec.LookPath(name); err != nil {
+		return 0, fmt.Errorf("command not found: %s", name)
+	}
+	return startDetached(dir, env, name, args...)
+}
+
+func firstAvailableCommand(candidates ...string) (string, error) {
+	for _, candidate := range candidates {
+		if _, err := exec.LookPath(candidate); err == nil {
+			return candidate, nil
+		}
+	}
+	return "", fmt.Errorf("none of the required commands were found: %s", strings.Join(candidates, ", "))
 }
 
 func hasBuildScript(sourceDir string) (bool, error) {
@@ -1369,6 +1846,17 @@ func normalizeSourceRoot(sourceDir string) string {
 		return sourceDir
 	}
 	return filepath.Join(sourceDir, entries[0].Name())
+}
+
+func resolveOutputDir(sourceDir, outputDir string) string {
+	trimmed := strings.TrimSpace(outputDir)
+	if trimmed == "" {
+		return ""
+	}
+	if filepath.IsAbs(trimmed) {
+		return filepath.Clean(trimmed)
+	}
+	return filepath.Clean(filepath.Join(sourceDir, trimmed))
 }
 
 func findFreePort() (int, error) {

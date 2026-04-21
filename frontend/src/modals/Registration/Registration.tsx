@@ -1,6 +1,7 @@
 import { Icon } from '@iconify/react';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { API_BASE } from '../../Api/api';
 import styles from './Registration.module.scss';
 export interface Registration {
   email: string;
@@ -33,7 +34,7 @@ const Registration = () => {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:8380/auth/register', {
+      const response = await fetch(`${API_BASE}/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"novexpanel/backend/internal/config"
-	"novexpanel/backend/internal/models"
 
 	"github.com/glebarez/sqlite"
 	"gorm.io/driver/postgres"
@@ -32,15 +31,8 @@ func Open(cfg config.Config) (*gorm.DB, error) {
 	sqlDB.SetMaxOpenConns(25)
 	sqlDB.SetMaxIdleConns(25)
 
-	if err := db.AutoMigrate(
-		&models.User{},
-		&models.AgentToken{},
-		&models.Server{},
-		&models.MetricPoint{},
-		&models.Deploy{},
-		&models.DeployLog{},
-	); err != nil {
-		return nil, fmt.Errorf("automigrate: %w", err)
+	if err := runMigrations(db); err != nil {
+		return nil, fmt.Errorf("migrations: %w", err)
 	}
 
 	return db, nil

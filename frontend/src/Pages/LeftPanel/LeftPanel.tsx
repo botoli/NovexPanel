@@ -80,10 +80,10 @@ const LeftPanel = observer(() => {
             fill='none'
             xmlns='http://www.w3.org/2000/svg'
           >
-            <rect width='429' height='125' fill='#D9D9D9' fill-opacity='1' />
-            <rect y='193' width='429' height='126' fill='#D9D9D9' fill-opacity='1' />
-            <rect y='387' width='544' height='126' fill='#D9D9D9' fill-opacity='1' />
-            <rect x='429' y='125' width='115' height='194' fill='#D9D9D9' fill-opacity='1' />
+            <rect width='429' height='125' fill='#D9D9D9' fillOpacity='1' />
+            <rect y='193' width='429' height='126' fill='#D9D9D9' fillOpacity='1' />
+            <rect y='387' width='544' height='126' fill='#D9D9D9' fillOpacity='1' />
+            <rect x='429' y='125' width='115' height='194' fill='#D9D9D9' fillOpacity='1' />
           </svg>
 
           <h1>NOVEX</h1>

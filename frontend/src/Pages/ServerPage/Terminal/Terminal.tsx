@@ -27,8 +27,8 @@ export const TerminalPage = () => {
       cursorBlink: true,
       fontSize: 14,
       theme: {
-        background: '#1E1E1E',
-        foreground: '#E0E0E0',
+        background: '#000000',
+        foreground: '#f0f0f0',
         cursor: '#2DD4BF',
       },
     });
@@ -183,7 +183,7 @@ export const TerminalPage = () => {
         height: '100%',
         minHeight: '500px',
         overflow: 'hidden',
-        border: '1px solid #333',
+
         borderRadius: '4px',
       }}
     />

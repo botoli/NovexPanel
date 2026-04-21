@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { API_BASE } from '../Api/api';
 import { serverMetricsStore } from '../Store/ServerMetricsStore';
 import { tokenStore } from '../Store/TokenStore';
 
@@ -11,7 +12,7 @@ export const useLoadServers = () => {
     isRequestInFlight.current = true;
 
     try {
-      const response = await fetch('http://localhost:8380/servers', {
+      const response = await fetch(`${API_BASE}/servers`, {
         headers: { Authorization: `Bearer ${tokenStore.getToken()}` },
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -29,7 +30,7 @@ export const useLoadServers = () => {
       serverMetricsStore.setServerMetricsLoading(false);
       isRequestInFlight.current = false;
     }
-  }, []);
+  }, [tokenStore]);
 
   useEffect(() => {
     loadServers();

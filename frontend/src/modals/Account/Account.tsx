@@ -2,6 +2,7 @@ import { Icon } from '@iconify/react';
 import { observer } from 'mobx-react-lite';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { API_BASE } from '../../Api/api';
 import AuthBtns from '../../common/AuthBtns/AuthBtns';
 import { agentTokenStore } from '../../Store/AgentTokenStore';
 import { tokenStore } from '../../Store/TokenStore';
@@ -30,7 +31,7 @@ const Account = observer(() => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch('http://localhost:8380/auth/tokens', {
+      const response = await fetch(`${API_BASE}/auth/tokens`, {
         headers: {
           Authorization: `Bearer ${tokenStore.token}`,
         },
@@ -52,7 +53,7 @@ const Account = observer(() => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch(`http://localhost:8380/auth/tokens/${tokenId}`, {
+      const response = await fetch(`${API_BASE}/auth/tokens/${tokenId}`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${tokenStore.getToken()}`,

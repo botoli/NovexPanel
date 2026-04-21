@@ -2,6 +2,7 @@ import { Icon } from '@iconify/react';
 import { observer } from 'mobx-react-lite';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { API_BASE } from '../../Api/api';
 import { tokenStore } from '../../Store/TokenStore';
 import styles from './Login.module.scss';
 
@@ -29,7 +30,7 @@ const Login = observer(() => {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:8380/auth/login', {
+      const response = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

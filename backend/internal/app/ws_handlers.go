@@ -3,6 +3,7 @@ package app
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -32,22 +33,32 @@ func (a *App) handleAgentWS(c *gin.Context) {
 		return
 	}
 
+	log.Printf("agent ws connect attempt: remote=%s name=%q", c.Request.RemoteAddr, strings.TrimSpace(c.Query("name")))
+
 	tokenHash := auth.HashAgentToken(tokenRaw)
+	tokenHashPrefix := tokenHash
+	if len(tokenHashPrefix) > 12 {
+		tokenHashPrefix = tokenHashPrefix[:12]
+	}
 	var token models.AgentToken
 	if err := a.db.Where("token_hash = ? AND revoked = ?", tokenHash, false).First(&token).Error; err != nil {
+		log.Printf("agent ws token auth failed: remote=%s token_hash_prefix=%s error=%v", c.Request.RemoteAddr, tokenHashPrefix, err)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 		return
 	}
 	serverName := strings.TrimSpace(c.Query("name"))
+	log.Printf("agent ws token auth ok: token_id=%d user_id=%d token_hash_prefix=%s name=%q", token.ID, token.UserID, tokenHashPrefix, serverName)
 
 	now := time.Now()
 	if token.ExpiresAt != nil && token.ExpiresAt.Before(now) {
+		log.Printf("agent ws token expired: token_id=%d", token.ID)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "token expired"})
 		return
 	}
 
 	conn, err := wsUpgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
+		log.Printf("agent ws upgrade failed: remote=%s error=%v", c.Request.RemoteAddr, err)
 		return
 	}
 	defer conn.Close()
@@ -73,9 +84,12 @@ func (a *App) handleAgentWS(c *gin.Context) {
 				ConnectedAt: &now,
 			}
 			if err := a.db.Create(&server).Error; err != nil {
+				log.Printf("agent ws create server failed: token_id=%d error=%v", token.ID, err)
 				return
 			}
+			log.Printf("agent ws created server: server_id=%d token_id=%d user_id=%d", server.ID, server.TokenID, server.UserID)
 		} else {
+			log.Printf("agent ws load server failed: token_id=%d error=%v", token.ID, err)
 			return
 		}
 	} else {
@@ -89,20 +103,25 @@ func (a *App) handleAgentWS(c *gin.Context) {
 			updates["name"] = serverName
 		}
 		if err := a.db.Model(&server).Updates(updates).Error; err != nil {
+			log.Printf("agent ws update server failed: server_id=%d error=%v", server.ID, err)
 			return
 		}
+		log.Printf("agent ws using existing server: server_id=%d token_id=%d user_id=%d", server.ID, server.TokenID, server.UserID)
 	}
 
 	_ = a.db.Model(&token).Update("last_used_at", &now).Error
 
 	client := a.hub.RegisterAgent(server.ID, token.UserID, conn)
+	log.Printf("agent ws registered in hub: server_id=%d user_id=%d active_server_ids=%v", server.ID, token.UserID, a.hub.ActiveAgentServerIDs())
 	defer func() {
+		log.Printf("agent ws disconnecting: server_id=%d user_id=%d", server.ID, token.UserID)
 		a.hub.UnregisterAgent(server.ID, client)
 		disconnectedAt := time.Now()
 		_ = a.db.Model(&models.Server{}).Where("id = ?", server.ID).Updates(map[string]any{
 			"online":          false,
 			"disconnected_at": &disconnectedAt,
 		}).Error
+		log.Printf("agent ws disconnected: server_id=%d", server.ID)
 	}()
 
 	_ = conn.SetReadDeadline(time.Time{})
@@ -110,6 +129,7 @@ func (a *App) handleAgentWS(c *gin.Context) {
 	for {
 		_, payload, err := conn.ReadMessage()
 		if err != nil {
+			log.Printf("agent ws read loop stopped: server_id=%d error=%v", server.ID, err)
 			return
 		}
 		a.handleAgentMessage(client, server.ID, payload)
@@ -166,18 +186,53 @@ func (a *App) handleAgentMessage(client *AgentClient, serverID uint, payload []b
 		a.hub.ForwardTerminalOutput(msg.SessionID, serverID, msg.Data)
 	case "deploy_log":
 		var msg struct {
-			DeployID uint   `json:"deploy_id"`
-			Line     string `json:"line"`
-			IsError  bool   `json:"is_error"`
+			DeployID      uint   `json:"deploy_id"`
+			DeployIDCamel uint   `json:"deployId"`
+			Line          string `json:"line"`
+			IsError       bool   `json:"is_error"`
+			IsErrorCamel  bool   `json:"isError"`
 		}
 		if err := json.Unmarshal(payload, &msg); err != nil {
 			return
 		}
+		if msg.DeployID == 0 {
+			msg.DeployID = msg.DeployIDCamel
+		}
 		if msg.DeployID == 0 || msg.Line == "" {
 			return
 		}
-		_ = a.db.Create(&models.DeployLog{DeployID: msg.DeployID, Line: msg.Line, IsError: msg.IsError}).Error
-		a.hub.BroadcastDeployLog(msg.DeployID, msg.Line, msg.IsError)
+		isError := msg.IsError || msg.IsErrorCamel
+		_ = a.db.Create(&models.DeployLog{DeployID: msg.DeployID, Line: msg.Line, IsError: isError}).Error
+
+		var deploy models.Deploy
+		if err := a.db.Where("id = ?", msg.DeployID).First(&deploy).Error; err == nil {
+			updates := map[string]any{
+				"status":     "building",
+				"deploy_log": appendDeployLogLine(deploy.DeployLog, msg.Line),
+			}
+			if updateErr := a.db.Model(&models.Deploy{}).Where("id = ?", msg.DeployID).Updates(updates).Error; updateErr != nil {
+				log.Printf("update deploy log failed (deploy_id=%d): %v", msg.DeployID, updateErr)
+			}
+		}
+
+		a.hub.BroadcastDeployLog(msg.DeployID, msg.Line, isError)
+	case "deploy_result":
+		var msg struct {
+			DeployID      uint   `json:"deployId"`
+			DeployIDSnake uint   `json:"deploy_id"`
+			Status        string `json:"status"`
+			URL           string `json:"url"`
+			Port          int    `json:"port"`
+			Log           string `json:"log"`
+			Error         string `json:"error"`
+		}
+		if err := json.Unmarshal(payload, &msg); err != nil {
+			return
+		}
+		if msg.DeployID == 0 {
+			msg.DeployID = msg.DeployIDSnake
+		}
+		a.applyDeployResult(msg.DeployID, msg.Status, msg.URL, msg.Port, msg.Log, msg.Error)
 	case "deploy_complete":
 		var msg struct {
 			DeployID uint   `json:"deploy_id"`
@@ -188,23 +243,61 @@ func (a *App) handleAgentMessage(client *AgentClient, serverID uint, payload []b
 		if err := json.Unmarshal(payload, &msg); err != nil {
 			return
 		}
-		if msg.DeployID == 0 {
-			return
+		status := "error"
+		if msg.Success {
+			status = "success"
 		}
-
-		status := "success"
-		if !msg.Success {
-			status = "failed"
-		}
-		now := time.Now()
-		_ = a.db.Model(&models.Deploy{}).Where("id = ?", msg.DeployID).Updates(map[string]any{
-			"status":        status,
-			"result_url":    msg.URL,
-			"error_message": msg.Error,
-			"finished_at":   &now,
-		}).Error
-		a.hub.BroadcastDeployComplete(msg.DeployID, msg.Success, msg.URL, msg.Error)
+		a.applyDeployResult(msg.DeployID, status, msg.URL, 0, "", msg.Error)
 	}
+}
+
+func (a *App) applyDeployResult(deployID uint, agentStatus, url string, port int, deployLog, errText string) {
+	if deployID == 0 {
+		return
+	}
+
+	status := "failed"
+	if strings.EqualFold(strings.TrimSpace(agentStatus), "success") {
+		status = "running"
+	}
+
+	var deploy models.Deploy
+	if err := a.db.Where("id = ?", deployID).First(&deploy).Error; err != nil {
+		log.Printf("deploy result ignored, deploy not found (deploy_id=%d): %v", deployID, err)
+		return
+	}
+
+	currentLog := deploy.DeployLog
+	if strings.TrimSpace(deployLog) != "" {
+		currentLog = deployLog
+		if !strings.HasSuffix(currentLog, "\n") {
+			currentLog += "\n"
+		}
+	}
+	if strings.TrimSpace(errText) != "" {
+		currentLog = appendDeployLogLine(currentLog, errText)
+	}
+
+	now := time.Now()
+	updates := map[string]any{
+		"status":        status,
+		"url":           url,
+		"result_url":    url,
+		"error_message": errText,
+		"deploy_log":    currentLog,
+		"finished_at":   &now,
+	}
+	if port > 0 {
+		updates["port"] = port
+	}
+
+	if err := a.db.Model(&models.Deploy{}).Where("id = ?", deployID).Updates(updates).Error; err != nil {
+		log.Printf("update deploy result failed (deploy_id=%d): %v", deployID, err)
+		return
+	}
+
+	success := status == "running"
+	a.hub.BroadcastDeployComplete(deployID, success, url, errText)
 }
 
 func (a *App) persistMetrics(serverID uint, raw json.RawMessage) {

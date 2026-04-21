@@ -37,6 +37,7 @@ type Server struct {
 	ConnectedAt    *time.Time     `json:"connected_at"`
 	DisconnectedAt *time.Time     `json:"disconnected_at"`
 	LastMetrics    datatypes.JSON `json:"last_metrics"`
+	Deploys        []Deploy       `gorm:"foreignKey:ServerID" json:"-"`
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
 }
@@ -60,10 +61,17 @@ type Deploy struct {
 	ID           uint       `gorm:"primaryKey" json:"id"`
 	UserID       uint       `gorm:"index;not null" json:"user_id"`
 	ServerID     uint       `gorm:"index;not null" json:"server_id"`
+	Branch       string     `gorm:"size:120;default:main" json:"branch"`
+	BuildCommand string     `gorm:"size:512" json:"build_command"`
+	OutputDir    string     `gorm:"size:512" json:"output_dir"`
+	Subdirectory string     `gorm:"type:varchar(255);default:''" json:"subdirectory"`
+	Port         int        `gorm:"default:0" json:"port"`
 	Source       string     `gorm:"size:20;not null" json:"source"`
 	Status       string     `gorm:"size:20;index;not null" json:"status"`
 	ProjectType  string     `gorm:"size:20" json:"project_type"`
 	RepoURL      string     `gorm:"size:512" json:"repo_url"`
+	URL          string     `gorm:"size:512" json:"url"`
+	DeployLog    string     `gorm:"type:text" json:"deploy_log"`
 	ResultURL    string     `gorm:"size:512" json:"result_url"`
 	ErrorMessage string     `gorm:"size:1024" json:"error_message"`
 	StartedAt    time.Time  `json:"started_at"`

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
+	"sort"
 	"sync"
 	"time"
 
@@ -102,10 +104,16 @@ func (h *Hub) RegisterAgent(serverID, userID uint, conn *websocket.Conn) *AgentC
 	}
 
 	var old *AgentClient
+	var activeIDs []uint
+	activeCount := 0
 	h.mu.Lock()
 	old = h.agents[serverID]
 	h.agents[serverID] = client
+	activeCount = len(h.agents)
+	activeIDs = sortedAgentIDs(h.agents)
 	h.mu.Unlock()
+
+	log.Printf("hub register agent: server_id=%d user_id=%d replaced=%t active_count=%d active_server_ids=%v", serverID, userID, old != nil, activeCount, activeIDs)
 
 	if old != nil {
 		old.failPending(errors.New("agent replaced by new connection"))
@@ -116,12 +124,20 @@ func (h *Hub) RegisterAgent(serverID, userID uint, conn *websocket.Conn) *AgentC
 }
 
 func (h *Hub) UnregisterAgent(serverID uint, client *AgentClient) {
+	removed := false
+	activeCount := 0
+	var activeIDs []uint
 	h.mu.Lock()
 	current := h.agents[serverID]
 	if current == client {
 		delete(h.agents, serverID)
+		removed = true
 	}
+	activeCount = len(h.agents)
+	activeIDs = sortedAgentIDs(h.agents)
 	h.mu.Unlock()
+
+	log.Printf("hub unregister agent: server_id=%d removed=%t active_count=%d active_server_ids=%v", serverID, removed, activeCount, activeIDs)
 
 	client.failPending(errors.New("agent disconnected"))
 	_ = client.conn.Close()
@@ -139,12 +155,19 @@ func (h *Hub) KickServer(serverID uint) {
 }
 
 func (h *Hub) RequestAgent(serverID uint, command string, payload any, timeout time.Duration) (json.RawMessage, error) {
+	activeCount := 0
+	var activeIDs []uint
 	h.mu.RLock()
 	agent := h.agents[serverID]
+	activeCount = len(h.agents)
+	activeIDs = sortedAgentIDs(h.agents)
 	h.mu.RUnlock()
 	if agent == nil {
+		log.Printf("hub request agent miss: server_id=%d command=%s active_count=%d active_server_ids=%v", serverID, command, activeCount, activeIDs)
 		return nil, errors.New("agent is offline")
 	}
+
+	log.Printf("hub request agent dispatch: server_id=%d command=%s active_count=%d", serverID, command, activeCount)
 
 	if timeout <= 0 {
 		timeout = 15 * time.Second
@@ -167,6 +190,7 @@ func (h *Hub) RequestAgent(serverID uint, command string, payload any, timeout t
 	}
 
 	if err := agent.sendJSON(message); err != nil {
+		log.Printf("hub request agent send error: server_id=%d command=%s error=%v", serverID, command, err)
 		agent.pendingMu.Lock()
 		delete(agent.pending, requestID)
 		agent.pendingMu.Unlock()
@@ -176,13 +200,16 @@ func (h *Hub) RequestAgent(serverID uint, command string, payload any, timeout t
 	select {
 	case result := <-ch:
 		if !result.Success {
+			log.Printf("hub request agent negative response: server_id=%d command=%s error=%s", serverID, command, result.Err)
 			if result.Err == "" {
 				result.Err = "agent command failed"
 			}
 			return nil, errors.New(result.Err)
 		}
+		log.Printf("hub request agent response ok: server_id=%d command=%s", serverID, command)
 		return result.Data, nil
 	case <-time.After(timeout):
+		log.Printf("hub request agent timeout: server_id=%d command=%s timeout=%s", serverID, command, timeout)
 		agent.pendingMu.Lock()
 		delete(agent.pending, requestID)
 		agent.pendingMu.Unlock()
@@ -191,13 +218,56 @@ func (h *Hub) RequestAgent(serverID uint, command string, payload any, timeout t
 }
 
 func (h *Hub) SendAgentEvent(serverID uint, payload any) error {
+	eventType := payloadType(payload)
+	activeCount := 0
+	var activeIDs []uint
 	h.mu.RLock()
 	agent := h.agents[serverID]
+	activeCount = len(h.agents)
+	activeIDs = sortedAgentIDs(h.agents)
 	h.mu.RUnlock()
 	if agent == nil {
+		log.Printf("hub send event miss: server_id=%d event_type=%s active_count=%d active_server_ids=%v", serverID, eventType, activeCount, activeIDs)
 		return errors.New("agent is offline")
 	}
-	return agent.sendJSON(payload)
+
+	log.Printf("hub send event dispatch: server_id=%d event_type=%s active_count=%d", serverID, eventType, activeCount)
+	if err := agent.sendJSON(payload); err != nil {
+		log.Printf("hub send event error: server_id=%d event_type=%s error=%v", serverID, eventType, err)
+		return err
+	}
+
+	log.Printf("hub send event delivered: server_id=%d event_type=%s", serverID, eventType)
+	return nil
+}
+
+func (h *Hub) ActiveAgentServerIDs() []uint {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return sortedAgentIDs(h.agents)
+}
+
+func sortedAgentIDs(agents map[uint]*AgentClient) []uint {
+	ids := make([]uint, 0, len(agents))
+	for id := range agents {
+		ids = append(ids, id)
+	}
+	sort.Slice(ids, func(i, j int) bool {
+		return ids[i] < ids[j]
+	})
+	return ids
+}
+
+func payloadType(payload any) string {
+	msg, ok := payload.(map[string]any)
+	if !ok {
+		return "unknown"
+	}
+	t, ok := msg["type"]
+	if !ok {
+		return "unknown"
+	}
+	return fmt.Sprintf("%v", t)
 }
 
 func (a *AgentClient) completeRequest(requestID string, result commandResult) {

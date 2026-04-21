@@ -173,3 +173,61 @@
     border-radius: $radius-full;
   }
 }
+
+.offlineCard {
+  max-width: 560px;
+  margin: $space-7 auto 0;
+  padding: $space-5;
+  border: $border-default;
+  border-radius: $radius-lg;
+  background: $color-surface;
+  box-shadow: $shadow-sm;
+}
+
+.offlineHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: $space-4;
+}
+
+.offlineIcon {
+  width: 56px;
+  height: 56px;
+  border-radius: $radius-lg;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: $border-default;
+  background: $color-surface-2;
+  color: $color-text-primary;
+  flex: 0 0 auto;
+
+  svg {
+    width: $font-size-h1;
+    height: $font-size-h1;
+  }
+}
+
+.offlineText {
+  min-width: 0;
+}
+
+.offlineTitle {
+  margin: 0;
+  font-size: $font-size-h2;
+  font-weight: $font-weight-semibold;
+  letter-spacing: $letter-spacing-heading;
+}
+
+.offlineSubtitle {
+  margin: $space-2 0 0;
+  color: $color-text-secondary;
+  font-size: $font-size-body;
+}
+
+.offlineActions {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  margin-top: $space-4;
+}

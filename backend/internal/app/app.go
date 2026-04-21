@@ -74,6 +74,11 @@ func (a *App) Router() *gin.Engine {
 		authGroup.POST("/servers/:id/deploy", a.handleServerDeploy)
 		authGroup.DELETE("/servers/:id/processes/:pid", a.handleKillServerProcess)
 
+		authGroup.POST("/deploy", a.handleCreateDeploy)
+		authGroup.GET("/deploys", a.handleListDeploys)
+		authGroup.GET("/deploys/:id", a.handleGetDeploy)
+		authGroup.GET("/deploys/:id/log", a.handleDeployLog)
+		authGroup.DELETE("/deploys/:id", a.handleDeleteDeploy)
 		authGroup.GET("/deploys/:id/logs", a.handleDeployLogs)
 	}
 

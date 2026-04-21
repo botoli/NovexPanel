@@ -14,6 +14,9 @@ import {
 import { Icon } from '@iconify/react';
 
 import { serverMetricsStore } from '../../../Store/ServerMetricsStore';
+
+import { API_BASE } from '../../../Api/api';
+import { useCurrentServer } from '../../../Store/ServerStore';
 import { tokenStore } from '../../../Store/TokenStore';
 import styles from './MetricsPage.module.scss';
 
@@ -106,16 +109,12 @@ const MetricsSkeleton = () => (
 );
 
 const MetricsPage = observer(() => {
+  const { server } = useCurrentServer();
   const [metricsHistory, setMetricsHistory] = useState<MetricsHistoryPoint[]>([]);
   const [range, setRange] = useState<RangeOption>('10m');
   const [isRangeSwitching, setIsRangeSwitching] = useState(false);
 
   const interval = getRangeInterval(range);
-  const { id } = useParams<{ id?: string; }>();
-  const serverId = id ? Number(id) : Number.NaN;
-
-  const allServers = serverMetricsStore.getNowServers();
-  const server = allServers.find(s => s.id === serverId);
 
   const cpuSeries = useMemo(() => {
     return metricsHistory.map((point) => ({
@@ -149,7 +148,7 @@ const MetricsPage = observer(() => {
   const fetchData = useCallback(async () => {
     try {
       const response = await fetch(
-        `http://localhost:8380/servers/${serverId}/metrics?range=${range}&interval=${interval}`,
+        `${API_BASE}/servers/${server?.id}/metrics?range=${range}&interval=${interval}`,
         {
           headers: { Authorization: `Bearer ${tokenStore.getToken()}` },
         },
@@ -161,16 +160,16 @@ const MetricsPage = observer(() => {
       if ((err as any)?.name === 'AbortError') return;
       console.error('Error fetching server metrics:', err);
     }
-  }, [serverId, range, interval]);
+  }, [server?.id, range, interval]);
   useEffect(() => {
-    if (!Number.isFinite(serverId)) return;
+    if (!Number.isFinite(server?.id)) return;
 
     if (!tokenStore.getToken()) return;
 
     void fetchData();
     const interval = setInterval(fetchData, 10000);
     return () => clearInterval(interval);
-  }, [serverId, fetchData]);
+  }, [server?.id, fetchData]);
 
   useEffect(() => {
     if (!isRangeSwitching) return;
@@ -209,11 +208,11 @@ const MetricsPage = observer(() => {
 
   const isHistoryLoading = metricsHistory.length === 0;
 
-  if (!Number.isFinite(serverId)) {
+  if (!Number.isFinite(server?.id)) {
     return <div className={styles.stateMessage}>Invalid server id</div>;
   }
 
-  if (allServers.length === 0) {
+  if (serverMetricsStore.getNowServers().length === 0) {
     return <MetricsSkeleton />;
   }
 

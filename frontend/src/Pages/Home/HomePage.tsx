@@ -8,6 +8,7 @@ import { serverMetricsStore } from '../../Store/ServerMetricsStore';
 import { tokenStore } from '../../Store/TokenStore';
 import LeftPanel from '../LeftPanel/LeftPanel';
 import styles from './Home.module.scss';
+import { API_BASE } from '../../Api/api';
 
 type TopProcess = {
   cpu: number;
@@ -155,7 +156,7 @@ const HomePage = observer(() => {
     try {
       setLoading(true);
 
-      const response = await fetch('http://localhost:8380/auth/tokens', {
+      const response = await fetch(`${API_BASE}/auth/tokens`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
