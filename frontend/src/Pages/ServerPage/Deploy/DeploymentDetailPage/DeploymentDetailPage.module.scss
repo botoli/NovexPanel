@@ -1,0 +1,473 @@
+@use "../../../../Styles/Variables.scss" as *;
+
+$color-status-failed: $color-status-offline;
+$color-status-stopped: #8a8a8a;
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: $space-5;
+  font-family: $font-family-base;
+  color: $color-text-primary;
+}
+
+.backRow {
+  margin-bottom: -$space-2;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  font-size: $font-size-small;
+  color: $color-text-secondary;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  width: fit-content;
+  transition: color $transition-base, border-color $transition-base;
+
+  &:hover {
+    color: $color-text-primary;
+    border-bottom-color: $color-border-hover;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $color-status-online;
+    outline-offset: 2px;
+    border-radius: $radius-sm;
+  }
+}
+
+// 1. Header
+// ================================
+
+.pageHeader {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+  padding-bottom: $space-5;
+  border-bottom: $border-default;
+}
+
+.titleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-4;
+}
+
+.titleBlock {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: $font-size-h2;
+  font-weight: $font-weight-semibold;
+  letter-spacing: $letter-spacing-heading;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: $space-3;
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  padding: $space-1 $space-3;
+  border-radius: $radius-full;
+  font-size: $font-size-small;
+  font-weight: $font-weight-medium;
+  border: 1px solid transparent;
+}
+
+.statusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: $radius-full;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.statusRunning {
+  background: rgba($color-status-online, 0.12);
+  color: $color-status-online;
+  border-color: rgba($color-status-online, 0.3);
+}
+
+.statusFailed {
+  background: rgba($color-status-failed, 0.12);
+  color: $color-status-failed;
+  border-color: rgba($color-status-failed, 0.3);
+}
+
+.statusStopped {
+  background: rgba($color-text-muted, 0.12);
+  color: $color-status-stopped;
+  border-color: rgba($color-text-muted, 0.3);
+}
+
+.headerActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $space-2;
+}
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: $space-3 $space-5;
+}
+
+.infoItem {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+}
+
+.infoLabel {
+  font-size: $font-size-small;
+  color: $color-text-secondary;
+  text-transform: uppercase;
+  letter-spacing: $letter-spacing-heading;
+  font-weight: $font-weight-semibold;
+}
+
+.infoValue {
+  font-size: $font-size-body;
+  color: $color-text-primary;
+  word-break: break-word;
+}
+
+.link {
+  color: $color-text-primary;
+  text-decoration: none;
+  border-bottom: 1px dashed $color-border-hover;
+  width: fit-content;
+  max-width: 100%;
+
+  &:hover {
+    border-bottom-style: solid;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $color-border-hover;
+    outline-offset: 2px;
+    border-radius: $radius-sm;
+  }
+}
+
+// Buttons
+// ================================
+
+.btn {
+  height: $btn-height;
+  padding: 0 $btn-padding-x;
+  border-radius: $btn-radius;
+  font-size: $btn-font-size;
+  font-weight: $btn-font-weight;
+  font-family: $font-family-base;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: $space-2;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  transition:
+    background $transition-base,
+    border-color $transition-base,
+    color $transition-base,
+    opacity $transition-fast;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $color-status-online;
+    outline-offset: 2px;
+  }
+}
+
+.btnPrimary {
+  background: $btn-primary-bg;
+  color: $btn-primary-text;
+  border-color: $btn-primary-bg;
+
+  &:hover:not(:disabled) {
+    opacity: 0.92;
+  }
+}
+
+.btnSecondary {
+  background: $btn-secondary-bg;
+  color: $btn-secondary-text;
+  border-color: $btn-secondary-border;
+
+  &:hover:not(:disabled) {
+    background: $color-hover;
+    border-color: $color-border-hover;
+  }
+}
+
+.btnDanger {
+  background: transparent;
+  color: $color-status-offline;
+  border-color: $color-status-offline;
+
+  &:hover:not(:disabled) {
+    background: rgba($color-status-offline, 0.08);
+  }
+}
+
+// Sections (cards)
+// ================================
+
+.section {
+  background: $card-bg;
+  border: $border-default;
+  border-radius: $card-radius;
+  padding: $card-padding;
+}
+
+.sectionTitle {
+  margin: 0 0 $space-4 0;
+  font-size: $font-size-h3;
+  font-weight: $font-weight-semibold;
+  letter-spacing: $letter-spacing-heading;
+  color: $color-text-primary;
+}
+
+// 2. Env table
+// ================================
+
+.tableWrap {
+  overflow-x: auto;
+  border: $border-default;
+  border-radius: $radius-md;
+  background: $color-surface-2;
+}
+
+.dataTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: $font-size-body;
+
+  th,
+  td {
+    padding: $space-3 $space-4;
+    text-align: left;
+    border-bottom: 1px solid rgba($color-border, 0.6);
+  }
+
+  th {
+    font-size: $font-size-small;
+    font-weight: $font-weight-semibold;
+    color: $color-text-secondary;
+    text-transform: uppercase;
+    letter-spacing: $letter-spacing-heading;
+    background: rgba($color-border, 0.15);
+  }
+
+  tr:last-child td {
+    border-bottom: none;
+  }
+
+  code {
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+    font-size: $font-size-small;
+  }
+}
+
+.showBtn {
+  height: 28px;
+  padding: 0 $space-3;
+  border-radius: $radius-sm;
+  font-size: $font-size-small;
+  font-weight: $font-weight-medium;
+  font-family: $font-family-base;
+  cursor: pointer;
+  border: $border-default;
+  background: transparent;
+  color: $color-text-secondary;
+  white-space: nowrap;
+
+  &:hover {
+    background: $color-hover;
+    color: $color-text-primary;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $color-border-hover;
+    outline-offset: 2px;
+  }
+}
+
+.emptyHint {
+  margin: 0;
+  font-size: $font-size-body;
+  color: $color-text-muted;
+}
+
+// Build / run grid
+// ================================
+
+.kvList {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+}
+
+.kvRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2 $space-4;
+  align-items: baseline;
+  font-size: $font-size-body;
+}
+
+.kvKey {
+  min-width: 160px;
+  color: $color-text-secondary;
+  font-size: $font-size-small;
+  font-weight: $font-weight-semibold;
+  text-transform: uppercase;
+  letter-spacing: $letter-spacing-heading;
+}
+
+.kvValue {
+  flex: 1;
+  min-width: 0;
+  color: $color-text-primary;
+  word-break: break-word;
+}
+
+// Resources
+// ================================
+
+.metricsRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: $space-4;
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+  padding: $space-3;
+  background: $color-surface-2;
+  border: $border-default;
+  border-radius: $radius-md;
+}
+
+.metricLabel {
+  font-size: $font-size-small;
+  color: $color-text-secondary;
+  text-transform: uppercase;
+  letter-spacing: $letter-spacing-heading;
+  font-weight: $font-weight-semibold;
+}
+
+.metricValue {
+  font-size: $metric-value-size;
+  font-weight: $font-weight-semibold;
+  line-height: 1.1;
+  color: $color-text-primary;
+}
+
+// Logs
+// ================================
+
+.logToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2;
+  margin-bottom: $space-3;
+}
+
+.logArea {
+  width: 100%;
+  min-height: 200px;
+  max-height: 400px;
+  padding: $space-3;
+  box-sizing: border-box;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: $color-text-primary;
+  background: $color-bg;
+  border: $border-default;
+  border-radius: $radius-md;
+  resize: vertical;
+}
+
+.logStream {
+  min-height: 200px;
+  max-height: 400px;
+  overflow: auto;
+  padding: $space-3;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: $color-text-primary;
+  background: #050505;
+  border: $border-default;
+  border-radius: $radius-md;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.logStreamActive {
+  box-shadow: 0 0 0 1px rgba($color-status-online, 0.25);
+}
+
+// Actions
+// ================================
+
+.actionsList {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+}
+
+.actionRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-3;
+  padding: $space-3 0;
+  border-bottom: 1px solid rgba($color-border, 0.5);
+
+  &:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+}
+
+.actionLabel {
+  font-size: $font-size-body;
+  color: $color-text-primary;
+  max-width: 520px;
+}
+
+@media (max-width: 640px) {
+  .headerActions {
+    width: 100%;
+  }
+
+  .btn {
+    flex: 1;
+    min-width: calc(50% - #{$space-2});
+    justify-content: center;
+  }
+}
