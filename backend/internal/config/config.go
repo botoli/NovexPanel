@@ -20,6 +20,8 @@ type Config struct {
 	SiteAllowedOrigins  []string
 	MaxRequestBodyBytes int64
 	WSReadLimitBytes    int64
+	// CommandAllowlist: comma-separated allowed command prefixes (see app package). Empty uses built-in defaults. "*" disables filtering.
+	CommandAllowlist string
 }
 
 func Load() (Config, error) {
@@ -95,6 +97,8 @@ func Load() (Config, error) {
 		}
 		cfg.SiteAllowedOrigins = out
 	}
+
+	cfg.CommandAllowlist = strings.TrimSpace(getEnv("COMMAND_ALLOWLIST", ""))
 
 	return cfg, nil
 }

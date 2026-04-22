@@ -19,6 +19,7 @@ func runMigrations(db *gorm.DB) error {
 		&models.MetricPoint{},
 		&models.Deploy{},
 		&models.DeployLog{},
+		&models.CommandLog{},
 	); err != nil {
 		return fmt.Errorf("automigrate schema: %w", err)
 	}

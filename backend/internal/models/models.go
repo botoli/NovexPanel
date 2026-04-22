@@ -10,6 +10,7 @@ type User struct {
 	ID           uint   `gorm:"primaryKey" json:"id"`
 	Email        string `gorm:"uniqueIndex;size:190;not null" json:"email"`
 	PasswordHash string `gorm:"size:255;not null" json:"-"`
+	Role         string `gorm:"size:32;not null;default:''" json:"role"`
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
@@ -85,5 +86,14 @@ type DeployLog struct {
 	DeployID  uint      `gorm:"index;not null" json:"deploy_id"`
 	Line      string    `gorm:"type:text;not null" json:"line"`
 	IsError   bool      `gorm:"default:false" json:"is_error"`
+	CreatedAt time.Time `gorm:"index" json:"created_at"`
+}
+
+// CommandLog records remote shell commands issued via POST /servers/:id/command (audit).
+type CommandLog struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	UserID    uint      `gorm:"index;not null" json:"user_id"`
+	ServerID  uint      `gorm:"index;not null" json:"server_id"`
+	Command   string    `gorm:"size:255;not null" json:"command"`
 	CreatedAt time.Time `gorm:"index" json:"created_at"`
 }

@@ -23,30 +23,36 @@ const (
 	maxSubdirectoryLength = 255
 	maxOutputDirLength    = 255
 	maxBuildCommandLength = 2048
+	maxDeployEnvKeys      = 64
+	maxDeployEnvKeyLen    = 128
+	maxDeployEnvValueLen  = 4096
 )
 
 var (
 	gitSSHRepoURLPattern = regexp.MustCompile(`^git@[A-Za-z0-9._-]+:[A-Za-z0-9._/-]+(?:\.git)?$`)
 	deployBranchPattern  = regexp.MustCompile(`^[A-Za-z0-9._/@\-]+$`)
 	pathPattern          = regexp.MustCompile(`^[A-Za-z0-9._/\-]+$`)
+	deployEnvKeyPattern  = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 )
 
 type CreateDeployRequest struct {
-	ServerID           uint    `json:"serverId"`
-	ServerIDLegacy     uint    `json:"server_id"`
-	RepoURL            string  `json:"repoUrl"`
-	RepoURLLegacy      string  `json:"repo_url"`
-	Branch             string  `json:"branch"`
-	Type               string  `json:"type"`
-	TypeLegacy         string  `json:"project_type"`
-	TypeCamel          string  `json:"projectType"`
-	Subdirectory       string  `json:"subdirectory"`
-	SubdirectoryLegacy string  `json:"sub_directory"`
-	SubdirectoryCamel  string  `json:"subDirectory"`
-	BuildCommand       *string `json:"buildCommand"`
-	BuildCommandLegacy *string `json:"build_command"`
-	OutputDir          *string `json:"outputDir"`
-	OutputDirLegacy    *string `json:"output_dir"`
+	ServerID           uint              `json:"serverId"`
+	ServerIDLegacy     uint              `json:"server_id"`
+	RepoURL            string            `json:"repoUrl"`
+	RepoURLLegacy      string            `json:"repo_url"`
+	Branch             string            `json:"branch"`
+	Type               string            `json:"type"`
+	TypeLegacy         string            `json:"project_type"`
+	TypeCamel          string            `json:"projectType"`
+	Subdirectory       string            `json:"subdirectory"`
+	SubdirectoryLegacy string            `json:"sub_directory"`
+	SubdirectoryCamel  string            `json:"subDirectory"`
+	BuildCommand       *string           `json:"buildCommand"`
+	BuildCommandLegacy *string           `json:"build_command"`
+	OutputDir          *string           `json:"outputDir"`
+	OutputDirLegacy    *string           `json:"output_dir"`
+	EnvVars            map[string]string `json:"envVars"`
+	EnvVarsSnake       map[string]string `json:"env_vars"`
 }
 
 func (a *App) handleCreateDeploy(c *gin.Context) {
@@ -112,6 +118,12 @@ func (a *App) handleCreateDeploy(c *gin.Context) {
 		return
 	}
 
+	envVars, err := mergeAndValidateEnvVars(req.EnvVars, req.EnvVarsSnake)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
 	if _, err := a.requireServerForUser(userID, serverID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "server not found"})
@@ -143,7 +155,7 @@ func (a *App) handleCreateDeploy(c *gin.Context) {
 
 	log.Printf("deploy created (deploy_id=%d server_id=%d user_id=%d)", deploy.ID, deploy.ServerID, userID)
 
-	if err := a.sendDeployCommandToAgent(serverID, deploy.ID, repoURL, branch, projectType, subdirectory, buildCommand, outputDir); err != nil {
+	if err := a.sendDeployCommandToAgent(serverID, deploy.ID, repoURL, branch, projectType, subdirectory, buildCommand, outputDir, envVars); err != nil {
 		var failedDeploy models.Deploy
 		if loadErr := a.db.First(&failedDeploy, deploy.ID).Error; loadErr == nil {
 			deploy.Status = failedDeploy.Status
@@ -384,7 +396,7 @@ func (a *App) handleDeleteDeploy(c *gin.Context) {
 	})
 }
 
-func (a *App) sendDeployCommandToAgent(serverID uint, deployID uint, repoURL, branch, projectType, subdirectory, buildCommand, outputDir string) error {
+func (a *App) sendDeployCommandToAgent(serverID uint, deployID uint, repoURL, branch, projectType, subdirectory, buildCommand, outputDir string, envVars map[string]string) error {
 	normalizedRepoURL := strings.TrimSpace(repoURL)
 	if err := validateRepoURL(normalizedRepoURL); err != nil {
 		return err
@@ -412,6 +424,9 @@ func (a *App) sendDeployCommandToAgent(serverID uint, deployID uint, repoURL, br
 	if err := validateOutputDir(normalizedOutput); err != nil {
 		return err
 	}
+	if envVars == nil {
+		envVars = map[string]string{}
+	}
 
 	payload := map[string]any{
 		"deploy_id":    deployID,
@@ -433,6 +448,8 @@ func (a *App) sendDeployCommandToAgent(serverID uint, deployID uint, repoURL, br
 		"buildCommand":  normalizedBuild,
 		"output_dir":    normalizedOutput,
 		"outputDir":     normalizedOutput,
+		"envVars":       envVars,
+		"env_vars":      envVars,
 	}
 
 	log.Printf("dispatch deploy command: deploy_id=%d server_id=%d command=deploy branch=%q repo=%q type=%q subdirectory=%q", deployID, serverID, normalizedBranch, normalizedRepoURL, normalizedProjectType, normalizedSubdirectory)
@@ -633,6 +650,56 @@ func validateRepoURL(repoURL string) error {
 	}
 
 	return errors.New("invalid repoUrl")
+}
+
+func mergeAndValidateEnvVars(primary, secondary map[string]string) (map[string]string, error) {
+	out := make(map[string]string)
+	if secondary != nil {
+		for k, v := range secondary {
+			if _, exists := out[k]; !exists {
+				out[k] = v
+			}
+		}
+	}
+	if primary != nil {
+		for k, v := range primary {
+			out[k] = v
+		}
+	}
+	return validateDeployEnvVars(out)
+}
+
+func validateDeployEnvVars(m map[string]string) (map[string]string, error) {
+	if len(m) == 0 {
+		return map[string]string{}, nil
+	}
+	out := make(map[string]string, len(m))
+	for k, val := range m {
+		key := strings.TrimSpace(k)
+		if key == "" {
+			return nil, errors.New("invalid environment variable key")
+		}
+		if utf8.RuneCountInString(key) > maxDeployEnvKeyLen {
+			return nil, errors.New("environment variable name is too long")
+		}
+		if !deployEnvKeyPattern.MatchString(key) {
+			return nil, errors.New("invalid environment variable name")
+		}
+		if strings.ContainsRune(val, '\x00') || strings.ContainsRune(val, '\n') || strings.ContainsRune(val, '\r') {
+			return nil, errors.New("environment variable value contains forbidden characters")
+		}
+		if utf8.RuneCountInString(val) > maxDeployEnvValueLen {
+			return nil, errors.New("environment variable value is too long")
+		}
+		if hasDangerousInputChars(val) {
+			return nil, errors.New("environment variable value contains forbidden characters")
+		}
+		out[key] = strings.TrimSpace(val)
+	}
+	if len(out) > maxDeployEnvKeys {
+		return nil, errors.New("too many environment variables")
+	}
+	return out, nil
 }
 
 func hasDangerousInputChars(value string) bool {

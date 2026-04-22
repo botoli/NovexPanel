@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"novexpanel/backend/internal/models"
 
@@ -49,6 +51,16 @@ type aggregatedMetricsRow struct {
 	NetworkTX  float64 `gorm:"column:network_tx"`
 }
 
+const maxCommandLogLength = 255
+
+// defaultRemoteCommandPrefixes is used when COMMAND_ALLOWLIST is unset (set COMMAND_ALLOWLIST=* to allow any command).
+var defaultRemoteCommandPrefixes = []string{
+	"systemctl status",
+	"docker ps",
+	"ls",
+	"df",
+}
+
 func (a *App) handleListServers(c *gin.Context) {
 	userID, ok := userIDFromContext(c)
 	if !ok {
@@ -65,16 +77,82 @@ func (a *App) handleListServers(c *gin.Context) {
 	response := make([]gin.H, 0, len(servers))
 	for _, server := range servers {
 		item := gin.H{
-			"id":           server.ID,
-			"name":         server.Name,
-			"ip":           server.IP,
-			"online":       server.Online,
-			"last_metrics": server.LastMetrics,
+			"id":              server.ID,
+			"name":            server.Name,
+			"ip":              server.IP,
+			"online":          server.Online,
+			"last_metrics":    server.LastMetrics,
+			"connected_at":    timePtrRFC3339OrNil(server.ConnectedAt),
+			"disconnected_at": timePtrRFC3339OrNil(server.DisconnectedAt),
+			"created_at":      server.CreatedAt.UTC().Format(time.RFC3339),
+			"updated_at":      server.UpdatedAt.UTC().Format(time.RFC3339),
 		}
 		response = append(response, item)
 	}
 
 	c.JSON(http.StatusOK, response)
+}
+
+func timePtrRFC3339OrNil(t *time.Time) any {
+	if t == nil {
+		return nil
+	}
+	return t.UTC().Format(time.RFC3339)
+}
+
+func (a *App) parseRemoteCommandAllowlist() (disabled bool, prefixes []string) {
+	raw := strings.TrimSpace(a.cfg.CommandAllowlist)
+	if raw == "*" {
+		return true, nil
+	}
+	if raw == "" {
+		return false, defaultRemoteCommandPrefixes
+	}
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if t := strings.TrimSpace(p); t != "" {
+			out = append(out, t)
+		}
+	}
+	if len(out) == 0 {
+		return false, defaultRemoteCommandPrefixes
+	}
+	return false, out
+}
+
+func commandMatchesAllowlist(allowlist []string, cmd string) bool {
+	cmd = strings.TrimSpace(cmd)
+	if cmd == "" {
+		return false
+	}
+	// Longer prefixes first so e.g. "docker ps" wins over a hypothetical short prefix.
+	ordered := append([]string(nil), allowlist...)
+	sort.Slice(ordered, func(i, j int) bool { return len(ordered[i]) > len(ordered[j]) })
+	for _, prefix := range ordered {
+		if cmd == prefix || strings.HasPrefix(cmd, prefix+" ") {
+			return true
+		}
+	}
+	return false
+}
+
+func truncateForCommandLog(s string, max int) string {
+	if max <= 0 {
+		return ""
+	}
+	if utf8.RuneCountInString(s) <= max {
+		return s
+	}
+	trimmed := strings.TrimSpace(s)
+	runes := []rune(trimmed)
+	if len(runes) <= max {
+		return trimmed
+	}
+	if max <= 3 {
+		return string(runes[:max])
+	}
+	return string(runes[:max-3]) + "..."
 }
 
 func (a *App) handleServerMetricsHistory(c *gin.Context) {
@@ -364,6 +442,19 @@ func (a *App) handleServerCommand(c *gin.Context) {
 		return
 	}
 
+	allowlistDisabled, allowlist := a.parseRemoteCommandAllowlist()
+	if !allowlistDisabled && !commandMatchesAllowlist(allowlist, req.Command) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "command is not allowed"})
+		return
+	}
+
+	logLine := truncateForCommandLog(req.Command, maxCommandLogLength)
+	_ = a.db.Create(&models.CommandLog{
+		UserID:   userID,
+		ServerID: serverID,
+		Command:  logLine,
+	}).Error
+
 	raw, err := a.hub.RequestAgent(serverID, "run_command", map[string]any{"command": req.Command}, 60*time.Second)
 	if err != nil {
 		log.Printf("run_command agent request failed (server_id=%d): %v", serverID, err)
@@ -377,6 +468,132 @@ func (a *App) handleServerCommand(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, decoded)
+}
+
+type patchServerRequest struct {
+	Name string `json:"name"`
+}
+
+func (a *App) handlePatchServer(c *gin.Context) {
+	userID, ok := userIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	serverID, err := parseUintParam(c, "id")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid server id"})
+		return
+	}
+
+	if _, err := a.requireServerForUser(userID, serverID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "server not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load server"})
+		return
+	}
+
+	var req patchServerRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "name is required"})
+		return
+	}
+	if utf8.RuneCountInString(name) > 120 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "name is too long"})
+		return
+	}
+
+	if err := a.db.Model(&models.Server{}).Where("id = ? AND user_id = ?", serverID, userID).Update("name", name).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to update server"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"id":   serverID,
+		"name": name,
+	})
+}
+
+func (a *App) handleDeleteServer(c *gin.Context) {
+	userID, ok := userIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	serverID, err := parseUintParam(c, "id")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid server id"})
+		return
+	}
+
+	server, err := a.requireServerForUser(userID, serverID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "server not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load server"})
+		return
+	}
+
+	var runningCount int64
+	if err := a.db.Model(&models.Deploy{}).Where("server_id = ? AND status = ?", serverID, "running").Count(&runningCount).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to check deploys"})
+		return
+	}
+	if runningCount > 0 {
+		c.JSON(http.StatusConflict, gin.H{
+			"error": "cannot delete server: there are active deploys with status running; stop or remove them first",
+		})
+		return
+	}
+
+	a.hub.KickServer(serverID)
+
+	if err := a.db.Transaction(func(tx *gorm.DB) error {
+		var deployIDs []uint
+		if err := tx.Model(&models.Deploy{}).Where("server_id = ?", serverID).Pluck("id", &deployIDs).Error; err != nil {
+			return err
+		}
+		if len(deployIDs) > 0 {
+			if err := tx.Where("deploy_id IN ?", deployIDs).Delete(&models.DeployLog{}).Error; err != nil {
+				return err
+			}
+		}
+		if err := tx.Where("server_id = ?", serverID).Delete(&models.Deploy{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("server_id = ?", serverID).Delete(&models.MetricPoint{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("server_id = ?", serverID).Delete(&models.CommandLog{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Delete(&models.Server{}, serverID).Error; err != nil {
+			return err
+		}
+		if err := tx.Delete(&models.AgentToken{}, server.TokenID).Error; err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		log.Printf("delete server failed (server_id=%d user_id=%d): %v", serverID, userID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to delete server"})
+		return
+	}
+
+	log.Printf("server deleted (server_id=%d user_id=%d)", serverID, userID)
+	c.Status(http.StatusNoContent)
 }
 
 func (a *App) handleKillServerProcess(c *gin.Context) {

@@ -69,17 +69,20 @@ func (a *App) Router() *gin.Engine {
 	authGroup := r.Group("/")
 	authGroup.Use(a.userAuthMiddleware())
 	{
+		authGroup.GET("/auth/me", a.handleMe)
 		authGroup.POST("/auth/tokens", a.handleCreateAgentToken)
 		authGroup.GET("/auth/tokens", a.handleListAgentTokens)
 		authGroup.PATCH("/auth/tokens/:id", a.handleUpdateAgentTokenName)
 		authGroup.DELETE("/auth/tokens/:id", a.handleRevokeAgentToken)
 
 		authGroup.GET("/servers", a.handleListServers)
+		authGroup.PATCH("/servers/:id", a.handlePatchServer)
 		authGroup.GET("/servers/:id/metrics", a.handleServerMetricsHistory)
 		authGroup.GET("/servers/:id/processes", a.handleServerProcesses)
 		authGroup.POST("/servers/:id/command", a.handleServerCommand)
 		authGroup.POST("/servers/:id/deploy", a.handleServerDeploy)
 		authGroup.DELETE("/servers/:id/processes/:pid", a.handleKillServerProcess)
+		authGroup.DELETE("/servers/:id", a.handleDeleteServer)
 
 		authGroup.POST("/deploy", a.handleCreateDeploy)
 		authGroup.GET("/deploys", a.handleListDeploys)

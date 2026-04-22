@@ -127,6 +127,32 @@ func (a *App) handleLogin(c *gin.Context) {
 	})
 }
 
+func (a *App) handleMe(c *gin.Context) {
+	userID, ok := userIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var user models.User
+	if err := a.db.Where("id = ?", userID).First(&user).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+
+	role := user.Role
+	if role == "" {
+		role = "user"
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"id":         user.ID,
+		"email":      user.Email,
+		"created_at": user.CreatedAt.UTC().Format(time.RFC3339),
+		"role":       role,
+	})
+}
+
 func (a *App) handleCreateAgentToken(c *gin.Context) {
 	userID, ok := userIDFromContext(c)
 	if !ok {
