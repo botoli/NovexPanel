@@ -11,7 +11,7 @@ const Login = observer(() => {
   const [password, setPassword] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-
+  console.log({ loading, error });
   const navigate = useNavigate();
   const handleSubmit = async () => {
     // Валидация

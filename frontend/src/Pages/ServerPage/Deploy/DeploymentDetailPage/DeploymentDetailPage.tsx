@@ -17,7 +17,7 @@ const MOCK = {
     { key: 'NODE_ENV', value: 'production' },
     { key: 'DATABASE_URL', value: 'postgres://user:secret@host:5432/db' },
     { key: 'API_KEY', value: 'sk_live_abc123' },
-  ] as { key: string; value: string }[],
+  ] as { key: string; value: string; }[],
   buildCommand: 'go build -o app .',
   outputDir: '' as string | null,
   appPort: 8080,
@@ -29,17 +29,15 @@ const MOCK = {
     uptime: '2h 15m',
     hostPid: '48291' as string | null,
   },
-  buildLog:
-    "running: git clone --depth 1 --branch main https://github.com/botoli/case3.git src\n"
-    + "Cloning into 'src'...\n"
-    + "using subdirectory: /tmp/novex-deploy-20-4216213173/src/backend\n"
-    + "detected project type: go\n"
-    + "running: go mod download\n"
-    + "running: go build -o app .\n"
-    + "Dockerfile not found, using process runtime\n"
-    + "app binary found and executable\n",
-  runtimeLogSeed:
-    "[stdout] server listening on :8080\n[stderr] (none)\n[stdout] GET / 200 2ms\n",
+  buildLog: 'running: git clone --depth 1 --branch main https://github.com/botoli/case3.git src\n'
+    + 'Cloning into \'src\'...\n'
+    + 'using subdirectory: /tmp/novex-deploy-20-4216213173/src/backend\n'
+    + 'detected project type: go\n'
+    + 'running: go mod download\n'
+    + 'running: go build -o app .\n'
+    + 'Dockerfile not found, using process runtime\n'
+    + 'app binary found and executable\n',
+  runtimeLogSeed: '[stdout] server listening on :8080\n[stderr] (none)\n[stdout] GET / 200 2ms\n',
 } as const;
 
 function formatDateTime(iso: string) {
@@ -59,9 +57,9 @@ function statusClass(s: (typeof MOCK)['status']) {
 export function DeploymentDetailPage() {
   const { id, deployId } = useParams();
 
-  const [buildLog, setBuildLog] = useState(MOCK.buildLog);
+  const [buildLog, setBuildLog] = useState<string>(MOCK.buildLog);
   const [envVisible, setEnvVisible] = useState<Record<string, boolean>>({});
-  const [runtimeLog, setRuntimeLog] = useState(MOCK.runtimeLogSeed);
+  const [runtimeLog, setRuntimeLog] = useState<string>(MOCK.runtimeLogSeed);
   const [runtimeStreamOn, setRuntimeStreamOn] = useState(false);
 
   const data = MOCK;
@@ -122,7 +120,10 @@ export function DeploymentDetailPage() {
               </span>
             </h1>
             {deployId != null && (
-              <span className={styles.infoLabel} style={{ textTransform: 'none', letterSpacing: 'normal' }}>
+              <span
+                className={styles.infoLabel}
+                style={{ textTransform: 'none', letterSpacing: 'normal' }}
+              >
                 ID: {deployId}
               </span>
             )}
@@ -209,7 +210,9 @@ export function DeploymentDetailPage() {
                         </td>
                         <td>
                           <code>
-                            {vis ? row.value : '*'.repeat(Math.min(32, Math.max(8, row.value.length)))}
+                            {vis
+                              ? row.value
+                              : '*'.repeat(Math.min(32, Math.max(8, row.value.length)))}
                           </code>
                         </td>
                         <td>
@@ -315,11 +318,19 @@ export function DeploymentDetailPage() {
           Логи сборки
         </h2>
         <div className={styles.logToolbar}>
-          <button type='button' className={`${styles.btn} ${styles.btnSecondary}`} onClick={downloadBuildLog}>
+          <button
+            type='button'
+            className={`${styles.btn} ${styles.btnSecondary}`}
+            onClick={downloadBuildLog}
+          >
             <Icon icon='mdi:download' />
             Скачать логи
           </button>
-          <button type='button' className={`${styles.btn} ${styles.btnDanger}`} onClick={clearBuildLogLocal}>
+          <button
+            type='button'
+            className={`${styles.btn} ${styles.btnDanger}`}
+            onClick={clearBuildLogLocal}
+          >
             <Icon icon='mdi:eraser' />
             Очистить
           </button>
@@ -358,7 +369,11 @@ export function DeploymentDetailPage() {
             <Icon icon='mdi:stop' />
             Стоп
           </button>
-          <button type='button' className={`${styles.btn} ${styles.btnDanger}`} onClick={clearRuntime}>
+          <button
+            type='button'
+            className={`${styles.btn} ${styles.btnDanger}`}
+            onClick={clearRuntime}
+          >
             <Icon icon='mdi:eraser' />
             Очистить
           </button>

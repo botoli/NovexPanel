@@ -1,6 +1,5 @@
 import { observer } from 'mobx-react-lite';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
 import {
   Area,
   AreaChart,

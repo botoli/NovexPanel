@@ -26,6 +26,7 @@ const Account = observer(() => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  console.log({ loading, error });
   const [tokensData, setTokensData] = useState<TokenData[]>([]);
   const getTokensData = useCallback(async () => {
     try {

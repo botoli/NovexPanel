@@ -26,6 +26,7 @@ export const DeploymentsPage = observer(() => {
 
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  console.log({ loading, error });
   const [DeploymentProjects, setDeploymentProjects] = useState<DeployData[] | null>(null);
   const deleteDeploy = async (id: number) => {
     try {
@@ -71,6 +72,7 @@ export const DeploymentsPage = observer(() => {
       clearInterval(interval);
     };
   }, []);
+
   //   [
   //   {
   //     "branch": "master",

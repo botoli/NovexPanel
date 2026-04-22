@@ -25,16 +25,32 @@ export const DeployPage = observer(() => {
   const { server } = useCurrentServer();
   const navigate = useNavigate();
   const langs = [
-    { 'name': 'Node.js', 'icon': 'logos:nodejs-icon', description: 'JavaScript runtime' },
-    { 'name': 'Go', 'icon': 'logos:go', description: 'Go programming language' },
-    { 'name': 'Python', 'icon': 'logos:python', description: 'Python programming language' },
-    { 'name': 'Vite', 'icon': 'logos:vite-icon', description: 'Vite development server' },
+    {
+      'name': 'Node.js',
+      'type': 'node',
+      'icon': 'logos:nodejs-icon',
+      description: 'JavaScript runtime',
+    },
+    { 'name': 'Go', 'type': 'go', 'icon': 'logos:go', description: 'Go programming language' },
+    {
+      'name': 'Python',
+      'type': 'python',
+      'icon': 'logos:python',
+      description: 'Python programming language',
+    },
+    {
+      'name': 'Vite',
+      'type': 'vite',
+      'icon': 'logos:vite-icon',
+      description: 'Vite development server',
+    },
   ];
 
   const [GithubUrl, setGithubUrl] = useState<string>('');
-  const [choosedLanguage, setChoosedLanguage] = useState('Node.js');
+  const [choosedLanguage, setChoosedLanguage] = useState('node');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  console.log({ loading, error });
   const [subdirectory, setSubdirectory] = useState<string>('');
   const [envKey, setEnvKey] = useState<string>('');
   const [envValue, setEnvValue] = useState<string>('');
@@ -160,10 +176,14 @@ export const DeployPage = observer(() => {
                       key={lang.name}
                       type='button'
                       className={`${styles.techCard} ${
-                        choosedLanguage === lang.name ? styles.techCardSelected : ''
+                        choosedLanguage === lang.type.toLowerCase()
+                          ? styles.techCardSelected
+                          : ''
                       }`}
                       onClick={() => {
-                        setChoosedLanguage(lang.name);
+                        setChoosedLanguage(
+                          lang.name === 'Node.js' ? 'node' : lang.name.toLowerCase(),
+                        );
                       }}
                     >
                       <span className={styles.techCheck} aria-hidden='true'>
