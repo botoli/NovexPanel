@@ -1571,7 +1571,19 @@ func (a *Agent) buildDockerImage(parentCtx context.Context, stepTimeout time.Dur
 		logf(fmt.Sprintf("copying static build artifacts from %s into nginx:alpine image", staticServeDir), false)
 	}
 
-	dockerfileContent, err := generateDockerfile(projectType, workDir, staticServeDir, appPort)
+	var staticNginxConfRel string
+	if projectType == "static" {
+		rel, cleanupNginx, prepErr := prepareStaticNginxConfForDocker(workDir, logf)
+		if prepErr != nil {
+			return "", prepErr
+		}
+		staticNginxConfRel = rel
+		if cleanupNginx != nil {
+			defer cleanupNginx()
+		}
+	}
+
+	dockerfileContent, err := generateDockerfile(projectType, workDir, staticServeDir, appPort, staticNginxConfRel)
 	if err != nil {
 		return "", err
 	}
@@ -1977,7 +1989,43 @@ func relativePathWithinBase(baseDir, targetDir string) (string, error) {
 	return filepath.ToSlash(rel), nil
 }
 
-func generateDockerfile(projectType, workDir, staticServeDir string, appPort int) (string, error) {
+const defaultStaticNginxConf = `server {
+    listen 80;
+    root /usr/share/nginx/html;
+    index index.html;
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+`
+
+const generatedStaticNginxConfFile = ".novex.generated.nginx.conf"
+
+// prepareStaticNginxConfForDocker returns a path relative to workDir suitable for COPY in the build context.
+// If nginx.conf exists at the repo root, it is used; otherwise a default SPA-friendly config is written to
+// generatedStaticNginxConfFile. When the second return value is non-nil, it removes the generated file.
+func prepareStaticNginxConfForDocker(workDir string, logf func(string, bool)) (relPath string, cleanup func(), err error) {
+	repoNginx := filepath.Join(workDir, "nginx.conf")
+	if fileExists(repoNginx) {
+		rel, relErr := relativePathWithinBase(workDir, repoNginx)
+		if relErr != nil {
+			return "", nil, relErr
+		}
+		logf("static SPA: using nginx.conf from repository root for nginx:alpine image", false)
+		return rel, nil, nil
+	}
+
+	genPath := filepath.Join(workDir, generatedStaticNginxConfFile)
+	if err := os.WriteFile(genPath, []byte(defaultStaticNginxConf), 0o644); err != nil {
+		return "", nil, fmt.Errorf("write generated nginx.conf: %w", err)
+	}
+	logf("static SPA: generated default nginx.conf with try_files for client-side routing (F5 on deep links)", false)
+	return generatedStaticNginxConfFile, func() {
+		_ = os.Remove(genPath)
+	}, nil
+}
+
+func generateDockerfile(projectType, workDir, staticServeDir string, appPort int, staticNginxConfRel string) (string, error) {
 	if appPort <= 0 || appPort > 65535 {
 		return "", fmt.Errorf("invalid app port: %d", appPort)
 	}
@@ -2019,7 +2067,14 @@ CMD ["npm", "start"]
 		if strings.TrimSpace(staticServeDir) == "" {
 			return "", errors.New("static output directory is required for static container")
 		}
+		if strings.TrimSpace(staticNginxConfRel) == "" {
+			return "", errors.New("nginx config path is required for static container")
+		}
 		relStaticDir, err := relativePathWithinBase(workDir, staticServeDir)
+		if err != nil {
+			return "", err
+		}
+		relNginxConf, err := relativePathWithinBase(workDir, filepath.Join(workDir, staticNginxConfRel))
 		if err != nil {
 			return "", err
 		}
@@ -2030,9 +2085,10 @@ CMD ["npm", "start"]
 		}
 
 		return fmt.Sprintf(`FROM nginx:alpine
+COPY %s /etc/nginx/conf.d/default.conf
 COPY %s /usr/share/nginx/html/
 EXPOSE 80
-`, filepath.ToSlash(copyPath)), nil
+`, filepath.ToSlash(relNginxConf), filepath.ToSlash(copyPath)), nil
 	case "python":
 		return fmt.Sprintf(`FROM python:3-alpine
 WORKDIR /app
