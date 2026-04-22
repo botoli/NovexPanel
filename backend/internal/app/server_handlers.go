@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -312,7 +313,8 @@ func (a *App) handleServerProcesses(c *gin.Context) {
 
 	raw, err := a.hub.RequestAgent(serverID, "get_processes", nil, 20*time.Second)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		log.Printf("get_processes agent request failed (server_id=%d): %v", serverID, err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": publicAgentError(err)})
 		return
 	}
 
@@ -357,10 +359,15 @@ func (a *App) handleServerCommand(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "command is required"})
 		return
 	}
+	if len(req.Command) > 4096 || strings.ContainsRune(req.Command, '\x00') {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid command"})
+		return
+	}
 
 	raw, err := a.hub.RequestAgent(serverID, "run_command", map[string]any{"command": req.Command}, 60*time.Second)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		log.Printf("run_command agent request failed (server_id=%d): %v", serverID, err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": publicAgentError(err)})
 		return
 	}
 
@@ -405,7 +412,8 @@ func (a *App) handleKillServerProcess(c *gin.Context) {
 
 	raw, err := a.hub.RequestAgent(serverID, "kill_process", map[string]any{"pid": pid}, 20*time.Second)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		log.Printf("kill_process agent request failed (server_id=%d pid=%d): %v", serverID, pid, err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": publicAgentError(err)})
 		return
 	}
 
@@ -459,12 +467,27 @@ func (a *App) handleServerDeploy(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "repo_url is required for github source"})
 		return
 	}
+	if req.Source == "github" {
+		if err := validateRepoURL(req.RepoURL); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+	}
 	if req.Source == "zip" && strings.TrimSpace(req.ZipData) == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "zip_data is required for zip source"})
 		return
 	}
-	if req.Branch == "" {
-		req.Branch = "main"
+
+	branch, err := normalizeAndValidateDeployBranch(req.Branch)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	req.Branch = branch
+
+	if err := validateProjectType(req.ProjectType); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
 	}
 
 	deploy := models.Deploy{
@@ -491,14 +514,16 @@ func (a *App) handleServerDeploy(c *gin.Context) {
 	}
 
 	if _, err := a.hub.RequestAgent(serverID, "deploy", payload, 20*time.Second); err != nil {
+		publicErr := publicAgentError(err)
+		log.Printf("legacy deploy agent request failed (server_id=%d deploy_id=%d): %v", serverID, deploy.ID, err)
 		now := time.Now()
 		a.db.Model(&deploy).Updates(map[string]any{
 			"status":        "failed",
-			"error_message": err.Error(),
+			"error_message": publicErr,
 			"finished_at":   &now,
 		})
 		c.JSON(http.StatusBadGateway, gin.H{
-			"error":     err.Error(),
+			"error":     publicErr,
 			"deploy_id": deploy.ID,
 		})
 		return
@@ -560,4 +585,20 @@ func decodeRawJSON(raw json.RawMessage) (any, error) {
 
 func parsePositiveInt(raw string) (uint64, error) {
 	return parseUintFromString(raw)
+}
+
+func publicAgentError(err error) string {
+	if err == nil {
+		return "agent request failed"
+	}
+
+	msg := strings.ToLower(strings.TrimSpace(err.Error()))
+	switch {
+	case strings.Contains(msg, "offline"):
+		return "agent offline"
+	case strings.Contains(msg, "timeout"):
+		return "agent request timeout"
+	default:
+		return "agent request failed"
+	}
 }

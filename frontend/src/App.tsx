@@ -11,8 +11,8 @@ import './Styles/app.scss';
 import Account from './modals/Account/Account';
 import Login from './modals/Login/Login';
 import Registration from './modals/Registration/Registration';
-import { DeploymentsPage } from './Pages/ServerPage/Deploy/Deploy';
-import { DeployPage } from './Pages/ServerPage/Deploy/DeploymentsPage/DeploymentsPage';
+import { DeploymentsPage } from './Pages/ServerPage/Deploy/DeploymentsPage';
+import { DeployPage } from './Pages/ServerPage/Deploy/DeploymentsPage/Deploy';
 import { TerminalPage } from './Pages/ServerPage/Terminal/Terminal';
 
 const App = observer(() => {
@@ -26,8 +26,8 @@ const App = observer(() => {
         <Route path='metrics' element={<MetricsPage />} />
         <Route path='processes' element={<ProcessesPage />} />
         <Route path='terminal' element={<TerminalPage />} />
-        <Route path='deploy' element={<DeploymentsPage />} />
-        <Route path='deployments' element={<DeployPage />} />
+        <Route path='deployments' element={<DeploymentsPage />} />
+        <Route path='deploy' element={<DeployPage />} />
       </Route>
 
       <Route path='/account' element={<Account />} />

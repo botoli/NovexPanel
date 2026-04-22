@@ -6,7 +6,7 @@ import { tokenStore } from '../../../Store/TokenStore';
 
 import { NavLink } from 'react-router-dom';
 import { API_BASE } from '../../../Api/api';
-import styles from './Deploy.module.scss';
+import styles from './DeploymentsPage.module.scss';
 interface DeployData {
   serverId: number | undefined;
   repoUrl: string;
@@ -57,7 +57,6 @@ export const DeploymentsPage = observer(() => {
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const data = await response.json();
       setDeploymentProjects(data);
-      console.log(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Произошла ошибка');
     } finally {
@@ -99,13 +98,13 @@ export const DeploymentsPage = observer(() => {
             <Icon icon='mdi:rocket-launch' className={styles.headerIcon} />
             Deployments
           </h1>
-          {DeploymentProjects?.length > 0 && (
+          {DeploymentProjects !== null && (
             <span className={styles.deployCount}>
-              {DeploymentProjects.length}
+              {DeploymentProjects?.length}
             </span>
           )}
         </div>
-        <NavLink to={`/servers/${server?.id}/deployments`}>
+        <NavLink to={`/servers/${server?.id}/deploy`}>
           <button type='button' className={styles.headerBtn}>
             <Icon icon='mdi:plus' />
             Create New Deployment
@@ -154,7 +153,7 @@ export const DeploymentsPage = observer(() => {
                     </tr>
                   )
                   : (
-                    DeploymentProjects.map((project) => (
+                    DeploymentProjects?.map((project) => (
                       <tr key={project.id} className={styles.tableRow}>
                         <td className={styles.colType}>
                           <span className={styles.langBadge}>{project.type}</span>

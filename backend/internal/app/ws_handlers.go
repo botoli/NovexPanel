@@ -13,18 +13,9 @@ import (
 	"novexpanel/backend/internal/models"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
-
-var wsUpgrader = websocket.Upgrader{
-	ReadBufferSize:  4096,
-	WriteBufferSize: 4096,
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-}
 
 func (a *App) handleAgentWS(c *gin.Context) {
 	tokenRaw := strings.TrimSpace(c.Query("token"))
@@ -56,12 +47,14 @@ func (a *App) handleAgentWS(c *gin.Context) {
 		return
 	}
 
-	conn, err := wsUpgrader.Upgrade(c.Writer, c.Request, nil)
+	upgrader := a.newWSUpgrader(false)
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Printf("agent ws upgrade failed: remote=%s error=%v", c.Request.RemoteAddr, err)
 		return
 	}
 	defer conn.Close()
+	configureWSReadSettings(conn, a.wsReadLimit(512*1024))
 
 	ip := c.ClientIP()
 	if ip == "" {
@@ -113,7 +106,25 @@ func (a *App) handleAgentWS(c *gin.Context) {
 
 	client := a.hub.RegisterAgent(server.ID, token.UserID, conn)
 	log.Printf("agent ws registered in hub: server_id=%d user_id=%d active_server_ids=%v", server.ID, token.UserID, a.hub.ActiveAgentServerIDs())
+	stopKeepalive := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(wsPingInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-stopKeepalive:
+				return
+			case <-ticker.C:
+				if err := client.sendPing(); err != nil {
+					log.Printf("agent ws ping failed: server_id=%d error=%v", server.ID, err)
+					_ = conn.Close()
+					return
+				}
+			}
+		}
+	}()
 	defer func() {
+		close(stopKeepalive)
 		log.Printf("agent ws disconnecting: server_id=%d user_id=%d", server.ID, token.UserID)
 		a.hub.UnregisterAgent(server.ID, client)
 		disconnectedAt := time.Now()
@@ -123,8 +134,6 @@ func (a *App) handleAgentWS(c *gin.Context) {
 		}).Error
 		log.Printf("agent ws disconnected: server_id=%d", server.ID)
 	}()
-
-	_ = conn.SetReadDeadline(time.Time{})
 
 	for {
 		_, payload, err := conn.ReadMessage()
@@ -355,14 +364,33 @@ func (a *App) handleSiteWS(c *gin.Context) {
 		return
 	}
 
-	conn, err := wsUpgrader.Upgrade(c.Writer, c.Request, nil)
+	upgrader := a.newWSUpgrader(true)
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		return
 	}
 	defer conn.Close()
+	configureWSReadSettings(conn, a.wsReadLimit(128*1024))
 
 	site := a.hub.NewSiteClient(claims.UserID, conn)
+	stopKeepalive := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(wsPingInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-stopKeepalive:
+				return
+			case <-ticker.C:
+				if err := site.sendPing(); err != nil {
+					_ = conn.Close()
+					return
+				}
+			}
+		}
+	}()
 	defer a.hub.RemoveSite(site)
+	defer close(stopKeepalive)
 
 	_ = site.sendJSON(map[string]any{"type": "connected"})
 

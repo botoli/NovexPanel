@@ -23,19 +23,25 @@ type App struct {
 	cfg config.Config
 	db  *gorm.DB
 	hub *Hub
+
+	apiLimiter  *fixedWindowRateLimiter
+	authLimiter *fixedWindowRateLimiter
 }
 
 func New(cfg config.Config, db *gorm.DB) *App {
 	return &App{
-		cfg: cfg,
-		db:  db,
-		hub: NewHub(db),
+		cfg:         cfg,
+		db:          db,
+		hub:         NewHub(db),
+		apiLimiter:  newFixedWindowRateLimiter(240, time.Minute),
+		authLimiter: newFixedWindowRateLimiter(10, 5*time.Minute),
 	}
 }
 
 func (a *App) Router() *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery())
+	_ = r.SetTrustedProxies(nil)
 
 	corsCfg := cors.Config{
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
@@ -51,13 +57,14 @@ func (a *App) Router() *gin.Engine {
 		corsCfg.AllowOrigins = a.cfg.SiteAllowedOrigins
 	}
 	r.Use(cors.New(corsCfg))
+	r.Use(a.securityHeadersMiddleware(), a.requestBodyLimitMiddleware(), a.globalRateLimitMiddleware())
 
 	r.GET("/healthz", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
-	r.POST("/auth/register", a.handleRegister)
-	r.POST("/auth/login", a.handleLogin)
+	r.POST("/auth/register", a.authRateLimitMiddleware("register"), a.handleRegister)
+	r.POST("/auth/login", a.authRateLimitMiddleware("login"), a.handleLogin)
 
 	authGroup := r.Group("/")
 	authGroup.Use(a.userAuthMiddleware())
@@ -132,6 +139,9 @@ func parseUintParam(c *gin.Context, key string) (uint, error) {
 	parsed, err := strconv.ParseUint(raw, 10, 64)
 	if err != nil {
 		return 0, err
+	}
+	if parsed == 0 {
+		return 0, errors.New("must be positive")
 	}
 	return uint(parsed), nil
 }

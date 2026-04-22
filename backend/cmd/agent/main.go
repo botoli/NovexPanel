@@ -18,7 +18,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -53,6 +55,8 @@ type storedAgentConfig struct {
 const (
 	defaultBackendURL      = "ws://localhost:8380"
 	defaultMetricsInterval = 2 * time.Second
+	agentWSPongWait        = 90 * time.Second
+	agentWSPingInterval    = 30 * time.Second
 
 	colorReset  = "\033[0m"
 	colorRed    = "\033[31m"
@@ -89,7 +93,6 @@ type Agent struct {
 
 type deployRuntime struct {
 	ContainerName string
-	PID           int
 }
 
 type terminalSession struct {
@@ -105,23 +108,29 @@ type commandMessage struct {
 }
 
 type deployPayload struct {
-	DeployID          uint   `json:"deploy_id"`
-	DeployIDCamel     uint   `json:"deployId"`
-	Source            string `json:"source"`
-	RepoURL           string `json:"repo_url"`
-	RepoURLCamel      string `json:"repoUrl"`
-	Branch            string `json:"branch"`
-	Type              string `json:"type"`
-	ProjectType       string `json:"project_type"`
-	ProjectTypeCamel  string `json:"projectType"`
-	Subdirectory      string `json:"subdirectory"`
-	SubdirectoryAlt   string `json:"sub_directory"`
-	SubdirectoryCamel string `json:"subDirectory"`
-	BuildCommand      string `json:"build_command"`
-	BuildCommandAlt   string `json:"buildCommand"`
-	OutputDir         string `json:"output_dir"`
-	OutputDirAlt      string `json:"outputDir"`
-	ZipData           string `json:"zip_data"`
+	DeployID             uint           `json:"deploy_id"`
+	DeployIDCamel        uint           `json:"deployId"`
+	Source               string         `json:"source"`
+	RepoURL              string         `json:"repo_url"`
+	RepoURLCamel         string         `json:"repoUrl"`
+	Branch               string         `json:"branch"`
+	Type                 string         `json:"type"`
+	ProjectType          string         `json:"project_type"`
+	ProjectTypeCamel     string         `json:"projectType"`
+	Subdirectory         string         `json:"subdirectory"`
+	SubdirectoryAlt      string         `json:"sub_directory"`
+	SubdirectoryCamel    string         `json:"subDirectory"`
+	BuildCommand         string         `json:"build_command"`
+	BuildCommandAlt      string         `json:"buildCommand"`
+	OutputDir            string         `json:"output_dir"`
+	OutputDirAlt         string         `json:"outputDir"`
+	ZipData              string         `json:"zip_data"`
+	Env                  map[string]any `json:"env"`
+	EnvCamel             map[string]any `json:"envVars"`
+	Environment          map[string]any `json:"environment"`
+	EnvironmentCamel     map[string]any `json:"environmentVars"`
+	ContainerEnvironment map[string]any `json:"container_env"`
+	ContainerEnvCamel    map[string]any `json:"containerEnv"`
 }
 
 func (p *deployPayload) normalize() {
@@ -155,6 +164,29 @@ func (p *deployPayload) normalize() {
 	if strings.TrimSpace(p.Branch) == "" {
 		p.Branch = "main"
 	}
+}
+
+func (p *deployPayload) normalizedEnvVars() map[string]string {
+	envVars := make(map[string]string)
+
+	mergeMap := func(raw map[string]any) {
+		for key, value := range raw {
+			trimmedKey := strings.TrimSpace(key)
+			if trimmedKey == "" || value == nil {
+				continue
+			}
+			envVars[trimmedKey] = strings.TrimSpace(fmt.Sprintf("%v", value))
+		}
+	}
+
+	mergeMap(p.Env)
+	mergeMap(p.EnvCamel)
+	mergeMap(p.Environment)
+	mergeMap(p.EnvironmentCamel)
+	mergeMap(p.ContainerEnvironment)
+	mergeMap(p.ContainerEnvCamel)
+
+	return envVars
 }
 
 func main() {
@@ -506,6 +538,11 @@ func (a *Agent) connectAndRun() error {
 	if err != nil {
 		return err
 	}
+	conn.SetReadLimit(512 * 1024)
+	_ = conn.SetReadDeadline(time.Now().Add(agentWSPongWait))
+	conn.SetPongHandler(func(string) error {
+		return conn.SetReadDeadline(time.Now().Add(agentWSPongWait))
+	})
 	a.conn = conn
 	defer func() {
 		a.closeAllTerminals()
@@ -517,6 +554,7 @@ func (a *Agent) connectAndRun() error {
 	defer cancel()
 
 	go a.metricsLoop(ctx)
+	go a.pingLoop(ctx)
 	logSuccess("connected to %s", wsURL)
 
 	for {
@@ -528,9 +566,36 @@ func (a *Agent) connectAndRun() error {
 	}
 }
 
-func (a *Agent) handleMessage(payload []byte) {
-	logInfo("agent received message: %s", truncateLogPayload(payload, 2048))
+func (a *Agent) pingLoop(ctx context.Context) {
+	ticker := time.NewTicker(agentWSPingInterval)
+	defer ticker.Stop()
 
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := a.sendPing(); err != nil {
+				return
+			}
+		}
+	}
+}
+
+func (a *Agent) sendPing() error {
+	a.sendMu.Lock()
+	defer a.sendMu.Unlock()
+
+	if a.conn == nil {
+		return errors.New("connection is not established")
+	}
+	if err := a.conn.SetWriteDeadline(time.Now().Add(10 * time.Second)); err != nil {
+		return err
+	}
+	return a.conn.WriteControl(websocket.PingMessage, []byte("ping"), time.Now().Add(10*time.Second))
+}
+
+func (a *Agent) handleMessage(payload []byte) {
 	var envelope struct {
 		Type string `json:"type"`
 	}
@@ -538,6 +603,7 @@ func (a *Agent) handleMessage(payload []byte) {
 		logWarn("agent message unmarshal failed: %v", err)
 		return
 	}
+	logInfo("agent received message: type=%q", strings.TrimSpace(envelope.Type))
 
 	switch envelope.Type {
 	case "command":
@@ -1172,39 +1238,34 @@ func (a *Agent) stopDeploy(deployID uint) error {
 	}
 	a.deployMu.Unlock()
 
+	candidates := map[string]struct{}{
+		fmt.Sprintf("deploy_%d", deployID): {},
+	}
 	if runtime.ContainerName != "" {
-		_, stderr, _, err := runShellCommand("docker rm -f " + runtime.ContainerName)
-		if err != nil {
-			if strings.TrimSpace(stderr) != "" {
-				return errors.New(strings.TrimSpace(stderr))
-			}
-			return err
-		}
-		return nil
+		candidates[runtime.ContainerName] = struct{}{}
 	}
 
-	if runtime.PID > 0 {
-		proc, err := os.FindProcess(runtime.PID)
-		if err != nil {
-			return err
-		}
-		return proc.Kill()
-	}
-
-	// Best effort fallback for unknown runtime: stop docker containers by naming convention.
-	stdout, _, _, err := runShellCommand(fmt.Sprintf("docker ps -a --filter name=deploy-%d- --format '{{.Names}}'", deployID))
+	legacyNames, err := queryDeployContainerNames(deployID)
 	if err != nil {
-		return nil
-	}
-	for _, name := range strings.Split(strings.TrimSpace(stdout), "\n") {
-		name = strings.TrimSpace(name)
-		if name == "" {
-			continue
+		logWarn("stop deploy: container discovery failed deploy_id=%d error=%v", deployID, err)
+	} else {
+		for _, name := range legacyNames {
+			candidates[name] = struct{}{}
 		}
-		_, _, _, _ = runShellCommand("docker rm -f " + name)
 	}
 
-	return nil
+	var firstErr error
+	for _, name := range mapKeysSorted(candidates) {
+		logInfo("stop deploy: stopping container deploy_id=%d name=%s", deployID, name)
+		if err := cleanupAndRemoveContainer(context.Background(), 90*time.Second, "", name, nil); err != nil {
+			logWarn("stop deploy: failed to cleanup container deploy_id=%d name=%s error=%v", deployID, name, err)
+			if firstErr == nil {
+				firstErr = err
+			}
+		}
+	}
+
+	return firstErr
 }
 
 func (a *Agent) runDeploy(payload deployPayload) {
@@ -1224,6 +1285,7 @@ func (a *Agent) runDeploy(payload deployPayload) {
 	}
 	requestedType := strings.ToLower(strings.TrimSpace(payload.ProjectType))
 	subdirectory := strings.TrimSpace(payload.Subdirectory)
+	envVars := payload.normalizedEnvVars()
 
 	logInfo("deploy started: deploy_id=%d repo=%q branch=%q subdirectory=%q type=%q", payload.DeployID, payload.RepoURL, branch, subdirectory, requestedType)
 
@@ -1341,6 +1403,43 @@ func (a *Agent) runDeploy(payload deployPayload) {
 	}
 	logf(fmt.Sprintf("detected project type: %s", projectType), false)
 
+	frontendBuildRequired := isFrontendProjectType(projectType)
+	if projectType == "static" {
+		shouldBuildStatic, detectErr := shouldBuildStaticProject(effectiveDir)
+		if detectErr != nil {
+			fail("read package.json scripts failed", "", detectErr)
+			return
+		}
+		if shouldBuildStatic {
+			frontendBuildRequired = true
+			logf("static project has package.json with build script, running npm install and npm run build", false)
+		}
+	}
+
+	runFrontendBuild := func(contextLabel string) (string, string, error) {
+		hasBuild, buildErr := hasBuildScript(effectiveDir)
+		if buildErr != nil {
+			return "read package.json scripts failed", "", buildErr
+		}
+		if !hasBuild {
+			return "npm run build failed", "", errors.New("package.json is missing scripts.build")
+		}
+
+		logf(fmt.Sprintf("%s: installing dependencies (npm install)", contextLabel), false)
+		output, runErr := runDeployCommand(ctx, stepTimeout, effectiveDir, logf, "npm", "install")
+		if runErr != nil {
+			return "npm install failed", output, runErr
+		}
+
+		logf(fmt.Sprintf("%s: building static assets (npm run build)", contextLabel), false)
+		output, runErr = runDeployCommand(ctx, stepTimeout, effectiveDir, logf, "npm", "run", "build")
+		if runErr != nil {
+			return "npm run build failed", output, runErr
+		}
+
+		return "", "", nil
+	}
+
 	customBuild := strings.TrimSpace(payload.BuildCommand)
 	if customBuild == "" {
 		switch projectType {
@@ -1357,6 +1456,7 @@ func (a *Agent) runDeploy(payload deployPayload) {
 				return
 			}
 		case "node":
+			logf("node project: installing dependencies (npm install)", false)
 			output, runErr := runDeployCommand(ctx, stepTimeout, effectiveDir, logf, "npm", "install")
 			if runErr != nil {
 				fail("npm install failed", output, runErr)
@@ -1369,6 +1469,7 @@ func (a *Agent) runDeploy(payload deployPayload) {
 				return
 			}
 			if hasBuild {
+				logf("node project: build script found, running npm run build", false)
 				output, runErr = runDeployCommand(ctx, stepTimeout, effectiveDir, logf, "npm", "run", "build")
 				if runErr != nil {
 					fail("npm run build failed", output, runErr)
@@ -1377,8 +1478,22 @@ func (a *Agent) runDeploy(payload deployPayload) {
 			}
 		case "python":
 			logf("python project: build step is not required", false)
+		case "vite", "react", "vue", "svelte":
+			step, output, runErr := runFrontendBuild(fmt.Sprintf("%s project", projectType))
+			if runErr != nil {
+				fail(step, output, runErr)
+				return
+			}
 		case "static":
-			logf("static project: build step is not required", false)
+			if frontendBuildRequired {
+				step, output, runErr := runFrontendBuild("static project with build script")
+				if runErr != nil {
+					fail(step, output, runErr)
+					return
+				}
+			} else {
+				logf("static project: build step is not required", false)
+			}
 		}
 	} else {
 		output, runErr := runDeployCommand(ctx, stepTimeout, effectiveDir, logf, "bash", "-lc", customBuild)
@@ -1388,115 +1503,572 @@ func (a *Agent) runDeploy(payload deployPayload) {
 		}
 	}
 
+	containerProjectType, staticServeDir, resolveErr := resolveContainerProjectType(projectType, effectiveDir, payload.OutputDir)
+	if resolveErr != nil {
+		finish(false, "", resolveErr.Error())
+		return
+	}
+	logf(fmt.Sprintf("container runtime type: %s", containerProjectType), false)
+	if staticServeDir != "" {
+		logf(fmt.Sprintf("container static directory: %s", staticServeDir), false)
+	}
+
+	appPort := detectContainerAppPort(containerProjectType, effectiveDir, envVars)
+	if appPort <= 0 || appPort > 65535 {
+		finish(false, "", fmt.Sprintf("invalid app port: %d", appPort))
+		return
+	}
+	if (containerProjectType == "go" || containerProjectType == "node") && strings.TrimSpace(envVars["PORT"]) == "" {
+		envVars["PORT"] = strconv.Itoa(appPort)
+		logf(fmt.Sprintf("PORT is not provided, injecting PORT=%d", appPort), false)
+	}
+	logf(fmt.Sprintf("detected container app port: %d", appPort), false)
+
 	port, err := findFreePort()
 	if err != nil {
 		finish(false, "", err.Error())
 		return
 	}
 	assignedPort = port
+	logf(fmt.Sprintf("assigned external port: %d", assignedPort), false)
 
-	if fileExists(filepath.Join(effectiveDir, "Dockerfile")) {
-		tag := fmt.Sprintf("deploy-%d", payload.DeployID)
-		output, runErr := runDeployCommand(ctx, stepTimeout, effectiveDir, logf, "docker", "build", "-t", tag, ".")
-		if runErr != nil {
-			fail("docker build failed", output, runErr)
-			return
-		}
-
-		containerName := fmt.Sprintf("deploy-%d-%d", payload.DeployID, time.Now().Unix())
-		output, runErr = runDeployCommand(ctx, stepTimeout, effectiveDir, logf, "docker", "run", "-d", "--name", containerName, "-p", fmt.Sprintf("%d:80", port), tag)
-		if runErr != nil {
-			fail("docker run failed", output, runErr)
-			return
-		}
-
-		a.setDeployRuntime(payload.DeployID, deployRuntime{ContainerName: containerName})
-		url := fmt.Sprintf("http://%s:%d", detectLocalIP(), port)
-		finish(true, url, "")
+	imageTag, buildErr := a.buildDockerImage(ctx, stepTimeout, payload.DeployID, effectiveDir, containerProjectType, staticServeDir, appPort, logf)
+	if buildErr != nil {
+		fail("docker build failed", "", buildErr)
 		return
 	}
 
-	logf("Dockerfile not found, using process runtime", false)
-
-	switch projectType {
-	case "go":
-// Проверка бинарника
-appPath := filepath.Join(effectiveDir, "app")
-if _, err := os.Stat(appPath); err != nil {
-    finish(false, "", fmt.Sprintf("app binary not found at %s: %v", appPath, err))
-    return
-}
-
-// Проверка прав на исполнение
-info, _ := os.Stat(appPath)
-if info.Mode().Perm()&0111 == 0 {
-    finish(false, "", fmt.Sprintf("app binary not executable: %s (mode %s)", appPath, info.Mode()))
-    return
-}
-
-logf(fmt.Sprintf("app binary found and executable: %s", appPath), false)
-	case "node":
-		serveDir := ""
-		if resolvedOutput := resolveOutputDir(effectiveDir, payload.OutputDir); resolvedOutput != "" {
-			if !dirExists(resolvedOutput) {
-				finish(false, "", fmt.Sprintf("output directory not found: %s", resolvedOutput))
-				return
-			}
-			serveDir = resolvedOutput
-		} else {
-			for _, candidate := range []string{"build", "dist", "public"} {
-				candidateDir := filepath.Join(effectiveDir, candidate)
-				if dirExists(candidateDir) {
-					serveDir = candidateDir
-					break
-				}
-			}
-		}
-
-		if serveDir != "" {
-			pid, startErr := startDetachedChecked(effectiveDir, nil, "npx", "--yes", "serve", "-s", serveDir, "-l", fmt.Sprintf("%d", port))
-			if startErr != nil {
-				finish(false, "", startErr.Error())
-				return
-			}
-			a.setDeployRuntime(payload.DeployID, deployRuntime{PID: pid})
-			logf(fmt.Sprintf("started node static server pid=%d dir=%s", pid, serveDir), false)
-		} else {
-			pid, startErr := startDetachedChecked(effectiveDir, []string{fmt.Sprintf("PORT=%d", port)}, "npm", "start")
-			if startErr != nil {
-				finish(false, "", startErr.Error())
-				return
-			}
-			a.setDeployRuntime(payload.DeployID, deployRuntime{PID: pid})
-			logf(fmt.Sprintf("started node app process pid=%d", pid), false)
-		}
-	case "python", "static":
-		serveDir := effectiveDir
-		if resolvedOutput := resolveOutputDir(effectiveDir, payload.OutputDir); resolvedOutput != "" {
-			if !dirExists(resolvedOutput) {
-				finish(false, "", fmt.Sprintf("output directory not found: %s", resolvedOutput))
-				return
-			}
-			serveDir = resolvedOutput
-		}
-
-		pythonCmd, pythonErr := firstAvailableCommand("python3", "python")
-		if pythonErr != nil {
-			finish(false, "", pythonErr.Error())
-			return
-		}
-
-		pid, startErr := startDetachedChecked(serveDir, nil, pythonCmd, "-m", "http.server", fmt.Sprintf("%d", port), "--bind", "0.0.0.0")
-		if startErr != nil {
-			finish(false, "", startErr.Error())
-			return
-		}
-		a.setDeployRuntime(payload.DeployID, deployRuntime{PID: pid})
-		logf(fmt.Sprintf("started %s file server pid=%d dir=%s", projectType, pid, serveDir), false)
+	containerName, runErr := a.runContainer(ctx, stepTimeout, payload.DeployID, effectiveDir, imageTag, assignedPort, appPort, envVars, logf)
+	if runErr != nil {
+		fail("docker run failed", "", runErr)
+		return
 	}
+
+	a.setDeployRuntime(payload.DeployID, deployRuntime{ContainerName: containerName})
 
 	url := fmt.Sprintf("http://%s:%d", detectLocalIP(), port)
 	finish(true, url, "")
+}
+
+func (a *Agent) buildDockerImage(parentCtx context.Context, stepTimeout time.Duration, deployID uint, workDir, projectType, staticServeDir string, appPort int, logf func(string, bool)) (string, error) {
+	imageTag := fmt.Sprintf("deploy_%d:latest", deployID)
+
+	if fileExists(filepath.Join(workDir, "Dockerfile")) {
+		if projectType != "static" {
+			logf("repository Dockerfile detected, using it for image build", false)
+			if _, err := runDeployCommand(parentCtx, stepTimeout, workDir, logf, "docker", "build", "-t", imageTag, "."); err != nil {
+				return "", err
+			}
+			return imageTag, nil
+		}
+		logf("static deployment: repository Dockerfile ignored, generating nginx:alpine image", false)
+	}
+
+	if projectType == "static" {
+		if strings.TrimSpace(staticServeDir) == "" {
+			return "", errors.New("static output directory is required for nginx image")
+		}
+		logf(fmt.Sprintf("copying static build artifacts from %s into nginx:alpine image", staticServeDir), false)
+	}
+
+	dockerfileContent, err := generateDockerfile(projectType, workDir, staticServeDir, appPort)
+	if err != nil {
+		return "", err
+	}
+
+	generatedDockerfilePath := filepath.Join(workDir, ".novex.generated.Dockerfile")
+	if err := os.WriteFile(generatedDockerfilePath, []byte(dockerfileContent), 0o644); err != nil {
+		return "", err
+	}
+	defer func() {
+		if removeErr := os.Remove(generatedDockerfilePath); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
+			logWarn("cleanup generated Dockerfile failed: path=%s error=%v", generatedDockerfilePath, removeErr)
+		}
+	}()
+
+	logf(fmt.Sprintf("generated Dockerfile: %s", generatedDockerfilePath), false)
+	if _, err := runDeployCommand(parentCtx, stepTimeout, workDir, logf, "docker", "build", "-f", generatedDockerfilePath, "-t", imageTag, "."); err != nil {
+		return "", err
+	}
+
+	return imageTag, nil
+}
+
+func (a *Agent) runContainer(parentCtx context.Context, stepTimeout time.Duration, deployID uint, workDir, imageTag string, hostPort, appPort int, envVars map[string]string, logf func(string, bool)) (string, error) {
+	if hostPort <= 0 || hostPort > 65535 {
+		return "", fmt.Errorf("invalid host port: %d", hostPort)
+	}
+	if appPort <= 0 || appPort > 65535 {
+		return "", fmt.Errorf("invalid app port: %d", appPort)
+	}
+
+	containerName := fmt.Sprintf("deploy_%d", deployID)
+	if err := cleanupAndRemoveContainer(parentCtx, stepTimeout, workDir, containerName, logf); err != nil {
+		return "", err
+	}
+	logf(fmt.Sprintf("starting container %s: %d -> %d", containerName, hostPort, appPort), false)
+	if appPort == 80 {
+		logf("container internal port is 80 (nginx/static runtime)", false)
+	}
+	memoryLimit := strings.TrimSpace(os.Getenv("NOVEX_DEPLOY_MEMORY_LIMIT"))
+	if memoryLimit == "" {
+		memoryLimit = "512m"
+	}
+	cpusLimit := strings.TrimSpace(os.Getenv("NOVEX_DEPLOY_CPUS"))
+	if cpusLimit == "" {
+		cpusLimit = "1.0"
+	}
+	pidsLimit := strings.TrimSpace(os.Getenv("NOVEX_DEPLOY_PIDS_LIMIT"))
+	if pidsLimit == "" {
+		pidsLimit = "256"
+	}
+
+	runArgs := []string{
+		"run", "-d", "--name", containerName,
+		"--security-opt", "no-new-privileges:true",
+		"--memory", memoryLimit,
+		"--cpus", cpusLimit,
+		"--pids-limit", pidsLimit,
+		"--cap-drop", "ALL",
+		"-p", fmt.Sprintf("%d:%d", hostPort, appPort),
+	}
+	if appPort <= 1024 {
+		runArgs = append(runArgs, "--cap-add", "NET_BIND_SERVICE")
+	}
+	for _, key := range sortedEnvKeys(envVars) {
+		runArgs = append(runArgs, "-e", fmt.Sprintf("%s=%s", key, envVars[key]))
+	}
+	runArgs = append(runArgs, imageTag)
+
+	if _, err := runDeployCommand(parentCtx, stepTimeout, workDir, logf, "docker", runArgs...); err != nil {
+		return "", err
+	}
+
+	return containerName, nil
+}
+
+func cleanupAndRemoveContainer(parentCtx context.Context, timeout time.Duration, workDir, containerName string, logf func(string, bool)) error {
+	containerName = strings.TrimSpace(containerName)
+	if containerName == "" {
+		return nil
+	}
+
+	for _, action := range []string{"stop", "rm"} {
+		commandLine := fmt.Sprintf("docker %s %s", action, containerName)
+		if logf != nil {
+			logf(fmt.Sprintf("running: %s in %s", commandLine, workDir), false)
+		}
+
+		stepCtx, cancel := context.WithTimeout(parentCtx, timeout)
+		combinedOutput, stderrOutput, err := runCommandContextDetailed(stepCtx, workDir, "docker", action, containerName)
+		cancel()
+
+		if logf != nil {
+			logDeployOutput(logf, combinedOutput, err != nil)
+		}
+		if err != nil {
+			errText := strings.ToLower(strings.TrimSpace(stderrOutput + "\n" + combinedOutput))
+			if strings.Contains(errText, "no such container") || strings.Contains(errText, "is not running") {
+				continue
+			}
+			return fmt.Errorf("%s failed: %w", commandLine, err)
+		}
+	}
+
+	return nil
+}
+
+func queryDeployContainerNames(deployID uint) ([]string, error) {
+	filters := []string{
+		fmt.Sprintf("name=deploy_%d", deployID),
+		fmt.Sprintf("name=deploy-%d-", deployID),
+	}
+
+	names := make(map[string]struct{})
+	for _, filter := range filters {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		output, _, err := runCommandContextDetailed(ctx, "", "docker", "ps", "-a", "--filter", filter, "--format", "{{.Names}}")
+		cancel()
+		if err != nil {
+			return nil, err
+		}
+
+		for _, line := range strings.Split(strings.TrimSpace(output), "\n") {
+			name := strings.TrimSpace(line)
+			if name == "" {
+				continue
+			}
+			names[name] = struct{}{}
+		}
+	}
+
+	return mapKeysSorted(names), nil
+}
+
+func resolveContainerProjectType(projectType, workDir, outputDir string) (string, string, error) {
+	switch projectType {
+	case "go":
+		return "go", "", nil
+	case "vite", "react", "vue", "svelte":
+		staticDir, err := resolveStaticAssetsDir(workDir, outputDir)
+		if err != nil {
+			return "", "", err
+		}
+		return "static", staticDir, nil
+	case "node":
+		if strings.TrimSpace(outputDir) != "" {
+			staticDir, err := resolveStaticAssetsDir(workDir, outputDir)
+			if err != nil {
+				return "", "", err
+			}
+			return "static", staticDir, nil
+		}
+
+		hasStart, err := hasPackageScript(workDir, "start")
+		if err != nil {
+			return "", "", fmt.Errorf("read package.json scripts failed: %w", err)
+		}
+		hasBuild, err := hasPackageScript(workDir, "build")
+		if err != nil {
+			return "", "", fmt.Errorf("read package.json scripts failed: %w", err)
+		}
+
+		autoStaticDir := detectDefaultStaticAssetsDir(workDir)
+		if !hasStart {
+			if autoStaticDir == "" {
+				return "", "", errors.New("node project has neither start script nor static output directory")
+			}
+			return "static", autoStaticDir, nil
+		}
+
+		if hasBuild && autoStaticDir != "" && isLikelyFrontendNodeProject(workDir) {
+			return "static", autoStaticDir, nil
+		}
+		return "node", "", nil
+	case "python":
+		return "python", "", nil
+	case "static":
+		staticDir, err := resolveStaticAssetsDir(workDir, outputDir)
+		if err != nil {
+			return "", "", err
+		}
+		return "static", staticDir, nil
+	default:
+		return "", "", fmt.Errorf("unsupported project type: %s", projectType)
+	}
+}
+
+func resolveStaticAssetsDir(workDir, outputDir string) (string, error) {
+	if resolved := resolveOutputDir(workDir, outputDir); resolved != "" {
+		if !dirExists(resolved) {
+			return "", fmt.Errorf("output directory not found: %s", resolved)
+		}
+		return resolved, nil
+	}
+
+	if autoDir := detectDefaultStaticAssetsDir(workDir); autoDir != "" {
+		return autoDir, nil
+	}
+
+	return "", errors.New("static output directory not found (expected dist, build, .output, out or public)")
+}
+
+func detectDefaultStaticAssetsDir(workDir string) string {
+	for _, candidate := range []string{"dist", "build", ".output", "out", "public"} {
+		candidateDir := filepath.Join(workDir, candidate)
+		if dirExists(candidateDir) {
+			return candidateDir
+		}
+	}
+
+	if fileExists(filepath.Join(workDir, "index.html")) {
+		return workDir
+	}
+
+	return ""
+}
+
+func isLikelyFrontendNodeProject(workDir string) bool {
+	content, err := os.ReadFile(filepath.Join(workDir, "package.json"))
+	if err != nil {
+		return false
+	}
+
+	var parsed struct {
+		Dependencies    map[string]any `json:"dependencies"`
+		DevDependencies map[string]any `json:"devDependencies"`
+	}
+	if err := json.Unmarshal(content, &parsed); err != nil {
+		return false
+	}
+
+	frontendDeps := []string{"react", "vue", "vite", "@angular/core", "svelte", "solid-js", "preact"}
+	for _, dep := range frontendDeps {
+		if _, ok := parsed.Dependencies[dep]; ok {
+			return true
+		}
+		if _, ok := parsed.DevDependencies[dep]; ok {
+			return true
+		}
+	}
+
+	return false
+}
+
+func detectContainerAppPort(projectType, workDir string, envVars map[string]string) int {
+	if port, ok := parseValidPort(envVars["PORT"]); ok {
+		return port
+	}
+
+	switch projectType {
+	case "static":
+		return 80
+	case "go":
+		goPatterns := []*regexp.Regexp{
+			regexp.MustCompile(`(?i)ListenAndServe\(\s*"(?:[^":]*:)?(\d{2,5})"`),
+			regexp.MustCompile(`(?i)\.Run\(\s*"(?:[^":]*:)?(\d{2,5})"`),
+			regexp.MustCompile(`(?i)PORT[^0-9\n]{0,20}(\d{2,5})`),
+		}
+		if port := detectPortInSourceFiles(workDir, map[string]struct{}{".go": {}}, goPatterns); port > 0 {
+			return port
+		}
+		return 8080
+	case "node":
+		if port := detectNodePortFromScripts(workDir); port > 0 {
+			return port
+		}
+		nodePatterns := []*regexp.Regexp{
+			regexp.MustCompile(`process\.env\.PORT\s*\|\|\s*(\d{2,5})`),
+			regexp.MustCompile(`\.listen\(\s*(\d{2,5})`),
+			regexp.MustCompile(`(?i)PORT[^0-9\n]{0,20}(\d{2,5})`),
+		}
+		if port := detectPortInSourceFiles(workDir, map[string]struct{}{".js": {}, ".mjs": {}, ".cjs": {}, ".ts": {}, ".tsx": {}, ".jsx": {}}, nodePatterns); port > 0 {
+			return port
+		}
+		return 3000
+	case "python":
+		return 8000
+	default:
+		return 80
+	}
+}
+
+func detectNodePortFromScripts(workDir string) int {
+	content, err := os.ReadFile(filepath.Join(workDir, "package.json"))
+	if err != nil {
+		return 0
+	}
+
+	var parsed struct {
+		Scripts map[string]any `json:"scripts"`
+	}
+	if err := json.Unmarshal(content, &parsed); err != nil {
+		return 0
+	}
+
+	flagPattern := regexp.MustCompile(`(?:--port|-p)\s+(\d{2,5})`)
+	for _, scriptName := range []string{"start", "serve", "dev"} {
+		raw, ok := parsed.Scripts[scriptName]
+		if !ok {
+			continue
+		}
+		scriptValue := strings.TrimSpace(fmt.Sprintf("%v", raw))
+		if scriptValue == "" {
+			continue
+		}
+		matches := flagPattern.FindStringSubmatch(scriptValue)
+		if len(matches) < 2 {
+			continue
+		}
+		if port, ok := parseValidPort(matches[1]); ok {
+			return port
+		}
+	}
+
+	return 0
+}
+
+func detectPortInSourceFiles(workDir string, extensions map[string]struct{}, patterns []*regexp.Regexp) int {
+	if len(patterns) == 0 {
+		return 0
+	}
+
+	stopWalkErr := errors.New("stop walk")
+	detectedPort := 0
+	filesScanned := 0
+
+	walkErr := filepath.WalkDir(workDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+
+		if d.IsDir() {
+			switch d.Name() {
+			case ".git", "node_modules", "dist", "build", ".next", ".nuxt", "vendor":
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		if len(extensions) > 0 {
+			ext := strings.ToLower(filepath.Ext(path))
+			if _, ok := extensions[ext]; !ok {
+				return nil
+			}
+		}
+
+		filesScanned++
+		if filesScanned > 300 {
+			return stopWalkErr
+		}
+
+		content, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return nil
+		}
+
+		text := string(content)
+		for _, pattern := range patterns {
+			matches := pattern.FindStringSubmatch(text)
+			if len(matches) < 2 {
+				continue
+			}
+			if port, ok := parseValidPort(matches[1]); ok {
+				detectedPort = port
+				return stopWalkErr
+			}
+		}
+
+		return nil
+	})
+	if walkErr != nil && !errors.Is(walkErr, stopWalkErr) {
+		return 0
+	}
+
+	return detectedPort
+}
+
+func parseValidPort(raw string) (int, bool) {
+	port, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil {
+		return 0, false
+	}
+	if port <= 0 || port > 65535 {
+		return 0, false
+	}
+	return port, true
+}
+
+func relativePathWithinBase(baseDir, targetDir string) (string, error) {
+	base := filepath.Clean(baseDir)
+	target := filepath.Clean(targetDir)
+
+	rel, err := filepath.Rel(base, target)
+	if err != nil {
+		return "", err
+	}
+	if rel == "." {
+		return ".", nil
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		return "", fmt.Errorf("path %s is outside build context %s", targetDir, baseDir)
+	}
+
+	return filepath.ToSlash(rel), nil
+}
+
+func generateDockerfile(projectType, workDir, staticServeDir string, appPort int) (string, error) {
+	if appPort <= 0 || appPort > 65535 {
+		return "", fmt.Errorf("invalid app port: %d", appPort)
+	}
+
+	switch projectType {
+	case "go":
+		goSumCopy := ""
+		if fileExists(filepath.Join(workDir, "go.sum")) {
+			goSumCopy = "COPY go.sum ./\n"
+		}
+		return fmt.Sprintf(`FROM golang:alpine AS builder
+WORKDIR /app
+COPY go.mod ./
+%sRUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/app .
+
+FROM alpine:3.20
+WORKDIR /app
+RUN adduser -D appuser
+COPY --from=builder /out/app /app/app
+EXPOSE %d
+USER appuser
+ENTRYPOINT ["/app/app"]
+`, goSumCopy, appPort), nil
+	case "node":
+		return fmt.Sprintf(`FROM node:alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install --omit=dev
+COPY . .
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup && chown -R appuser:appgroup /app
+USER appuser
+ENV PORT=%d
+EXPOSE %d
+CMD ["npm", "start"]
+`, appPort, appPort), nil
+	case "static":
+		if strings.TrimSpace(staticServeDir) == "" {
+			return "", errors.New("static output directory is required for static container")
+		}
+		relStaticDir, err := relativePathWithinBase(workDir, staticServeDir)
+		if err != nil {
+			return "", err
+		}
+
+		copyPath := "./"
+		if relStaticDir != "." {
+			copyPath = strings.TrimSuffix(relStaticDir, "/") + "/"
+		}
+
+		return fmt.Sprintf(`FROM nginx:alpine
+COPY %s /usr/share/nginx/html/
+EXPOSE 80
+`, filepath.ToSlash(copyPath)), nil
+	case "python":
+		return fmt.Sprintf(`FROM python:3-alpine
+WORKDIR /app
+COPY . .
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup && chown -R appuser:appgroup /app
+USER appuser
+EXPOSE %d
+CMD ["python", "-m", "http.server", "%d", "--bind", "0.0.0.0"]
+`, appPort, appPort), nil
+	default:
+		return "", fmt.Errorf("unsupported project type for Docker build: %s", projectType)
+	}
+}
+
+func mapKeysSorted(items map[string]struct{}) []string {
+	keys := make([]string, 0, len(items))
+	for key := range items {
+		if strings.TrimSpace(key) == "" {
+			continue
+		}
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func sortedEnvKeys(envVars map[string]string) []string {
+	keys := make([]string, 0, len(envVars))
+	for key := range envVars {
+		if strings.TrimSpace(key) == "" {
+			continue
+		}
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func (a *Agent) sendDeployLog(deployID uint, line string, isErr bool) {
@@ -1586,6 +2158,9 @@ func detectProjectType(workDir string) string {
 		return "go"
 	}
 	if fileExists(filepath.Join(workDir, "package.json")) {
+		if frontendType := detectFrontendFrameworkType(workDir); frontendType != "" {
+			return frontendType
+		}
 		return "node"
 	}
 	if fileExists(filepath.Join(workDir, "requirements.txt")) {
@@ -1594,20 +2169,106 @@ func detectProjectType(workDir string) string {
 	return "static"
 }
 
+func detectFrontendFrameworkType(workDir string) string {
+	content, err := os.ReadFile(filepath.Join(workDir, "package.json"))
+	if err != nil {
+		return ""
+	}
+
+	var parsed struct {
+		Scripts         map[string]any `json:"scripts"`
+		Dependencies    map[string]any `json:"dependencies"`
+		DevDependencies map[string]any `json:"devDependencies"`
+	}
+	if err := json.Unmarshal(content, &parsed); err != nil {
+		return ""
+	}
+
+	hasScript := func(name string) bool {
+		_, ok := parsed.Scripts[name]
+		return ok
+	}
+	scriptContains := func(name, part string) bool {
+		raw, ok := parsed.Scripts[name]
+		if !ok {
+			return false
+		}
+		value := strings.ToLower(strings.TrimSpace(fmt.Sprintf("%v", raw)))
+		if value == "" {
+			return false
+		}
+		return strings.Contains(value, strings.ToLower(strings.TrimSpace(part)))
+	}
+	hasDependency := func(names ...string) bool {
+		for _, name := range names {
+			if _, ok := parsed.Dependencies[name]; ok {
+				return true
+			}
+			if _, ok := parsed.DevDependencies[name]; ok {
+				return true
+			}
+		}
+		return false
+	}
+
+	hasBuild := hasScript("build")
+	hasStart := hasScript("start")
+
+	if hasDependency("vite") || scriptContains("build", "vite") || scriptContains("dev", "vite") {
+		return "vite"
+	}
+
+	if hasBuild && !hasStart {
+		switch {
+		case hasDependency("react", "react-dom"):
+			return "react"
+		case hasDependency("vue"):
+			return "vue"
+		case hasDependency("svelte", "@sveltejs/kit"):
+			return "svelte"
+		}
+	}
+
+	return ""
+}
+
+func isFrontendProjectType(projectType string) bool {
+	switch strings.ToLower(strings.TrimSpace(projectType)) {
+	case "vite", "react", "vue", "svelte":
+		return true
+	default:
+		return false
+	}
+}
+
 func resolveDeployProjectType(requested, workDir string) string {
 	projectType := strings.ToLower(strings.TrimSpace(requested))
 	if projectType == "" || projectType == "auto" {
 		return detectProjectType(workDir)
 	}
-	if projectType == "react" {
+	switch projectType {
+	case "react", "vite", "vue", "svelte":
+		return projectType
+	case "frontend", "spa":
+		return "static"
+	case "nodejs", "node.js":
 		return "node"
+	case "reactjs":
+		return "react"
+	case "vuejs":
+		return "vue"
+	case "sveltekit":
+		return "svelte"
+	}
+	if projectType == "python3" {
+		return "python"
 	}
 	return projectType
 }
 
 func isSupportedProjectType(projectType string) bool {
 	switch projectType {
-	case "go", "node", "python", "static":
+	case "go", "node", "python", "static", "vite", "react", "vue", "svelte":
 		return true
 	default:
 		return false
@@ -1747,6 +2408,26 @@ func firstAvailableCommand(candidates ...string) (string, error) {
 }
 
 func hasBuildScript(sourceDir string) (bool, error) {
+	return hasPackageScript(sourceDir, "build")
+}
+
+func shouldBuildStaticProject(workDir string) (bool, error) {
+	if !fileExists(filepath.Join(workDir, "package.json")) {
+		return false, nil
+	}
+	hasBuild, err := hasBuildScript(workDir)
+	if err != nil {
+		return false, err
+	}
+	return hasBuild, nil
+}
+
+func hasPackageScript(sourceDir, scriptName string) (bool, error) {
+	scriptName = strings.TrimSpace(scriptName)
+	if scriptName == "" {
+		return false, errors.New("script name is empty")
+	}
+
 	content, err := os.ReadFile(filepath.Join(sourceDir, "package.json"))
 	if err != nil {
 		return false, err
@@ -1757,7 +2438,7 @@ func hasBuildScript(sourceDir string) (bool, error) {
 	if err := json.Unmarshal(content, &parsed); err != nil {
 		return false, err
 	}
-	_, ok := parsed.Scripts["build"]
+	_, ok := parsed.Scripts[scriptName]
 	return ok, nil
 }
 
@@ -1854,9 +2535,13 @@ func resolveOutputDir(sourceDir, outputDir string) string {
 		return ""
 	}
 	if filepath.IsAbs(trimmed) {
-		return filepath.Clean(trimmed)
+		return ""
 	}
-	return filepath.Clean(filepath.Join(sourceDir, trimmed))
+	cleaned := filepath.Clean(trimmed)
+	if cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(os.PathSeparator)) {
+		return ""
+	}
+	return filepath.Clean(filepath.Join(sourceDir, cleaned))
 }
 
 func findFreePort() (int, error) {

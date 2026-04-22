@@ -5,16 +5,26 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"novexpanel/backend/internal/app"
 	"novexpanel/backend/internal/config"
 	"novexpanel/backend/internal/storage"
+
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
+	ginMode := strings.TrimSpace(os.Getenv("GIN_MODE"))
+	if ginMode == "" {
+		ginMode = gin.ReleaseMode
+	}
+	gin.SetMode(ginMode)
+
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("load config: %v", err)

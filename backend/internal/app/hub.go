@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -85,6 +86,16 @@ func (a *AgentClient) sendJSON(v any) error {
 	return a.conn.WriteJSON(v)
 }
 
+func (a *AgentClient) sendPing() error {
+	a.sendMu.Lock()
+	defer a.sendMu.Unlock()
+
+	if err := a.conn.SetWriteDeadline(time.Now().Add(10 * time.Second)); err != nil {
+		return err
+	}
+	return a.conn.WriteControl(websocket.PingMessage, []byte("ping"), time.Now().Add(10*time.Second))
+}
+
 func (s *SiteClient) sendJSON(v any) error {
 	s.sendMu.Lock()
 	defer s.sendMu.Unlock()
@@ -93,6 +104,16 @@ func (s *SiteClient) sendJSON(v any) error {
 		return err
 	}
 	return s.conn.WriteJSON(v)
+}
+
+func (s *SiteClient) sendPing() error {
+	s.sendMu.Lock()
+	defer s.sendMu.Unlock()
+
+	if err := s.conn.SetWriteDeadline(time.Now().Add(10 * time.Second)); err != nil {
+		return err
+	}
+	return s.conn.WriteControl(websocket.PingMessage, []byte("ping"), time.Now().Add(10*time.Second))
 }
 
 func (h *Hub) RegisterAgent(serverID, userID uint, conn *websocket.Conn) *AgentClient {
@@ -445,62 +466,67 @@ func (h *Hub) OpenTerminal(site *SiteClient, serverID uint, rows, cols int) (str
 	return sessionID, nil
 }
 
-func (h *Hub) TerminalInput(site *SiteClient, serverID uint, sessionID, data string) error {
+func (h *Hub) resolveOwnedTerminal(site *SiteClient, serverID uint, sessionID string) (uint, string, error) {
 	h.mu.RLock()
-	if sessionID == "" {
-		if serverID != 0 {
-			sessionID = site.activeTerminals[serverID]
-		} else if len(site.activeTerminals) == 1 {
-			for srvID, sid := range site.activeTerminals {
-				serverID = srvID
-				sessionID = sid
+	defer h.mu.RUnlock()
+
+	if strings.TrimSpace(sessionID) != "" {
+		session := h.terminals[sessionID]
+		if session == nil || session.Site != site {
+			return 0, "", errors.New("terminal session not found")
+		}
+		if serverID != 0 && session.ServerID != serverID {
+			return 0, "", errors.New("terminal session not found")
+		}
+		return session.ServerID, sessionID, nil
+	}
+
+	if serverID != 0 {
+		sid := site.activeTerminals[serverID]
+		if sid == "" {
+			return 0, "", errors.New("terminal session not found")
+		}
+		session := h.terminals[sid]
+		if session == nil || session.Site != site {
+			return 0, "", errors.New("terminal session not found")
+		}
+		return serverID, sid, nil
+	}
+
+	if len(site.activeTerminals) == 1 {
+		for srvID, sid := range site.activeTerminals {
+			session := h.terminals[sid]
+			if session != nil && session.Site == site {
+				return srvID, sid, nil
 			}
 		}
 	}
-	if serverID == 0 && sessionID != "" {
-		if session := h.terminals[sessionID]; session != nil {
-			serverID = session.ServerID
-		}
-	}
-	h.mu.RUnlock()
 
-	if sessionID == "" || serverID == 0 {
-		return errors.New("terminal session not found")
+	return 0, "", errors.New("terminal session not found")
+}
+
+func (h *Hub) TerminalInput(site *SiteClient, serverID uint, sessionID, data string) error {
+	resolvedServerID, resolvedSessionID, err := h.resolveOwnedTerminal(site, serverID, sessionID)
+	if err != nil {
+		return err
 	}
 
-	return h.SendAgentEvent(serverID, map[string]any{
+	return h.SendAgentEvent(resolvedServerID, map[string]any{
 		"type":       "terminal_input",
-		"session_id": sessionID,
+		"session_id": resolvedSessionID,
 		"data":       data,
 	})
 }
 
 func (h *Hub) TerminalResize(site *SiteClient, serverID uint, sessionID string, rows, cols int) error {
-	h.mu.RLock()
-	if sessionID == "" {
-		if serverID != 0 {
-			sessionID = site.activeTerminals[serverID]
-		} else if len(site.activeTerminals) == 1 {
-			for srvID, sid := range site.activeTerminals {
-				serverID = srvID
-				sessionID = sid
-			}
-		}
-	}
-	if serverID == 0 && sessionID != "" {
-		if session := h.terminals[sessionID]; session != nil {
-			serverID = session.ServerID
-		}
-	}
-	h.mu.RUnlock()
-
-	if sessionID == "" || serverID == 0 {
-		return errors.New("terminal session not found")
+	resolvedServerID, resolvedSessionID, err := h.resolveOwnedTerminal(site, serverID, sessionID)
+	if err != nil {
+		return err
 	}
 
-	return h.SendAgentEvent(serverID, map[string]any{
+	return h.SendAgentEvent(resolvedServerID, map[string]any{
 		"type":       "terminal_resize",
-		"session_id": sessionID,
+		"session_id": resolvedSessionID,
 		"rows":       rows,
 		"cols":       cols,
 	})

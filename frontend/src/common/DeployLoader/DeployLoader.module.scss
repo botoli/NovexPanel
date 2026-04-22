@@ -1,0 +1,263 @@
+@use "../../Styles/Variables.scss" as *;
+
+// 🌀 DEPLOY LOADER — MINIMALIST & UNUSUAL
+// ========================================
+// Использованы ТОЛЬКО переменные из NOVX UI KIT
+
+.loaderWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  width: 100%;
+  background: $color-surface;
+  padding: $space-6;
+}
+
+.loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-5;
+  width: 100%;
+  max-width: 280px;
+}
+
+// 🔹 Скобки + точки (геометрический акцент)
+// ========================================
+
+.bracketGroup {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  font-size: 28px;
+  font-weight: $font-weight-medium;
+  color: $color-text-primary;
+  letter-spacing: -0.02em;
+
+  .bracketOpen,
+  .bracketClose {
+    opacity: 0.9;
+    animation: bracketPulse 2.4s ease-in-out infinite;
+  }
+
+  .bracketClose {
+    animation-delay: 0.2s;
+  }
+
+  .sequenceDots {
+    display: flex;
+    gap: $space-2;
+  }
+
+  .dot {
+    width: 4px;
+    height: 4px;
+    background: $color-status-online;
+    border-radius: $radius-full;
+    opacity: 0.3;
+    animation: dotSequence 1.8s ease-in-out infinite;
+
+    &:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    &:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+  }
+}
+
+// 🔹 Текстовый статус
+// ========================================
+
+.statusText {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  font-family: $font-family-base;
+  font-size: $font-size-body;
+  font-weight: $font-weight-medium;
+  color: $color-text-secondary;
+
+  .label {
+    white-space: nowrap;
+  }
+
+  .ellipsis {
+    display: inline-flex;
+    width: 12px;
+    justify-content: space-between;
+    font-family: monospace;
+    font-size: 18px;
+    line-height: 1;
+    color: $color-text-muted;
+
+    .dot1,
+    .dot2,
+    .dot3 {
+      opacity: 0.2;
+      animation: ellipsisFade 1.5s ease-in-out infinite;
+    }
+
+    .dot2 {
+      animation-delay: 0.2s;
+    }
+
+    .dot3 {
+      animation-delay: 0.4s;
+    }
+  }
+}
+
+// 🔹 Прогресс-трек (минималистичный)
+// ========================================
+
+.progressTrack {
+  width: 100%;
+  height: $progress-height;
+  background: $progress-bg;
+  border-radius: $radius-full;
+  overflow: hidden;
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba($color-text-primary, 0.08),
+      transparent
+    );
+    animation: shimmer 2s ease-in-out infinite;
+  }
+}
+
+.progressFill {
+  height: 100%;
+  width: 35%;
+  background: $progress-fill;
+  border-radius: $radius-full;
+  animation: progressMove 3s ease-in-out infinite;
+}
+
+// 🔹 Иконка ракеты (акцент)
+// ========================================
+
+.rocketIcon {
+  font-size: 20px;
+  color: $color-text-muted;
+  opacity: 0.6;
+  animation: rocketFloat 3s ease-in-out infinite;
+}
+
+// 🌀 KEYFRAMES (только opacity, width, background-position)
+// ========================================
+
+@keyframes bracketPulse {
+  0%, 100% {
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@keyframes dotSequence {
+  0%, 100% {
+    opacity: 0.3;
+    background: $color-status-online;
+  }
+  50% {
+    opacity: 1;
+    background: $color-status-online;
+  }
+}
+
+@keyframes ellipsisFade {
+  0%, 100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes progressMove {
+  0% {
+    width: 10%;
+    margin-left: 0;
+  }
+  50% {
+    width: 45%;
+  }
+  100% {
+    width: 10%;
+    margin-left: 90%;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes rocketFloat {
+  0%, 100% {
+    opacity: 0.6;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 0.9;
+    transform: translateY(-2px);
+  }
+}
+
+// ♿ REDUCED MOTION
+// ========================================
+
+@media (prefers-reduced-motion: reduce) {
+  .bracketOpen,
+  .bracketClose,
+  .dot,
+  .dot1,
+  .dot2,
+  .dot3,
+  .progressFill,
+  .rocketIcon {
+    animation: none !important;
+    opacity: 0.7 !important;
+  }
+
+  .progressTrack::after {
+    animation: none !important;
+  }
+}
+
+// 📱 RESPONSIVE
+// ========================================
+
+@media (max-width: 480px) {
+  .loader {
+    max-width: 240px;
+    gap: $space-4;
+  }
+
+  .bracketGroup {
+    font-size: 24px;
+  }
+
+  .statusText {
+    font-size: $font-size-small;
+  }
+}

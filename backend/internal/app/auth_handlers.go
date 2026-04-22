@@ -44,8 +44,22 @@ func (a *App) handleRegister(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid email"})
 		return
 	}
-	if len(req.Password) < 6 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "password must be at least 6 characters"})
+	if len(req.Email) > 254 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "email is too long"})
+		return
+	}
+
+	if !a.authLimiter.Allow("register:" + c.ClientIP() + ":" + req.Email) {
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": "too many auth attempts"})
+		return
+	}
+
+	if len(req.Password) < 8 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "password must be at least 8 characters"})
+		return
+	}
+	if len(req.Password) > 1024 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "password is too long"})
 		return
 	}
 
@@ -76,6 +90,19 @@ func (a *App) handleLogin(c *gin.Context) {
 	}
 
 	email := strings.TrimSpace(strings.ToLower(req.Email))
+	if email == "" || len(email) > 254 {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+		return
+	}
+	if !a.authLimiter.Allow("login:" + c.ClientIP() + ":" + email) {
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": "too many auth attempts"})
+		return
+	}
+	if len(req.Password) == 0 || len(req.Password) > 1024 {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+		return
+	}
+
 	var user models.User
 	if err := a.db.Where("email = ?", email).First(&user).Error; err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})

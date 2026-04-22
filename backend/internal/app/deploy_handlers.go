@@ -4,14 +4,31 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"net/url"
 	"path"
+	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"novexpanel/backend/internal/models"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+)
+
+const (
+	maxRepoURLLength      = 2048
+	maxBranchLength       = 128
+	maxSubdirectoryLength = 255
+	maxOutputDirLength    = 255
+	maxBuildCommandLength = 2048
+)
+
+var (
+	gitSSHRepoURLPattern = regexp.MustCompile(`^git@[A-Za-z0-9._-]+:[A-Za-z0-9._/-]+(?:\.git)?$`)
+	deployBranchPattern  = regexp.MustCompile(`^[A-Za-z0-9._/@\-]+$`)
+	pathPattern          = regexp.MustCompile(`^[A-Za-z0-9._/\-]+$`)
 )
 
 type CreateDeployRequest struct {
@@ -62,16 +79,38 @@ func (a *App) handleCreateDeploy(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "repoUrl is required"})
 		return
 	}
+	if err := validateRepoURL(repoURL); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-	branch := normalizeDeployBranch(req.Branch)
+	branch, err := normalizeAndValidateDeployBranch(req.Branch)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
 	projectType := normalizeProjectType(req.Type, req.TypeLegacy, req.TypeCamel)
+	if err := validateProjectType(projectType); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
 	subdirectory, err := normalizeAndValidateSubdirectory(req.Subdirectory, req.SubdirectoryLegacy, req.SubdirectoryCamel)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	buildCommand := normalizeOptionalString(req.BuildCommand, req.BuildCommandLegacy)
+	if err := validateBuildCommand(buildCommand); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	outputDir := normalizeOptionalString(req.OutputDir, req.OutputDirLegacy)
+	if err := validateOutputDir(outputDir); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
 	if _, err := a.requireServerForUser(userID, serverID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -347,14 +386,32 @@ func (a *App) handleDeleteDeploy(c *gin.Context) {
 
 func (a *App) sendDeployCommandToAgent(serverID uint, deployID uint, repoURL, branch, projectType, subdirectory, buildCommand, outputDir string) error {
 	normalizedRepoURL := strings.TrimSpace(repoURL)
-	normalizedBranch := normalizeDeployBranch(branch)
+	if err := validateRepoURL(normalizedRepoURL); err != nil {
+		return err
+	}
+
+	normalizedBranch, err := normalizeAndValidateDeployBranch(branch)
+	if err != nil {
+		return err
+	}
+
 	normalizedProjectType := normalizeProjectType(projectType, "", "")
+	if err := validateProjectType(normalizedProjectType); err != nil {
+		return err
+	}
+
 	normalizedSubdirectory, err := normalizeAndValidateSubdirectory(subdirectory, "", "")
 	if err != nil {
 		return err
 	}
 	normalizedBuild := strings.TrimSpace(buildCommand)
+	if err := validateBuildCommand(normalizedBuild); err != nil {
+		return err
+	}
 	normalizedOutput := strings.TrimSpace(outputDir)
+	if err := validateOutputDir(normalizedOutput); err != nil {
+		return err
+	}
 
 	payload := map[string]any{
 		"deploy_id":    deployID,
@@ -422,6 +479,26 @@ func normalizeDeployBranch(raw string) string {
 	return branch
 }
 
+func normalizeAndValidateDeployBranch(raw string) (string, error) {
+	branch := normalizeDeployBranch(raw)
+	if utf8.RuneCountInString(branch) > maxBranchLength {
+		return "", errors.New("branch is too long")
+	}
+	if hasDangerousInputChars(branch) {
+		return "", errors.New("branch contains forbidden characters")
+	}
+	if strings.Contains(branch, "..") || strings.Contains(branch, "//") || strings.HasPrefix(branch, "/") || strings.HasSuffix(branch, "/") {
+		return "", errors.New("invalid branch")
+	}
+	if strings.Contains(branch, "@{") {
+		return "", errors.New("invalid branch")
+	}
+	if !deployBranchPattern.MatchString(branch) {
+		return "", errors.New("invalid branch")
+	}
+	return branch, nil
+}
+
 func normalizeProjectType(primary, fallback, alt string) string {
 	projectType := strings.ToLower(strings.TrimSpace(primary))
 	if projectType == "" {
@@ -431,6 +508,19 @@ func normalizeProjectType(primary, fallback, alt string) string {
 		projectType = strings.ToLower(strings.TrimSpace(alt))
 	}
 	return projectType
+}
+
+func validateProjectType(projectType string) error {
+	if projectType == "" {
+		return nil
+	}
+
+	switch projectType {
+	case "auto", "go", "node", "python", "static", "vite", "react", "vue", "svelte", "docker":
+		return nil
+	default:
+		return errors.New("invalid project type")
+	}
 }
 
 func normalizeAndValidateSubdirectory(primary, fallback, alt string) (string, error) {
@@ -443,6 +533,15 @@ func normalizeAndValidateSubdirectory(primary, fallback, alt string) (string, er
 	}
 	if subdirectory == "" {
 		return "", nil
+	}
+	if utf8.RuneCountInString(subdirectory) > maxSubdirectoryLength {
+		return "", errors.New("subdirectory is too long")
+	}
+	if hasDangerousInputChars(subdirectory) {
+		return "", errors.New("subdirectory contains forbidden characters")
+	}
+	if !pathPattern.MatchString(subdirectory) {
+		return "", errors.New("subdirectory contains invalid characters")
 	}
 
 	if strings.Contains(subdirectory, "\\") {
@@ -479,6 +578,76 @@ func normalizeOptionalString(primary, fallback *string) string {
 	return ""
 }
 
+func validateBuildCommand(buildCommand string) error {
+	if strings.TrimSpace(buildCommand) == "" {
+		return nil
+	}
+	if utf8.RuneCountInString(buildCommand) > maxBuildCommandLength {
+		return errors.New("buildCommand is too long")
+	}
+	if strings.ContainsRune(buildCommand, '\x00') {
+		return errors.New("buildCommand contains forbidden characters")
+	}
+	return nil
+}
+
+func validateOutputDir(outputDir string) error {
+	outputDir = strings.TrimSpace(outputDir)
+	if outputDir == "" {
+		return nil
+	}
+	if utf8.RuneCountInString(outputDir) > maxOutputDirLength {
+		return errors.New("outputDir is too long")
+	}
+	if hasDangerousInputChars(outputDir) {
+		return errors.New("outputDir contains forbidden characters")
+	}
+	if _, err := normalizeAndValidateSubdirectory(outputDir, "", ""); err != nil {
+		return errors.New("invalid outputDir")
+	}
+	return nil
+}
+
+func validateRepoURL(repoURL string) error {
+	repoURL = strings.TrimSpace(repoURL)
+	if repoURL == "" {
+		return errors.New("repoUrl is required")
+	}
+	if utf8.RuneCountInString(repoURL) > maxRepoURLLength {
+		return errors.New("repoUrl is too long")
+	}
+	if hasDangerousInputChars(repoURL) || strings.ContainsAny(repoURL, " \t\n\r") {
+		return errors.New("repoUrl contains forbidden characters")
+	}
+
+	if strings.HasPrefix(repoURL, "http://") || strings.HasPrefix(repoURL, "https://") {
+		parsed, err := url.Parse(repoURL)
+		if err != nil || parsed.Host == "" {
+			return errors.New("invalid repoUrl")
+		}
+		return nil
+	}
+
+	if gitSSHRepoURLPattern.MatchString(repoURL) {
+		return nil
+	}
+
+	return errors.New("invalid repoUrl")
+}
+
+func hasDangerousInputChars(value string) bool {
+	for _, ch := range value {
+		if ch < 32 {
+			return true
+		}
+		switch ch {
+		case '|', ';', '$', '`', '<', '>':
+			return true
+		}
+	}
+	return false
+}
+
 func truncateDeployLog(raw string, maxLen int) string {
 	if maxLen <= 0 || len(raw) <= maxLen {
 		return raw
@@ -509,10 +678,14 @@ func normalizeAgentDispatchError(err error) string {
 	}
 	message := strings.TrimSpace(err.Error())
 	if message == "" {
+		return "agent request failed"
+	}
+	lower := strings.ToLower(message)
+	if strings.Contains(lower, "offline") {
 		return "agent offline"
 	}
-	if strings.Contains(strings.ToLower(message), "offline") {
-		return "agent offline"
+	if strings.Contains(lower, "timeout") {
+		return "agent request timeout"
 	}
-	return message
+	return "agent request failed"
 }

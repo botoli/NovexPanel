@@ -1,15 +1,23 @@
 openapi: 3.0.3
 info:
   title: Novex Backend API
-  version: 1.0.0
-  description: REST API for NovexPanel backend.
+  version: 1.1.0
+  description: |
+    REST API for NovexPanel backend.
+
+    Notes:
+    - Auth-protected routes require JWT Bearer token.
+    - WebSocket endpoints are documented for handshake and query params.
+    - Deploy listing supports server filter and pagination parameters.
 servers:
-  - url: http://localhost:8080
+  - url: http://localhost:8380
 
 tags:
+  - name: Health
   - name: Auth
   - name: Servers
   - name: Deploys
+  - name: WebSocket
 
 components:
   securitySchemes:
@@ -17,12 +25,49 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+
+  parameters:
+    ServerIdPath:
+      in: path
+      name: id
+      required: true
+      description: Server identifier.
+      schema:
+        type: integer
+        minimum: 1
+    DeployIdPath:
+      in: path
+      name: id
+      required: true
+      description: Deploy identifier.
+      schema:
+        type: integer
+        minimum: 1
+    ProcessPidPath:
+      in: path
+      name: pid
+      required: true
+      description: Process PID.
+      schema:
+        type: integer
+        minimum: 1
+
   schemas:
-    Error:
+    ErrorResponse:
       type: object
+      required: [error]
       properties:
         error:
           type: string
+
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: ok
+
     RegisterRequest:
       type: object
       required: [email, password]
@@ -33,6 +78,7 @@ components:
         password:
           type: string
           minLength: 6
+
     LoginRequest:
       type: object
       required: [email, password]
@@ -42,11 +88,23 @@ components:
           format: email
         password:
           type: string
+
+    LoginResponse:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+          description: JWT token for API and site websocket.
+
     AgentTokenCreateRequest:
       type: object
       properties:
         name:
           type: string
+          nullable: true
+          example: Production server token
+
     AgentTokenCreateResponse:
       type: object
       properties:
@@ -54,14 +112,17 @@ components:
           type: integer
         agent_token:
           type: string
+          description: Full token shown only once.
         token_prefix:
           type: string
         expires_at:
           type: string
           format: date-time
+          nullable: true
         name:
           type: string
           nullable: true
+
     AgentTokenLinkedServer:
       type: object
       properties:
@@ -73,6 +134,7 @@ components:
           type: string
         online:
           type: boolean
+
     AgentTokenListItem:
       type: object
       properties:
@@ -98,14 +160,16 @@ components:
           nullable: true
         server:
           allOf:
-            - $ref: "#/components/schemas/AgentTokenLinkedServer"
+            - $ref: '#/components/schemas/AgentTokenLinkedServer'
           nullable: true
+
     AgentTokenRenameRequest:
       type: object
       required: [name]
       properties:
         name:
           type: string
+
     ServerItem:
       type: object
       properties:
@@ -120,6 +184,7 @@ components:
         last_metrics:
           type: object
           additionalProperties: true
+
     MetricsPoint:
       type: object
       properties:
@@ -134,23 +199,51 @@ components:
           type: number
         disk_read:
           type: number
-          description: Average disk read speed in bytes per second.
+          description: Average disk read speed in bytes/sec for selected bucket.
         disk_write:
           type: number
-          description: Average disk write speed in bytes per second.
+          description: Average disk write speed in bytes/sec for selected bucket.
         network_rx:
           type: number
-          description: Average network receive speed in bytes per second.
+          description: Average inbound network speed in bytes/sec for selected bucket.
         network_tx:
           type: number
-          description: Average network transmit speed in bytes per second.
+          description: Average outbound network speed in bytes/sec for selected bucket.
+
     RunCommandRequest:
       type: object
       required: [command]
       properties:
         command:
           type: string
-    DeployRequest:
+
+    ProcessItem:
+      type: object
+      properties:
+        pid:
+          type: integer
+        name:
+          type: string
+        cpu:
+          type: number
+        mem:
+          type: number
+
+    ProcessListResponse:
+      type: object
+      properties:
+        processes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProcessItem'
+
+    KillProcessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+
+    LegacyServerDeployRequest:
       type: object
       required: [source]
       properties:
@@ -163,58 +256,301 @@ components:
           type: string
         project_type:
           type: string
-          enum: [auto, node, react, go, docker]
+          enum: [auto, node, react, vue, svelte, vite, go, docker, static, python]
         zip_data:
           type: string
+          description: Base64-encoded zip archive if source=zip.
+
+    DeployCreateRequest:
+      type: object
+      required: [serverId, repoUrl]
+      properties:
+        serverId:
+          type: integer
+          minimum: 1
+        repoUrl:
+          type: string
+          example: https://github.com/acme/my-frontend.git
+        branch:
+          type: string
+          default: main
+        type:
+          type: string
+          enum: [auto, static, node, vite, react, vue, svelte, go, python]
+          default: auto
+        subdirectory:
+          type: string
+          description: Relative path inside repository to deploy from.
+          example: frontend
+        envVars:
+          type: object
+          additionalProperties:
+            type: string
+          description: Optional environment variables passed to runtime container.
+        buildCommand:
+          type: string
+          description: Optional custom build command. If empty, default build strategy is used.
+          example: npm ci && npm run build
+        outputDir:
+          type: string
+          description: Explicit static build output directory.
+          example: dist
+
+    DeployCreateAcceptedResponse:
+      type: object
+      properties:
+        deployId:
+          type: integer
+        status:
+          type: string
+          example: pending
+        error:
+          type: string
+          nullable: true
+
+    DeployItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        serverId:
+          type: integer
+        repoUrl:
+          type: string
+        branch:
+          type: string
+        type:
+          type: string
+        subdirectory:
+          type: string
+        buildCommand:
+          type: string
+          nullable: true
+        outputDir:
+          type: string
+          nullable: true
+        status:
+          type: string
+          example: running
+        url:
+          type: string
+          nullable: true
+        port:
+          type: integer
+          nullable: true
+        deployLogPreview:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    DeployListResponse:
+      description: |
+        Deploy list response.
+        Current backend returns an array. Paginated object form is documented for compatibility with clients that request pagination metadata.
+      oneOf:
+        - type: array
+          items:
+            $ref: '#/components/schemas/DeployItem'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/DeployItem'
+            page:
+              type: integer
+            pageSize:
+              type: integer
+            total:
+              type: integer
+
+    DeployDetailsResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        serverId:
+          type: integer
+        repoUrl:
+          type: string
+        branch:
+          type: string
+        type:
+          type: string
+        subdirectory:
+          type: string
+        buildCommand:
+          type: string
+          nullable: true
+        outputDir:
+          type: string
+          nullable: true
+        status:
+          type: string
+        url:
+          type: string
+          nullable: true
+        port:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    DeployLogResponse:
+      type: object
+      properties:
+        deployId:
+          type: integer
+        status:
+          type: string
+        url:
+          type: string
+          nullable: true
+        port:
+          type: integer
+          nullable: true
+        type:
+          type: string
+        subdirectory:
+          type: string
+        deployLog:
+          type: string
+
+    DeployLogItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        deploy_id:
+          type: integer
+        line:
+          type: string
+        is_error:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    DeployLogsResponse:
+      type: object
+      properties:
+        deploy_id:
+          type: integer
+        status:
+          type: string
+        url:
+          type: string
+          nullable: true
+        logs:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeployLogItem'
+
+    DeployDeleteResponse:
+      type: object
+      properties:
+        deployId:
+          type: integer
+        status:
+          type: string
+          example: deleted
 
 paths:
   /healthz:
     get:
+      tags: [Health]
       summary: Health check
       responses:
-        "200":
-          description: OK
+        '200':
+          description: Service is healthy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              examples:
+                ok:
+                  value:
+                    status: ok
 
   /auth/register:
     post:
       tags: [Auth]
-      summary: Register user
+      summary: Register a new user
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/RegisterRequest"
+              $ref: '#/components/schemas/RegisterRequest'
+            examples:
+              basic:
+                value:
+                  email: user@example.com
+                  password: secret123
       responses:
-        "201":
-          description: Created
-        "400":
-          description: Bad request
+        '201':
+          description: User created.
+        '400':
+          description: Validation error.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid:
+                  value:
+                    error: invalid request body
 
   /auth/login:
     post:
       tags: [Auth]
-      summary: Login user
+      summary: Login and receive JWT
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/LoginRequest"
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              basic:
+                value:
+                  email: user@example.com
+                  password: secret123
       responses:
-        "200":
-          description: JWT issued
-        "401":
-          description: Invalid credentials
+        '200':
+          description: JWT issued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+              examples:
+                success:
+                  value:
+                    token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        '401':
+          description: Invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                unauthorized:
+                  value:
+                    error: invalid credentials
 
   /auth/tokens:
     post:
       tags: [Auth]
-      summary: Create new agent token
+      summary: Create agent token
       security:
         - bearerAuth: []
       requestBody:
@@ -222,33 +558,33 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AgentTokenCreateRequest"
+              $ref: '#/components/schemas/AgentTokenCreateRequest'
       responses:
-        "201":
-          description: Token created
+        '201':
+          description: Token created.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AgentTokenCreateResponse"
+                $ref: '#/components/schemas/AgentTokenCreateResponse'
     get:
       tags: [Auth]
       summary: List agent tokens
       security:
         - bearerAuth: []
       responses:
-        "200":
-          description: Token list
+        '200':
+          description: Token list.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/AgentTokenListItem"
+                  $ref: '#/components/schemas/AgentTokenListItem'
 
   /auth/tokens/{id}:
     patch:
       tags: [Auth]
-      summary: Update agent token name
+      summary: Rename agent token
       security:
         - bearerAuth: []
       parameters:
@@ -262,10 +598,10 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AgentTokenRenameRequest"
+              $ref: '#/components/schemas/AgentTokenRenameRequest'
       responses:
-        "204":
-          description: Updated
+        '204':
+          description: Token renamed.
     delete:
       tags: [Auth]
       summary: Revoke agent token
@@ -278,8 +614,8 @@ paths:
           schema:
             type: integer
       responses:
-        "204":
-          description: Revoked
+        '204':
+          description: Token revoked.
 
   /servers:
     get:
@@ -288,32 +624,29 @@ paths:
       security:
         - bearerAuth: []
       responses:
-        "200":
-          description: Server list
+        '200':
+          description: Server list.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/ServerItem"
+                  $ref: '#/components/schemas/ServerItem'
 
   /servers/{id}/metrics:
     get:
       tags: [Servers]
       summary: Metrics history for selected range
-      description: Range defines the time window (NOW-range to NOW). For interval values larger than 1 second, CPU/RAM/disk are returned as averages per bucket aligned to UTC+3 calendar boundaries.
+      description: |
+        Returns metrics from NOW-range to NOW.
+        For intervals larger than 1 second, values are averaged by bucket.
       security:
         - bearerAuth: []
       parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: integer
+        - $ref: '#/components/parameters/ServerIdPath'
         - in: query
           name: range
           required: false
-          description: Time window to return metrics for.
           schema:
             type: string
             enum: [10m, 30m, 1h, 2h, 1d, 7d]
@@ -321,114 +654,458 @@ paths:
         - in: query
           name: interval
           required: false
-          description: Aggregation interval for metrics points within selected range.
           schema:
             type: string
             enum: [1s, 10s, 1m, 5m, 10m, 1h, 1d]
             default: 1s
       responses:
-        "200":
-          description: Metrics history
+        '200':
+          description: Metrics history.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/MetricsPoint"
+                  $ref: '#/components/schemas/MetricsPoint'
+              examples:
+                sample:
+                  value:
+                    - timestamp: '2026-04-23T10:00:00Z'
+                      cpu: 21.3
+                      ram: 43.1
+                      disk: 71.2
+                      disk_read: 1048576
+                      disk_write: 655360
+                      network_rx: 125000
+                      network_tx: 89000
 
   /servers/{id}/processes:
     get:
       tags: [Servers]
-      summary: Current process list from agent
+      summary: List processes on a server
       security:
         - bearerAuth: []
       parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: integer
+        - $ref: '#/components/parameters/ServerIdPath'
       responses:
-        "200":
-          description: Process list
-
-  /servers/{id}/command:
-    post:
-      tags: [Servers]
-      summary: Execute command on server (MVP test endpoint)
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RunCommandRequest"
-      responses:
-        "200":
-          description: Command output
-
-  /servers/{id}/deploy:
-    post:
-      tags: [Servers]
-      summary: Start deploy on server
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/DeployRequest"
-      responses:
-        "202":
-          description: Deploy accepted
+        '200':
+          description: Process list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessListResponse'
+              examples:
+                sample:
+                  value:
+                    processes:
+                      - pid: 1052
+                        name: node
+                        cpu: 12.8
+                        mem: 3.4
+                      - pid: 1120
+                        name: nginx
+                        cpu: 1.1
+                        mem: 0.8
+        '404':
+          description: Server not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                not_found:
+                  value:
+                    error: server not found
 
   /servers/{id}/processes/{pid}:
     delete:
       tags: [Servers]
-      summary: Kill process
+      summary: Kill process on a server
       security:
         - bearerAuth: []
       parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: integer
-        - in: path
-          name: pid
-          required: true
-          schema:
-            type: integer
+        - $ref: '#/components/parameters/ServerIdPath'
+        - $ref: '#/components/parameters/ProcessPidPath'
       responses:
-        "200":
-          description: Kill result
+        '200':
+          description: Kill command result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KillProcessResponse'
+              examples:
+                success:
+                  value:
+                    success: true
+        '400':
+          description: Invalid pid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid_pid:
+                  value:
+                    error: invalid pid
+
+  /servers/{id}/command:
+    post:
+      tags: [Servers]
+      summary: Execute shell command on server
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ServerIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunCommandRequest'
+      responses:
+        '200':
+          description: Command result.
+        '502':
+          description: Agent communication error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /servers/{id}/deploy:
+    post:
+      tags: [Servers]
+      summary: Start legacy deploy flow on server
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ServerIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LegacyServerDeployRequest'
+      responses:
+        '202':
+          description: Deploy accepted.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deploy_id:
+                    type: integer
+                  status:
+                    type: string
+        '400':
+          description: Invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /deploy:
+    post:
+      tags: [Deploys]
+      summary: Create deploy
+      description: Create and dispatch deploy for selected server.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeployCreateRequest'
+            examples:
+              vite_project:
+                value:
+                  serverId: 12
+                  repoUrl: https://github.com/acme/marketing-site.git
+                  branch: main
+                  type: vite
+                  subdirectory: web
+                  envVars:
+                    NODE_ENV: production
+                  buildCommand: ''
+                  outputDir: dist
+      responses:
+        '202':
+          description: Deploy accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeployCreateAcceptedResponse'
+              examples:
+                accepted:
+                  value:
+                    deployId: 452
+                    status: pending
+                accepted_with_dispatch_error:
+                  value:
+                    deployId: 452
+                    status: failed
+                    error: agent offline
+        '400':
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missing_server:
+                  value:
+                    error: serverId is required
+        '404':
+          description: Server not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                server_not_found:
+                  value:
+                    error: server not found
+
+  /deploys:
+    get:
+      tags: [Deploys]
+      summary: List deploys
+      description: List deploys with server filter and pagination parameters.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: serverId
+          required: true
+          description: Filter by server id.
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: page
+          required: false
+          description: 1-based page number.
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: pageSize
+          required: false
+          description: Number of items per page.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 20
+        - in: query
+          name: subdirectory
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deploy list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeployListResponse'
+              examples:
+                array_form:
+                  value:
+                    - id: 452
+                      serverId: 12
+                      repoUrl: https://github.com/acme/marketing-site.git
+                      branch: main
+                      type: vite
+                      subdirectory: web
+                      buildCommand: ''
+                      outputDir: dist
+                      status: running
+                      url: http://10.0.0.11:32789
+                      port: 32789
+                      deployLogPreview: building static assets...
+                      createdAt: '2026-04-23T10:00:00Z'
+                      updatedAt: '2026-04-23T10:02:10Z'
+                paginated_form:
+                  value:
+                    items: []
+                    page: 1
+                    pageSize: 20
+                    total: 0
+        '400':
+          description: Invalid query params.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missing_server:
+                  value:
+                    error: serverId query param is required
+
+  /deploys/{id}:
+    get:
+      tags: [Deploys]
+      summary: Get deploy by id
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DeployIdPath'
+      responses:
+        '200':
+          description: Deploy details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeployDetailsResponse'
+              examples:
+                success:
+                  value:
+                    id: 452
+                    serverId: 12
+                    repoUrl: https://github.com/acme/marketing-site.git
+                    branch: main
+                    type: vite
+                    subdirectory: web
+                    buildCommand: ''
+                    outputDir: dist
+                    status: running
+                    url: http://10.0.0.11:32789
+                    port: 32789
+                    createdAt: '2026-04-23T10:00:00Z'
+                    updatedAt: '2026-04-23T10:02:10Z'
+        '404':
+          description: Deploy not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                not_found:
+                  value:
+                    error: deploy not found
+    delete:
+      tags: [Deploys]
+      summary: Stop and delete deploy
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DeployIdPath'
+      responses:
+        '200':
+          description: Deploy deleted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeployDeleteResponse'
+              examples:
+                deleted:
+                  value:
+                    deployId: 452
+                    status: deleted
+        '502':
+          description: Failed to notify agent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                agent_error:
+                  value:
+                    error: agent offline
+
+  /deploys/{id}/log:
+    get:
+      tags: [Deploys]
+      summary: Get aggregated deploy log
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DeployIdPath'
+      responses:
+        '200':
+          description: Aggregated deploy log and status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeployLogResponse'
+              examples:
+                success:
+                  value:
+                    deployId: 452
+                    status: running
+                    url: http://10.0.0.11:32789
+                    port: 32789
+                    type: vite
+                    subdirectory: web
+                    deployLog: |
+                      cloning repository...
+                      npm install
+                      npm run build
+        '404':
+          description: Deploy not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /deploys/{id}/logs:
     get:
       tags: [Deploys]
-      summary: Get deploy logs
+      summary: Get structured deploy log entries
       security:
         - bearerAuth: []
       parameters:
-        - in: path
-          name: id
+        - $ref: '#/components/parameters/DeployIdPath'
+      responses:
+        '200':
+          description: Structured deploy logs.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeployLogsResponse'
+
+  /site/ws:
+    get:
+      tags: [WebSocket]
+      summary: Site websocket handshake
+      description: Upgrade endpoint for UI websocket channel.
+      parameters:
+        - in: query
+          name: token
           required: true
           schema:
-            type: integer
+            type: string
+          description: JWT from /auth/login.
       responses:
-        "200":
-          description: Deploy logs and status
+        '101':
+          description: Switching Protocols.
+        '401':
+          description: Invalid token.
+
+  /agent/ws:
+    get:
+      tags: [WebSocket]
+      summary: Agent websocket handshake
+      description: Upgrade endpoint for agent channel.
+      parameters:
+        - in: query
+          name: token
+          required: true
+          schema:
+            type: string
+          description: Agent token from /auth/tokens.
+        - in: query
+          name: name
+          required: false
+          schema:
+            type: string
+          description: Optional server display name.
+      responses:
+        '101':
+          description: Switching Protocols.
+        '401':
+          description: Invalid or expired token.

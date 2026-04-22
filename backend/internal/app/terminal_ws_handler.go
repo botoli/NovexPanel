@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -81,17 +82,40 @@ func (a *App) terminalWSHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conn, err := wsUpgrader.Upgrade(w, r, nil)
+	upgrader := a.newWSUpgrader(true)
+	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("terminal ws upgrade error (server_id=%d): %v", serverID, err)
 		return
 	}
 	defer conn.Close()
+	configureWSReadSettings(conn, a.wsReadLimit(256*1024))
 	if debug {
 		log.Printf("terminal ws upgrade ok (server_id=%d)", serverID)
 	}
 
-	conn.SetReadLimit(1 << 20)
+	var connWriteMu sync.Mutex
+	stopKeepalive := make(chan struct{})
+	defer close(stopKeepalive)
+	go func() {
+		ticker := time.NewTicker(wsPingInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-stopKeepalive:
+				return
+			case <-ticker.C:
+				connWriteMu.Lock()
+				_ = conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+				err := conn.WriteControl(websocket.PingMessage, []byte("ping"), time.Now().Add(10*time.Second))
+				connWriteMu.Unlock()
+				if err != nil {
+					_ = conn.Close()
+					return
+				}
+			}
+		}
+	}()
 
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
@@ -102,7 +126,9 @@ func (a *App) terminalWSHandler(w http.ResponseWriter, r *http.Request) {
 	ptyFile, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: defaultTerminalCols, Rows: defaultTerminalRows})
 	if err != nil {
 		log.Printf("terminal pty start error (server_id=%d): %v", serverID, err)
+		connWriteMu.Lock()
 		_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"type":"error","error":"unable to start shell"}`))
+		connWriteMu.Unlock()
 		return
 	}
 	defer ptyFile.Close()
@@ -135,8 +161,11 @@ func (a *App) terminalWSHandler(w http.ResponseWriter, r *http.Request) {
 					log.Printf("terminal pty read (server_id=%d n=%d data=%q)", serverID, n, snippet)
 				}
 
+				connWriteMu.Lock()
 				_ = conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-				if writeErr := conn.WriteMessage(websocket.BinaryMessage, append([]byte(nil), buf[:n]...)); writeErr != nil {
+				writeErr := conn.WriteMessage(websocket.BinaryMessage, append([]byte(nil), buf[:n]...))
+				connWriteMu.Unlock()
+				if writeErr != nil {
 					ptyReadErr <- writeErr
 					return
 				}

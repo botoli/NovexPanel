@@ -107,61 +107,6 @@
 
 }
 
-.cardTopIcon {
-	position: relative;
-	width: 84px;
-	height: 84px;
-	margin: 0 auto $space-4;
-	display: grid;
-	place-items: center;
-}
-
-.iconHalo {
-	position: absolute;
-	inset: 0;
-	border-radius: $radius-full;
-	border: 1px dashed rgba($color-text-primary, 0.1);
-	background: radial-gradient(closest-side, rgba($color-status-online, 0.1), transparent 62%);
-	filter: blur(0.2px);
-}
-
-.iconCircle {
-	width: 54px;
-	height: 54px;
-	border-radius: $radius-full;
-	display: grid;
-	place-items: center;
-	border: 1px solid rgba($color-status-online, 0.45);
-	background:
-		radial-gradient(120% 120% at 50% 0%, rgba($color-status-online, 0.18), transparent 55%),
-		rgba($color-bg, 0.2);
-	color: mix($color-status-online, $color-text-primary, 72%);
-	box-shadow: 0 0 0 6px rgba($color-status-online, 0.04);
-
-	svg {
-		font-size: 20px;
-	}
-}
-
-.cardTitle {
-	margin: 0;
-	position: relative;
-	z-index: 1;
-	font-size: $font-size-h2;
-	font-weight: $font-weight-semibold;
-	letter-spacing: $letter-spacing-heading;
-	color: $color-text-primary;
-}
-
-.cardDescription {
-	margin: $space-2 auto 0;
-	position: relative;
-	z-index: 1;
-	max-width: 560px;
-	color: rgba($color-text-primary, 0.55);
-	font-size: $font-size-body;
-}
-
 .form {
 	position: relative;
 	z-index: 1;
@@ -383,10 +328,11 @@
 }
 
 .primaryBtn {
+	
 	height: 48px;
 	border-radius: $radius-lg;
-	border: 1px solid rgba($color-status-online, 0.4);
-	background-color: $color-status-online;
+	border: none;
+	background-color: rgba($color-status-online, 0.7);
 	color: $color-text-primary;
 	display: inline-flex;
 	align-items: center;
@@ -403,12 +349,6 @@
 
 	svg {
 		font-size: 18px;
-	}
-
-	
-
-	&:active {
-		transform: translateY(0);
 	}
 
 
@@ -457,6 +397,39 @@
 	font-size: $font-size-body;
 	font-weight: $font-weight-medium;
 	color: rgba($color-text-primary, 0.86);
+}
+.envsection{
+	display: flex;
+	flex-flow: row nowrap;
+	align-items: end;
+	width: 100%;
+	gap: $space-3;
+	.inputSection{
+		width: 100%;
+	}
+	.addEnvBtn{
+		height: 40px;
+	border-radius: $radius-sm;
+	background: none;
+	border:1px solid rgba($color-status-online, 0.7);
+	color: rgba($color-status-online, 0.7);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: $space-2;
+	padding: 0 $space-4;
+	font-size: $font-size-body;
+	font-weight: $font-weight-regular;
+	cursor: pointer;
+	transition:
+		transform $transition-base,
+		border-color $transition-base,
+		
+
+	svg {
+		font-size: 18px;
+	}
+	}
 }
 
 .featureDesc {
