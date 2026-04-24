@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"novexpanel/backend/internal/models"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -123,6 +125,12 @@ func (a *App) handleCreateDeploy(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	envVarsJSON, err := marshalDeployEnvVars(envVars)
+	if err != nil {
+		log.Printf("marshal deploy env vars failed: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to process environment variables"})
+		return
+	}
 
 	if _, err := a.requireServerForUser(userID, serverID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -142,6 +150,7 @@ func (a *App) handleCreateDeploy(c *gin.Context) {
 		Subdirectory: subdirectory,
 		BuildCommand: buildCommand,
 		OutputDir:    outputDir,
+		EnvVars:      envVarsJSON,
 		Source:       "github",
 		Status:       "pending",
 		StartedAt:    time.Now(),
@@ -322,20 +331,35 @@ func (a *App) handleGetDeploy(c *gin.Context) {
 		return
 	}
 
+	envVars := parseDeployEnvVars(deploy.EnvVars)
+	var errorMessage any
+	trimmedError := strings.TrimSpace(deploy.ErrorMessage)
+	if trimmedError != "" {
+		errorMessage = trimmedError
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"id":           deploy.ID,
-		"serverId":     deploy.ServerID,
-		"repoUrl":      deploy.RepoURL,
-		"branch":       deploy.Branch,
-		"type":         deploy.ProjectType,
-		"subdirectory": deploy.Subdirectory,
-		"buildCommand": deploy.BuildCommand,
-		"outputDir":    deploy.OutputDir,
-		"status":       deploy.Status,
-		"url":          deploy.URL,
-		"port":         deploy.Port,
-		"createdAt":    deploy.CreatedAt,
-		"updatedAt":    deploy.UpdatedAt,
+		"id":            deploy.ID,
+		"serverId":      deploy.ServerID,
+		"repoUrl":       deploy.RepoURL,
+		"branch":        deploy.Branch,
+		"type":          deploy.ProjectType,
+		"subdirectory":  deploy.Subdirectory,
+		"buildCommand":  deploy.BuildCommand,
+		"outputDir":     deploy.OutputDir,
+		"status":        deploy.Status,
+		"url":           deploy.URL,
+		"port":          deploy.Port,
+		"createdAt":     deploy.CreatedAt,
+		"updatedAt":     deploy.UpdatedAt,
+		"finishedAt":    deploy.FinishedAt,
+		"errorMessage":  errorMessage,
+		"envVars":       envVars,
+		"build_command": deploy.BuildCommand,
+		"output_dir":    deploy.OutputDir,
+		"finished_at":   deploy.FinishedAt,
+		"error_message": errorMessage,
+		"env_vars":      envVars,
 	})
 }
 
@@ -654,17 +678,13 @@ func validateRepoURL(repoURL string) error {
 
 func mergeAndValidateEnvVars(primary, secondary map[string]string) (map[string]string, error) {
 	out := make(map[string]string)
-	if secondary != nil {
-		for k, v := range secondary {
-			if _, exists := out[k]; !exists {
-				out[k] = v
-			}
-		}
-	}
-	if primary != nil {
-		for k, v := range primary {
+	for k, v := range secondary {
+		if _, exists := out[k]; !exists {
 			out[k] = v
 		}
+	}
+	for k, v := range primary {
+		out[k] = v
 	}
 	return validateDeployEnvVars(out)
 }
@@ -700,6 +720,29 @@ func validateDeployEnvVars(m map[string]string) (map[string]string, error) {
 		return nil, errors.New("too many environment variables")
 	}
 	return out, nil
+}
+
+func marshalDeployEnvVars(envVars map[string]string) (datatypes.JSON, error) {
+	if len(envVars) == 0 {
+		return datatypes.JSON([]byte("{}")), nil
+	}
+	payload, err := json.Marshal(envVars)
+	if err != nil {
+		return nil, err
+	}
+	return datatypes.JSON(payload), nil
+}
+
+func parseDeployEnvVars(raw datatypes.JSON) map[string]string {
+	out := map[string]string{}
+	if len(raw) == 0 {
+		return out
+	}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		log.Printf("decode deploy env vars failed: %v", err)
+		return map[string]string{}
+	}
+	return out
 }
 
 func hasDangerousInputChars(value string) bool {

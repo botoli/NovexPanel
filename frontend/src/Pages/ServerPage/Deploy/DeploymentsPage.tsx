@@ -4,8 +4,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCurrentServer } from '../../../Store/ServerStore';
 import { tokenStore } from '../../../Store/TokenStore';
 
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { API_BASE } from '../../../Api/api';
+import { DeployStore } from '../../../Store/DeployStore';
 import styles from './DeploymentsPage.module.scss';
 interface DeployData {
   serverId: number | undefined;
@@ -23,7 +24,7 @@ interface DeployData {
 export const DeploymentsPage = observer(() => {
   const { server } = useCurrentServer();
   const isMounted = useRef(true);
-
+  const navigate = useNavigate();
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   console.log({ loading, error });
@@ -140,7 +141,7 @@ export const DeploymentsPage = observer(() => {
                   </th>
                   <th className={styles.actionsTh}>Actions</th>
                 </tr>
-              </thead>
+              </thead>{' '}
               <tbody>
                 {DeploymentProjects?.length === 0
                   ? (
@@ -156,10 +157,18 @@ export const DeploymentsPage = observer(() => {
                   )
                   : (
                     DeploymentProjects?.map((project) => (
-                      <tr key={project.id} className={styles.tableRow}>
+                      <tr
+                        key={project.id}
+                        className={styles.tableRow}
+                        onClick={() => {
+                          navigate(`/servers/${server?.id}/deployments/${project.id}`);
+                          DeployStore.setDeployId(project.id);
+                        }}
+                      >
                         <td className={styles.colType}>
                           <span className={styles.langBadge}>{project.type}</span>
                         </td>
+
                         <td className={styles.colBranch}>
                           <Icon icon='mdi:git' className={styles.cellIcon} />
                           {project.branch}
@@ -181,6 +190,7 @@ export const DeploymentsPage = observer(() => {
                             {project.status}
                           </span>
                         </td>
+
                         <td className={styles.colUrl}>
                           {project.url
                             ? (
@@ -196,11 +206,11 @@ export const DeploymentsPage = observer(() => {
                             )
                             : <span className={styles.urlEmpty}>—</span>}
                         </td>
+
                         <td className={styles.colActions}>
                           <button
                             className={styles.deleteBtn}
-                            onClick={() =>
-                              deleteDeploy(project.id)}
+                            onClick={() => deleteDeploy(project.id)}
                             title='Stop deployment'
                           >
                             <Icon icon='mdi:stop' />

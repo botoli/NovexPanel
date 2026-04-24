@@ -1,45 +1,12 @@
 import { Icon } from '@iconify/react';
-import { useCallback, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { observer } from 'mobx-react-lite';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { data, Link, useParams } from 'react-router-dom';
+import { API_BASE } from '../../../../Api/api';
+import { DeployStore } from '../../../../Store/DeployStore';
+import { useCurrentServer } from '../../../../Store/ServerStore';
+import { tokenStore } from '../../../../Store/TokenStore';
 import styles from './DeploymentDetailPage.module.scss';
-
-// Мок-данные: заменить на запросы / state при подключении логики
-const MOCK = {
-  deployNumber: 20,
-  status: 'Running' as 'Running' | 'Failed' | 'Stopped',
-  repoUrl: 'https://github.com/botoli/case3',
-  branch: 'main',
-  projectType: 'Go' as 'Go' | 'Node.js' | 'Python' | 'Vite' | string,
-  subdirectory: 'backend',
-  createdAt: '2026-04-21T14:30:00+03:00',
-  updatedAt: '2026-04-23T09:12:00+03:00',
-  env: [
-    { key: 'NODE_ENV', value: 'production' },
-    { key: 'DATABASE_URL', value: 'postgres://user:secret@host:5432/db' },
-    { key: 'API_KEY', value: 'sk_live_abc123' },
-  ] as { key: string; value: string; }[],
-  buildCommand: 'go build -o app .',
-  outputDir: '' as string | null,
-  appPort: 8080,
-  externalPort: 34787,
-  serviceUrl: 'http://192.168.0.100:34787',
-  resources: {
-    cpu: '1.2%',
-    ram: '48 MB',
-    uptime: '2h 15m',
-    hostPid: '48291' as string | null,
-  },
-  buildLog: 'running: git clone --depth 1 --branch main https://github.com/botoli/case3.git src\n'
-    + 'Cloning into \'src\'...\n'
-    + 'using subdirectory: /tmp/novex-deploy-20-4216213173/src/backend\n'
-    + 'detected project type: go\n'
-    + 'running: go mod download\n'
-    + 'running: go build -o app .\n'
-    + 'Dockerfile not found, using process runtime\n'
-    + 'app binary found and executable\n',
-  runtimeLogSeed: '[stdout] server listening on :8080\n[stderr] (none)\n[stdout] GET / 200 2ms\n',
-} as const;
-
 function formatDateTime(iso: string) {
   try {
     return new Date(iso).toLocaleString();
@@ -47,62 +14,113 @@ function formatDateTime(iso: string) {
     return iso;
   }
 }
-
-function statusClass(s: (typeof MOCK)['status']) {
-  if (s === 'Failed') return styles.statusFailed;
-  if (s === 'Stopped') return styles.statusStopped;
-  return styles.statusRunning;
+interface DeployData {
+  branch: string;
+  buildCommand: string | null;
+  createdAt: string | Date;
+  id: number;
+  outputDir: string | null;
+  port: number;
+  repoUrl: string;
+  serverId: number;
+  status: string;
+  subdirectory: string | null;
+  type: string;
+  updatedAt: string | Date;
+  url: string;
 }
-
-export function DeploymentDetailPage() {
-  const { id, deployId } = useParams();
-
-  const [buildLog, setBuildLog] = useState<string>(MOCK.buildLog);
-  const [envVisible, setEnvVisible] = useState<Record<string, boolean>>({});
-  const [runtimeLog, setRuntimeLog] = useState<string>(MOCK.runtimeLogSeed);
-  const [runtimeStreamOn, setRuntimeStreamOn] = useState(false);
-
-  const data = MOCK;
-
-  const serverLinkBase = useMemo(
-    () => (id != null && id.length > 0 ? `/servers/${id}/deployments` : '/'),
-    [id],
-  );
-
-  const toggleEnv = useCallback((key: string) => {
-    setEnvVisible((prev) => ({ ...prev, [key]: !prev[key] }));
+// {
+//   "branch": "master",
+//   "buildCommand": "",
+//   "build_command": "",
+//   "createdAt": "2026-04-23T02:51:36.305176+03:00",
+//   "envVars": {},
+//   "env_vars": {},
+//   "errorMessage": null,
+//   "error_message": null,
+//   "finishedAt": "2026-04-23T02:52:31.703185+03:00",
+//   "finished_at": "2026-04-23T02:52:31.703185+03:00",
+//   "id": 2,
+//   "outputDir": "",
+//   "output_dir": "",
+//   "port": 44859,
+//   "repoUrl": "https://github.com/botoli/NovexPanel.git",
+//   "serverId": 1,
+//   "status": "running",
+//   "subdirectory": "frontend",
+//   "type": "vite",
+//   "updatedAt": "2026-04-23T02:52:31.703559+03:00",
+//   "url": "http://192.168.0.100:44859"
+// }
+export const DeploymentDetailPage = observer(() => {
+  // const [envVisible, setEnvVisible] = useState<Record<string, boolean>>({});
+  const [deployData, setDeployData] = useState<DeployData | null>(null);
+  const [deployLogs, setDeployLogs] = useState();
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const { server } = useCurrentServer();
+  const fetchDeployData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetch(`${API_BASE}/deploys/${DeployStore.getDeployId()}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${tokenStore.getToken()}`,
+        },
+      });
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const data = await response.json();
+      setDeployData(data);
+      console.log(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Произошла ошибка');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const fetchDeployLogs = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetch(`${API_BASE}/deploys/${DeployStore.getDeployId()}/log `, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${tokenStore.getToken()}`,
+        },
+      });
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const data = await response.json();
+      setDeployLogs(data);
+      console.log(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Произошла ошибка');
+    } finally {
+      setLoading(false);
+    }
+  };
+  // {
+  //   "deployId": 3,
+  //   "deployLog": "running: git clone --depth 1 --branch master https://github.com/botoli/NovexPanel.git src in /tmp/novex-deploy-3-788127518\nКлонирование в «src»...\nusing subdirectory: /tmp/novex-deploy-3-788127518/src/frontend\ndetected project type: vite\nvite project: installing dependencies (npm install)\nrunning: npm install in /tmp/novex-deploy-3-788127518/src/frontend\nadded 299 packages, and audited 300 packages in 12s\n74 packages are looking for funding\n  run `npm fund` for details\nfound 0 vulnerabilities\nnpm WARN EBADENGINE Unsupported engine {\nnpm WARN EBADENGINE   package: 'eslint-visitor-keys@5.0.1',\nnpm WARN EBADENGINE   required: { node: '^20.19.0 || ^22.13.0 || >=24' },\nnpm WARN EBADENGINE   current: { node: 'v18.19.1', npm: '9.2.0' }\nnpm WARN EBADENGINE }\nnpm WARN EBADENGINE Unsupported engine {\nnpm WARN EBADENGINE   package: '@vitejs/plugin-react@6.0.1',\nnpm WARN EBADENGINE   required: { node: '^20.19.0 || >=22.12.0' },\nnpm WARN EBADENGINE   current: { node: 'v18.19.1', npm: '9.2.0' }\nnpm WARN EBADENGINE }\nnpm WARN EBADENGINE Unsupported engine {\nnpm WARN EBADENGINE   package: 'react-router@7.14.0',\nnpm WARN EBADENGINE   required: { node: '>=20.0.0' },\nnpm WARN EBADENGINE   current: { node: 'v18.19.1', npm: '9.2.0' }\nnpm WARN EBADENGINE }\nnpm WARN EBADENGINE Unsupported engine {\nnpm WARN EBADENGINE   package: 'react-router-dom@7.14.0',\nnpm WARN EBADENGINE   required: { node: '>=20.0.0' },\nnpm WARN EBADENGINE   current: { node: 'v18.19.1', npm: '9.2.0' }\nnpm WARN EBADENGINE }\nnpm WARN EBADENGINE Unsupported engine {\nnpm WARN EBADENGINE   package: 'rolldown@1.0.0-rc.15',\nnpm WARN EBADENGINE   required: { node: '^20.19.0 || >=22.12.0' },\nnpm WARN EBADENGINE   current: { node: 'v18.19.1', npm: '9.2.0' }\nnpm WARN EBADENGINE }\nnpm WARN EBADENGINE Unsupported engine {\nnpm WARN EBADENGINE   package: 'vite@8.0.8',\nnpm WARN EBADENGINE   required: { node: '^20.19.0 || >=22.12.0' },\nnpm WARN EBADENGINE   current: { node: 'v18.19.1', npm: '9.2.0' }\nnpm WARN EBADENGINE }\nnpm WARN deprecated xterm-addon-fit@0.8.0: This package is now deprecated. Move to @xterm/addon-fit instead.\nnpm WARN deprecated xterm@5.3.0: This package is now deprecated. Move to @xterm/xterm instead.\nvite project: building static assets (npm run build)\nrunning: npm run build in /tmp/novex-deploy-3-788127518/src/frontend\n> qwe@0.0.0 build\n> tsc -b && vite build\nYou are using Node.js 18.19.1. Vite requires Node.js version 20.19+ or 22.12+. Please upgrade your Node.js version.\nfile:///tmp/novex-deploy-3-788127518/src/frontend/node_modules/vite/dist/node/cli.js:534\n\t\t\t\tthis.dispatchEvent(new CustomEvent(`command:${commandName}`, { detail: command }));\n\t\t\t\t                       ^\nReferenceError: CustomEvent is not defined\n    at CAC.parse (file:///tmp/novex-deploy-3-788127518/src/frontend/node_modules/vite/dist/node/cli.js:534:28)\n    at file:///tmp/novex-deploy-3-788127518/src/frontend/node_modules/vite/dist/node/cli.js:835:5\n    at ModuleJob.run (node:internal/modules/esm/module_job:195:25)\n    at async ModuleLoader.import (node:internal/modules/esm/loader:336:24)\nNode.js v18.19.1\nnpm run build failed: npm run build failed in /tmp/novex-deploy-3-788127518/src/frontend: exit status 1. output: You are using Node.js 18.19.1. Vite requires Node.js version 20.19+ or 22.12+. Please upgrade your Node.js version.\nfile:///tmp/novex-deploy-3-788127518/src/frontend/node_modules/vite/dist/node/cli.js:534\n\t\t\t\tthis.dispatchEvent(new CustomEvent(`command:${commandName}`, { detail: command }));\n\t\t\t\t                       ^\n\nReferenceError: CustomEvent is not defined\n    at CAC.parse (file:///tmp/novex-deploy-3-788127518/src/frontend/node_modules/vite/dist/node/cli.js:534:28)\n    at file:///tmp/n...\nnpm run build failed: npm run build failed in /tmp/novex-deploy-3-788127518/src/frontend: exit status 1. output: You are using Node.js 18.19.1. Vite requires Node.js version 20.19+ or 22.12+. Please upgrade your Node.js version.\nfile:///tmp/novex-deploy-3-788127518/src/frontend/node_modules/vite/dist/node/cli.js:534\n\t\t\t\tthis.dispatchEvent(new CustomEvent(`command:${commandName}`, { detail: command }));\n\t\t\t\t                       ^\n\nReferenceError: CustomEvent is not defined\n    at CAC.parse (file:///tmp/novex-deploy-3-788127518/src/frontend/node_modules/vite/dist/node/cli.js:534:28)\n    at file:///tmp/n...\n",
+  //   "port": 0,
+  //   "status": "failed",
+  //   "subdirectory": "frontend",
+  //   "type": "vite",
+  //   "url": ""
+  // }
+  // const toggleEnv = useCallback((key: string) => {
+  //   setEnvVisible((prev) => ({ ...prev, [key]: !prev[key] }));
+  // }, []);
+  useEffect(() => {
+    fetchDeployData();
+    fetchDeployLogs();
   }, []);
-
-  const clearBuildLogLocal = useCallback(() => {
-    setBuildLog('');
-  }, []);
-
-  const downloadBuildLog = useCallback(() => {
-    const blob = new Blob([buildLog], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `deploy-${data.deployNumber}-build-log.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [buildLog, data.deployNumber]);
-
-  const startRuntime = useCallback(() => {
-    setRuntimeStreamOn(true);
-  }, []);
-
-  const stopRuntime = useCallback(() => {
-    setRuntimeStreamOn(false);
-  }, []);
-
-  const clearRuntime = useCallback(() => {
-    setRuntimeLog('');
-  }, []);
-
   return (
     <div className={styles.root}>
       <div className={styles.backRow}>
-        <Link to={serverLinkBase} className={styles.backLink}>
+        <Link to={`/servers/${server?.id}/deployments/`} className={styles.backLink}>
           <Icon icon='mdi:arrow-left' />
           К списку деплоев
         </Link>
@@ -113,18 +131,21 @@ export function DeploymentDetailPage() {
         <div className={styles.titleRow}>
           <div className={styles.titleBlock}>
             <h1 className={styles.title}>
-              <span>Деплой #{data.deployNumber}</span>
-              <span className={`${styles.statusBadge} ${statusClass(data.status)}`} role='status'>
+              <span>Деплой #{deployData?.id}</span>
+              <span
+                className={`${styles.statusBadge} `}
+                role='status'
+              >
                 <span className={styles.statusDot} />
-                {data.status}
+                {deployData?.status}
               </span>
             </h1>
-            {deployId != null && (
+            {DeployStore.deployId != null && (
               <span
                 className={styles.infoLabel}
                 style={{ textTransform: 'none', letterSpacing: 'normal' }}
               >
-                ID: {deployId}
+                ID: {DeployStore.deployId}
               </span>
             )}
           </div>
@@ -153,42 +174,59 @@ export function DeploymentDetailPage() {
             <span className={styles.infoLabel}>Репозиторий</span>
             <a
               className={styles.link}
-              href={data.repoUrl}
+              href={deployData?.repoUrl}
               target='_blank'
               rel='noopener noreferrer'
             >
-              {data.repoUrl}
+              {deployData?.repoUrl}
             </a>
           </div>
           <div className={styles.infoItem}>
             <span className={styles.infoLabel}>Ветка</span>
-            <span className={styles.infoValue}>{data.branch}</span>
+            <span className={styles.infoValue}>{deployData?.branch}</span>
           </div>
           <div className={styles.infoItem}>
             <span className={styles.infoLabel}>Тип</span>
-            <span className={styles.infoValue}>{data.projectType}</span>
+            <span className={styles.infoValue}>{deployData?.type}</span>
           </div>
           <div className={styles.infoItem}>
             <span className={styles.infoLabel}>Папка проекта</span>
-            <span className={styles.infoValue}>{data.subdirectory || '—'}</span>
+            <span className={styles.infoValue}>{deployData?.subdirectory || '—'}</span>
           </div>
           <div className={styles.infoItem}>
             <span className={styles.infoLabel}>Создан</span>
-            <span className={styles.infoValue}>{formatDateTime(data.createdAt)}</span>
+            <span className={styles.infoValue}>
+              {deployData?.createdAt && new Date(deployData.createdAt).toLocaleString('ru-RU', {
+                day: '2-digit',
+                month: '2-digit',
+                year: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </span>
           </div>
           <div className={styles.infoItem}>
             <span className={styles.infoLabel}>Обновлён</span>
-            <span className={styles.infoValue}>{formatDateTime(data.updatedAt)}</span>
+            <span className={styles.infoValue}>
+              {deployData?.updatedAt && new Date(deployData.updatedAt).toLocaleString('ru-RU', {
+                day: '2-digit',
+                month: '2-digit',
+                year: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </span>
           </div>
         </div>
       </header>
 
       {/* 2. Переменные окружения */}
-      <section className={styles.section} aria-labelledby='env-heading'>
+      {
+        /* <section className={styles.section} aria-labelledby='env-heading'>
         <h2 className={styles.sectionTitle} id='env-heading'>
           Переменные окружения
         </h2>
-        {data.env.length === 0
+        {deployData?.env.length === 0
           ? <p className={styles.emptyHint}>Нет переменных окружения</p>
           : (
             <div className={styles.tableWrap}>
@@ -200,7 +238,8 @@ export function DeploymentDetailPage() {
                     <th style={{ width: 1 }} />
                   </tr>
                 </thead>
-                <tbody>
+                {
+                  /* <tbody>
                   {data.env.map((row) => {
                     const vis = envVisible[row.key] === true;
                     return (
@@ -227,11 +266,14 @@ export function DeploymentDetailPage() {
                       </tr>
                     );
                   })}
-                </tbody>
-              </table>
+                </tbody> */
+      }
+      {
+        /* </table>
             </div>
           )}
-      </section>
+      </section> */
+      }
 
       {/* 3. Сборка и запуск */}
       <section className={styles.section} aria-labelledby='build-heading'>
@@ -239,51 +281,52 @@ export function DeploymentDetailPage() {
           Сборка и запуск
         </h2>
         <div className={styles.kvList}>
-          {data.buildCommand
+          {deployData?.buildCommand
             ? (
               <div className={styles.kvRow}>
                 <span className={styles.kvKey}>Команда сборки</span>
                 <span className={styles.kvValue}>
-                  <code>{data.buildCommand}</code>
+                  <code>{deployData?.buildCommand}</code>
                 </span>
               </div>
             )
             : null}
-          {data.outputDir
+          {deployData?.outputDir
             ? (
               <div className={styles.kvRow}>
                 <span className={styles.kvKey}>Выходная папка</span>
                 <span className={styles.kvValue}>
-                  <code>{data.outputDir}</code>
+                  <code>{deployData?.outputDir}</code>
                 </span>
               </div>
             )
             : null}
           <div className={styles.kvRow}>
             <span className={styles.kvKey}>Порт приложения</span>
-            <span className={styles.kvValue}>{data.appPort}</span>
+            <span className={styles.kvValue}>{deployData?.port}</span>
           </div>
           <div className={styles.kvRow}>
             <span className={styles.kvKey}>Внешний порт</span>
-            <span className={styles.kvValue}>{data.externalPort}</span>
+            <span className={styles.kvValue}>{deployData?.port}</span>
           </div>
           <div className={styles.kvRow}>
             <span className={styles.kvKey}>Ссылка на сервис</span>
             <span className={styles.kvValue}>
               <a
                 className={styles.link}
-                href={data.serviceUrl}
+                href={deployData?.url}
                 target='_blank'
                 rel='noopener noreferrer'
               >
-                {data.serviceUrl}
+                {deployData?.url}
               </a>
             </span>
           </div>
         </div>
       </section>
 
-      {/* 4. Ресурсы */}
+      {
+        /* 4. Ресурсы
       <section className={styles.section} aria-labelledby='res-heading'>
         <h2 className={styles.sectionTitle} id='res-heading'>
           Ресурсы
@@ -291,33 +334,35 @@ export function DeploymentDetailPage() {
         <div className={styles.metricsRow}>
           <div className={styles.metric}>
             <span className={styles.metricLabel}>CPU</span>
-            <span className={styles.metricValue}>{data.resources.cpu}</span>
+            <span className={styles.metricValue}>{}</span>
           </div>
           <div className={styles.metric}>
             <span className={styles.metricLabel}>RAM</span>
-            <span className={styles.metricValue}>{data.resources.ram}</span>
+            <span className={styles.metricValue}>{deployData?.resources.ram}</span>
           </div>
           <div className={styles.metric}>
             <span className={styles.metricLabel}>Uptime</span>
-            <span className={styles.metricValue}>{data.resources.uptime}</span>
+            <span className={styles.metricValue}>{deployData?.resources.uptime}</span>
           </div>
-          {data.resources.hostPid
+          {deployData?.resources.hostPid
             ? (
               <div className={styles.metric}>
                 <span className={styles.metricLabel}>PID (хост)</span>
-                <span className={styles.metricValue}>{data.resources.hostPid}</span>
+                <span className={styles.metricValue}>{deployData?.resources.hostPid}</span>
               </div>
             )
             : null}
         </div>
-      </section>
+      </section> */
+      }
 
       {/* 5. Логи сборки */}
       <section className={styles.section} aria-labelledby='buildlog-heading'>
         <h2 className={styles.sectionTitle} id='buildlog-heading'>
           Логи сборки
         </h2>
-        <div className={styles.logToolbar}>
+        {
+          /* <div className={styles.logToolbar}>
           <button
             type='button'
             className={`${styles.btn} ${styles.btnSecondary}`}
@@ -325,7 +370,7 @@ export function DeploymentDetailPage() {
           >
             <Icon icon='mdi:download' />
             Скачать логи
-          </button>
+          </button>{' '}
           <button
             type='button'
             className={`${styles.btn} ${styles.btnDanger}`}
@@ -334,11 +379,11 @@ export function DeploymentDetailPage() {
             <Icon icon='mdi:eraser' />
             Очистить
           </button>
-        </div>
+        </div> */
+        }
         <textarea
           className={styles.logArea}
-          value={buildLog}
-          onChange={(e) => setBuildLog(e.target.value)}
+          value={deployLogs?.deployLog}
           readOnly
           spellCheck={false}
           aria-label='Логи сборки (deploy_log)'
@@ -350,7 +395,8 @@ export function DeploymentDetailPage() {
         <h2 className={styles.sectionTitle} id='runtimelog-heading'>
           Логи работы приложения
         </h2>
-        <div className={styles.logToolbar}>
+        {
+          /* <div className={styles.logToolbar}>
           <button
             type='button'
             className={`${styles.btn} ${styles.btnSecondary}`}
@@ -377,12 +423,13 @@ export function DeploymentDetailPage() {
             <Icon icon='mdi:eraser' />
             Очистить
           </button>
-        </div>
+        </div> */
+        }
         <pre
-          className={`${styles.logStream} ${runtimeStreamOn ? styles.logStreamActive : ''}`}
+          className={`${styles.logStream} `}
           role='log'
         >
-          {runtimeLog || (runtimeStreamOn ? 'Ожидание логов…' : 'Поток остановлен. Нажмите «Старт» для сценария с WebSocket.')}
+          {deployLogs?.deployLog}
         </pre>
       </section>
 
@@ -428,4 +475,4 @@ export function DeploymentDetailPage() {
       </section>
     </div>
   );
-}
+});

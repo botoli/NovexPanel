@@ -404,6 +404,18 @@ components:
         updatedAt:
           type: string
           format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        errorMessage:
+          type: string
+          nullable: true
+        envVars:
+          type: object
+          additionalProperties:
+            type: string
+          description: Environment variables provided at deploy creation.
 
     DeployLogResponse:
       type: object
@@ -977,6 +989,11 @@ paths:
                     port: 32789
                     createdAt: '2026-04-23T10:00:00Z'
                     updatedAt: '2026-04-23T10:02:10Z'
+                    finishedAt: '2026-04-23T10:02:10Z'
+                    errorMessage: null
+                    envVars:
+                      NODE_ENV: production
+                      API_URL: https://api.example.com
         '404':
           description: Deploy not found.
           content:
