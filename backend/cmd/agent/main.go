@@ -1532,7 +1532,7 @@ func (a *Agent) runDeploy(payload deployPayload) {
 	assignedPort = port
 	logf(fmt.Sprintf("assigned external port: %d", assignedPort), false)
 
-	imageTag, buildErr := a.buildDockerImage(ctx, stepTimeout, payload.DeployID, effectiveDir, containerProjectType, staticServeDir, appPort, logf)
+	imageTag, buildErr := a.buildDockerImage(ctx, stepTimeout, payload.DeployID, effectiveDir, containerProjectType, staticServeDir, appPort, envVars, logf)
 	if buildErr != nil {
 		fail("docker build failed", "", buildErr)
 		return
@@ -1550,7 +1550,7 @@ func (a *Agent) runDeploy(payload deployPayload) {
 	finish(true, url, "")
 }
 
-func (a *Agent) buildDockerImage(parentCtx context.Context, stepTimeout time.Duration, deployID uint, workDir, projectType, staticServeDir string, appPort int, logf func(string, bool)) (string, error) {
+func (a *Agent) buildDockerImage(parentCtx context.Context, stepTimeout time.Duration, deployID uint, workDir, projectType, staticServeDir string, appPort int, envVars map[string]string, logf func(string, bool)) (string, error) {
 	imageTag := fmt.Sprintf("deploy_%d:latest", deployID)
 
 	if fileExists(filepath.Join(workDir, "Dockerfile")) {
@@ -1583,7 +1583,16 @@ func (a *Agent) buildDockerImage(parentCtx context.Context, stepTimeout time.Dur
 		}
 	}
 
-	dockerfileContent, err := generateDockerfile(projectType, workDir, staticServeDir, appPort, staticNginxConfRel)
+	nodeBaseImage := resolveNodeBaseImage()
+	if projectType == "node" || projectType == "vite" {
+		logf(fmt.Sprintf("using Node base image for docker build: %s", nodeBaseImage), false)
+	}
+	viteBuildArgKeys := collectViteBuildArgKeys(envVars)
+	if projectType == "vite" && len(viteBuildArgKeys) > 0 {
+		logf(fmt.Sprintf("vite docker build: forwarding build-time env vars: %s", strings.Join(viteBuildArgKeys, ", ")), false)
+	}
+
+	dockerfileContent, err := generateDockerfile(projectType, workDir, staticServeDir, appPort, staticNginxConfRel, nodeBaseImage, viteBuildArgKeys)
 	if err != nil {
 		return "", err
 	}
@@ -1598,8 +1607,16 @@ func (a *Agent) buildDockerImage(parentCtx context.Context, stepTimeout time.Dur
 		}
 	}()
 
+	buildArgs := []string{"build", "-f", generatedDockerfilePath, "-t", imageTag}
+	if projectType == "vite" {
+		for _, key := range viteBuildArgKeys {
+			buildArgs = append(buildArgs, "--build-arg", fmt.Sprintf("%s=%s", key, envVars[key]))
+		}
+	}
+	buildArgs = append(buildArgs, ".")
+
 	logf(fmt.Sprintf("generated Dockerfile: %s", generatedDockerfilePath), false)
-	if _, err := runDeployCommand(parentCtx, stepTimeout, workDir, logf, "docker", "build", "-f", generatedDockerfilePath, "-t", imageTag, "."); err != nil {
+	if _, err := runDeployCommand(parentCtx, stepTimeout, workDir, logf, "docker", buildArgs...); err != nil {
 		return "", err
 	}
 
@@ -1722,6 +1739,9 @@ func resolveContainerProjectType(projectType, workDir, outputDir string) (string
 	case "go":
 		return "go", "", nil
 	case "vite", "react", "vue", "svelte":
+		if projectType == "vite" {
+			return "vite", "", nil
+		}
 		staticDir, err := resolveStaticAssetsDir(workDir, outputDir)
 		if err != nil {
 			return "", "", err
@@ -1834,6 +1854,8 @@ func detectContainerAppPort(projectType, workDir string, envVars map[string]stri
 
 	switch projectType {
 	case "static":
+		return 80
+	case "vite":
 		return 80
 	case "go":
 		goPatterns := []*regexp.Regexp{
@@ -2025,7 +2047,7 @@ func prepareStaticNginxConfForDocker(workDir string, logf func(string, bool)) (r
 	}, nil
 }
 
-func generateDockerfile(projectType, workDir, staticServeDir string, appPort int, staticNginxConfRel string) (string, error) {
+func generateDockerfile(projectType, workDir, staticServeDir string, appPort int, staticNginxConfRel, nodeBaseImage string, viteBuildArgKeys []string) (string, error) {
 	if appPort <= 0 || appPort > 65535 {
 		return "", fmt.Errorf("invalid app port: %d", appPort)
 	}
@@ -2052,17 +2074,46 @@ USER appuser
 ENTRYPOINT ["/app/app"]
 `, goSumCopy, appPort), nil
 	case "node":
-		return fmt.Sprintf(`FROM node:alpine
+		if strings.TrimSpace(nodeBaseImage) == "" {
+			nodeBaseImage = "node:22-alpine"
+		}
+		return fmt.Sprintf(`FROM %s
 WORKDIR /app
 COPY package*.json ./
 RUN npm install --omit=dev
 COPY . .
+RUN node --version
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup && chown -R appuser:appgroup /app
 USER appuser
 ENV PORT=%d
 EXPOSE %d
 CMD ["npm", "start"]
-`, appPort, appPort), nil
+`, nodeBaseImage, appPort, appPort), nil
+	case "vite":
+		if strings.TrimSpace(nodeBaseImage) == "" {
+			nodeBaseImage = "node:22-alpine"
+		}
+		var viteArgs strings.Builder
+		for _, key := range viteBuildArgKeys {
+			cleanKey := strings.TrimSpace(key)
+			if cleanKey == "" {
+				continue
+			}
+			viteArgs.WriteString(fmt.Sprintf("ARG %s\n", cleanKey))
+			viteArgs.WriteString(fmt.Sprintf("ENV %s=$%s\n", cleanKey, cleanKey))
+		}
+		return fmt.Sprintf(`FROM %s AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev
+COPY . .
+%sRUN node --version
+RUN npm run build
+
+FROM nginx:alpine
+COPY --from=builder /app/dist /usr/share/nginx/html
+EXPOSE 80
+`, nodeBaseImage, viteArgs.String()), nil
 	case "static":
 		if strings.TrimSpace(staticServeDir) == "" {
 			return "", errors.New("static output directory is required for static container")
@@ -2101,6 +2152,28 @@ CMD ["python", "-m", "http.server", "%d", "--bind", "0.0.0.0"]
 	default:
 		return "", fmt.Errorf("unsupported project type for Docker build: %s", projectType)
 	}
+}
+
+func resolveNodeBaseImage() string {
+	if legacy := strings.ToLower(strings.TrimSpace(os.Getenv("NOVEX_USE_LEGACY_NODE_ALPINE"))); legacy == "1" || legacy == "true" || legacy == "yes" {
+		return "node:alpine"
+	}
+	if custom := strings.TrimSpace(os.Getenv("NOVEX_NODE_BASE_IMAGE")); custom != "" {
+		return custom
+	}
+	return "node:22-alpine"
+}
+
+func collectViteBuildArgKeys(envVars map[string]string) []string {
+	keys := make([]string, 0, len(envVars))
+	for key := range envVars {
+		trimmed := strings.TrimSpace(key)
+		if strings.HasPrefix(trimmed, "VITE_") {
+			keys = append(keys, trimmed)
+		}
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func mapKeysSorted(items map[string]struct{}) []string {
