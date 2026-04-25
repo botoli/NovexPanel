@@ -1,5 +1,5 @@
 import { Icon } from '@iconify/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { API_BASE } from '../../Api/api';
 import styles from './Registration.module.scss';
@@ -14,7 +14,7 @@ const Registration = () => {
   const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  console.log({ loading, error });
+
   const navigate = useNavigate();
   const handleSubmit = async () => {
     // Валидация
@@ -58,7 +58,9 @@ const Registration = () => {
       setLoading(false);
     }
   };
-
+  useEffect(() => {
+    console.log({ loading, error });
+  }, [error]);
   return (
     <div className={styles.contentWrap}>
       <Link to='/account' className={styles.returnBtn}>

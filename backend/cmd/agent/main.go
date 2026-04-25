@@ -2201,10 +2201,18 @@ func sortedEnvKeys(envVars map[string]string) []string {
 }
 
 func (a *Agent) sendDeployLog(deployID uint, line string, isErr bool) {
+	stream := "stdout"
+	if isErr {
+		stream = "stderr"
+	}
+	timestamp := time.Now().UTC().Format(time.RFC3339)
+
 	_ = a.sendJSON(map[string]any{
 		"type":      "deploy_log",
 		"deploy_id": deployID,
 		"line":      line,
+		"stream":    stream,
+		"timestamp": timestamp,
 		"is_error":  isErr,
 	})
 }

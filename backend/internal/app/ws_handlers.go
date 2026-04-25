@@ -198,6 +198,8 @@ func (a *App) handleAgentMessage(client *AgentClient, serverID uint, payload []b
 			DeployID      uint   `json:"deploy_id"`
 			DeployIDCamel uint   `json:"deployId"`
 			Line          string `json:"line"`
+			Stream        string `json:"stream"`
+			Timestamp     string `json:"timestamp"`
 			IsError       bool   `json:"is_error"`
 			IsErrorCamel  bool   `json:"isError"`
 		}
@@ -210,8 +212,25 @@ func (a *App) handleAgentMessage(client *AgentClient, serverID uint, payload []b
 		if msg.DeployID == 0 || msg.Line == "" {
 			return
 		}
-		isError := msg.IsError || msg.IsErrorCamel
-		_ = a.db.Create(&models.DeployLog{DeployID: msg.DeployID, Line: msg.Line, IsError: isError}).Error
+
+		stream := strings.ToLower(strings.TrimSpace(msg.Stream))
+		if stream != "stdout" && stream != "stderr" {
+			if msg.IsError || msg.IsErrorCamel {
+				stream = "stderr"
+			} else {
+				stream = "stdout"
+			}
+		}
+		isError := stream == "stderr"
+
+		logTimestamp := time.Now().UTC()
+		if timestampText := strings.TrimSpace(msg.Timestamp); timestampText != "" {
+			if parsed, parseErr := time.Parse(time.RFC3339, timestampText); parseErr == nil {
+				logTimestamp = parsed.UTC()
+			}
+		}
+
+		_ = a.db.Create(&models.DeployLog{DeployID: msg.DeployID, Line: msg.Line, IsError: isError, CreatedAt: logTimestamp}).Error
 
 		var deploy models.Deploy
 		if err := a.db.Where("id = ?", msg.DeployID).First(&deploy).Error; err == nil {
@@ -224,7 +243,7 @@ func (a *App) handleAgentMessage(client *AgentClient, serverID uint, payload []b
 			}
 		}
 
-		a.hub.BroadcastDeployLog(msg.DeployID, msg.Line, isError)
+		a.hub.BroadcastDeployLog(msg.DeployID, msg.Line, stream, logTimestamp)
 	case "deploy_result":
 		var msg struct {
 			DeployID      uint   `json:"deployId"`
@@ -512,12 +531,12 @@ func (a *App) handleSiteMessage(site *SiteClient, payload []byte) {
 		}
 		a.hub.CloseTerminal(site, msg.ServerID)
 		_ = site.sendJSON(map[string]any{"type": "terminal_closed", "server_id": msg.ServerID})
-	case "deploy_logs":
+	case "subscribe_deploy_logs", "deploy_logs":
 		var msg struct {
 			DeployID uint `json:"deploy_id"`
 		}
 		if err := json.Unmarshal(payload, &msg); err != nil || msg.DeployID == 0 {
-			a.sendSiteError(site, "invalid deploy_logs payload")
+			a.sendSiteError(site, "invalid subscribe_deploy_logs payload")
 			return
 		}
 		var deploy models.Deploy
@@ -527,6 +546,16 @@ func (a *App) handleSiteMessage(site *SiteClient, payload []byte) {
 		}
 		a.hub.SubscribeDeploy(site, msg.DeployID)
 		_ = site.sendJSON(map[string]any{"type": "subscribed_deploy_logs", "deploy_id": msg.DeployID})
+	case "unsubscribe_deploy_logs":
+		var msg struct {
+			DeployID uint `json:"deploy_id"`
+		}
+		if err := json.Unmarshal(payload, &msg); err != nil || msg.DeployID == 0 {
+			a.sendSiteError(site, "invalid unsubscribe_deploy_logs payload")
+			return
+		}
+		a.hub.UnsubscribeDeploy(site, msg.DeployID)
+		_ = site.sendJSON(map[string]any{"type": "unsubscribed_deploy_logs", "deploy_id": msg.DeployID})
 	case "ping":
 		_ = site.sendJSON(map[string]any{"type": "pong"})
 	default:

@@ -50,7 +50,11 @@ func (a *App) Router() *gin.Engine {
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}
-	if len(a.cfg.SiteAllowedOrigins) == 1 && a.cfg.SiteAllowedOrigins[0] == "*" {
+	if a.cfg.CORSAllowAll {
+		corsCfg.AllowAllOrigins = true
+		corsCfg.AllowCredentials = true
+		corsCfg.AllowHeaders = []string{"*"}
+	} else if len(a.cfg.SiteAllowedOrigins) == 1 && a.cfg.SiteAllowedOrigins[0] == "*" {
 		corsCfg.AllowAllOrigins = true
 		corsCfg.AllowCredentials = false
 	} else {

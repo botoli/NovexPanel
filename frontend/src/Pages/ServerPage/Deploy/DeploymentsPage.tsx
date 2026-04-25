@@ -27,7 +27,6 @@ export const DeploymentsPage = observer(() => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  console.log({ loading, error });
   const [DeploymentProjects, setDeploymentProjects] = useState<DeployData[] | null>(null);
   const deleteDeploy = async (id: number) => {
     try {
@@ -73,7 +72,9 @@ export const DeploymentsPage = observer(() => {
       clearInterval(interval);
     };
   }, []);
-
+  useEffect(() => {
+    console.log({ loading, error });
+  }, [error]);
   //   [
   //   {
   //     "branch": "master",
@@ -141,7 +142,7 @@ export const DeploymentsPage = observer(() => {
                   </th>
                   <th className={styles.actionsTh}>Actions</th>
                 </tr>
-              </thead>{' '}
+              </thead>
               <tbody>
                 {DeploymentProjects?.length === 0
                   ? (
@@ -210,7 +211,10 @@ export const DeploymentsPage = observer(() => {
                         <td className={styles.colActions}>
                           <button
                             className={styles.deleteBtn}
-                            onClick={() => deleteDeploy(project.id)}
+                            onClick={() => {
+                              deleteDeploy(project.id);
+                              navigate(`/servers/${server?.id}/deployments`);
+                            }}
                             title='Stop deployment'
                           >
                             <Icon icon='mdi:stop' />

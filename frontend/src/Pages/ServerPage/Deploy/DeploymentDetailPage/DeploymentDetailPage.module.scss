@@ -398,16 +398,17 @@ $color-status-stopped: #8a8a8a;
   width: 100%;
   min-height: 200px;
   max-height: 400px;
-  padding: $space-3;
+  padding: $space-1;
   box-sizing: border-box;
   font-family: "JetBrains Mono", "Fira Code", monospace;
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: 16px;
+  line-height: 1.4;
   color: $color-text-primary;
   background: $color-bg;
   border: $border-default;
   border-radius: $radius-md;
-  resize: vertical;
+  resize: none;
+  overflow: auto;
 }
 
 .logStream {
@@ -426,10 +427,55 @@ $color-status-stopped: #8a8a8a;
   word-break: break-word;
 }
 
+.logViewport {
+  height: 400px;
+  min-height: 400px;
+  max-height: 400px;
+  white-space: normal;
+}
+
+.logInner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+
+.logLine {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  font-size: 12px;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.logLineOut {
+  color: $color-text-primary;
+}
+
+.logLineErr {
+  color: $color-status-failed;
+}
+
+.logTime {
+  color: $color-text-muted;
+  flex: 0 0 auto;
+}
+
+.logText {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .logStreamActive {
   box-shadow: 0 0 0 1px rgba($color-status-online, 0.25);
 }
-
+.errorLine{
+  color: #ff6b6b;
+}
 // Actions
 // ================================
 

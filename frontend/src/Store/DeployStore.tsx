@@ -7,7 +7,7 @@ export const DeployStore = {
     localStorage.setItem('deployId', id.toString());
   },
   getDeployId() {
-    return localStorage.getItem('deployId');
+    return Number(localStorage.getItem('deployId'));
   },
 };
 makeAutoObservable(DeployStore);

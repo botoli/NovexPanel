@@ -288,14 +288,31 @@ func (a *App) handleDeployLog(c *gin.Context) {
 		return
 	}
 
+	var deployLogs []models.DeployLog
+	if err := a.db.Where("deploy_id = ?", deployID).Order("created_at ASC").Find(&deployLogs).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load logs"})
+		return
+	}
+
+	type LogLine struct {
+		Line   string `json:"line"`
+		Stream string `json:"stream"`
+	}
+
+	lines := make([]LogLine, 0)
+	for _, log := range deployLogs {
+		stream := "stdout"
+		if log.IsError {
+			stream = "stderr"
+		}
+		lines = append(lines, LogLine{
+			Line:   log.Line,
+			Stream: stream,
+		})
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"deployId":     deploy.ID,
-		"status":       deploy.Status,
-		"url":          deploy.URL,
-		"port":         deploy.Port,
-		"type":         deploy.ProjectType,
-		"subdirectory": deploy.Subdirectory,
-		"deployLog":    deploy.DeployLog,
+		"lines": lines,
 	})
 }
 

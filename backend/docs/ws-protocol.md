@@ -153,33 +153,55 @@ Required fields:
 - `type` (string, required): `close_terminal`
 - `server_id` (integer, required)
 
-### `deploy_logs`
+### `subscribe_deploy_logs`
 
-Subscribe to deploy log stream.
+Subscribe to realtime deploy log stream.
 
 Required fields:
 
-- `type` (string, required): `deploy_logs`
+- `type` (string, required): `subscribe_deploy_logs`
 - `deploy_id` (integer, required)
 
 Example:
 
 ```json
 {
-  "type": "deploy_logs",
+  "type": "subscribe_deploy_logs",
+  "deploy_id": 452
+}
+```
+
+Compatibility note:
+
+- `type: "deploy_logs"` is accepted as a legacy alias for subscribe.
+
+### `unsubscribe_deploy_logs`
+
+Unsubscribe from realtime deploy log stream.
+
+Required fields:
+
+- `type` (string, required): `unsubscribe_deploy_logs`
+- `deploy_id` (integer, required)
+
+Example:
+
+```json
+{
+  "type": "unsubscribe_deploy_logs",
   "deploy_id": 452
 }
 ```
 
 ## 3.2 Server -> Client Events
 
-### `metrics_update`
+### `metrics`
 
 Canonical metrics push event for subscribed server.
 
 Required fields:
 
-- `type` (string, required): `metrics_update`
+- `type` (string, required): `metrics`
 - `server_id` (integer, required)
 - `data` (object, required)
 
@@ -187,7 +209,7 @@ Example:
 
 ```json
 {
-  "type": "metrics_update",
+  "type": "metrics",
   "server_id": 12,
   "data": {
     "cpu": { "usage": 23.4, "cores": 8 },
@@ -197,10 +219,6 @@ Example:
   }
 }
 ```
-
-Compatibility note:
-
-- Some running versions may emit `type: "metrics"` with the same payload shape.
 
 ### `terminal_output`
 
@@ -222,9 +240,37 @@ Required fields:
 - `type` (string, required): `terminal_closed`
 - `server_id` (integer, required)
 
-### `deploy_log`
+### `deploy_log_line`
 
-Single deploy log line.
+Single realtime deploy log line (new canonical format).
+
+Required fields:
+
+- `type` (string, required): `deploy_log_line`
+- `deploy_id` (integer, required)
+- `line` (string, required)
+- `stream` (string, required): `stdout` or `stderr`
+- `timestamp` (string, required): RFC3339 UTC timestamp
+
+Example:
+
+```json
+{
+  "type": "deploy_log_line",
+  "deploy_id": 452,
+  "line": "Cloning into 'src'...",
+  "stream": "stdout",
+  "timestamp": "2026-04-25T12:00:00Z"
+}
+```
+
+Compatibility note:
+
+- Backend also emits legacy event `deploy_log` with `is_error` for older clients.
+
+### `deploy_log` (legacy)
+
+Single deploy log line (legacy compatibility event).
 
 Required fields:
 
@@ -232,17 +278,6 @@ Required fields:
 - `deploy_id` (integer, required)
 - `line` (string, required)
 - `is_error` (boolean, required)
-
-Example:
-
-```json
-{
-  "type": "deploy_log",
-  "deploy_id": 452,
-  "line": "npm run build",
-  "is_error": false
-}
-```
 
 ### `deploy_complete`
 
@@ -290,6 +325,24 @@ Required fields:
 
 - `type` (string, required): `error`
 - `error` (string, required)
+
+### `subscribed_deploy_logs`
+
+Subscribe confirmation from backend.
+
+Required fields:
+
+- `type` (string, required): `subscribed_deploy_logs`
+- `deploy_id` (integer, required)
+
+### `unsubscribed_deploy_logs`
+
+Unsubscribe confirmation from backend.
+
+Required fields:
+
+- `type` (string, required): `unsubscribed_deploy_logs`
+- `deploy_id` (integer, required)
 
 ## 4. Backend <-> Agent (`agent/ws`)
 
@@ -422,7 +475,24 @@ Required fields:
 - `type` (string, required): `deploy_log`
 - `deploy_id` (integer, required)
 - `line` (string, required)
-- `is_error` (boolean, required)
+- `stream` (string, required): `stdout` or `stderr`
+- `timestamp` (string, required): RFC3339 UTC timestamp
+
+Compatibility note:
+
+- Agent may also send `is_error` (or `isError`) instead of `stream`; backend maps it automatically.
+
+Example:
+
+```json
+{
+  "type": "deploy_log",
+  "deploy_id": 452,
+  "line": "npm run build",
+  "stream": "stderr",
+  "timestamp": "2026-04-25T12:00:00Z"
+}
+```
 
 ### `deploy_result`
 

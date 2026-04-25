@@ -50,7 +50,6 @@ export const DeployPage = observer(() => {
   const [choosedLanguage, setChoosedLanguage] = useState('node');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  console.log({ loading, error });
   const [subdirectory, setSubdirectory] = useState<string>('');
   const [envKey, setEnvKey] = useState<string>('');
   const [envValue, setEnvValue] = useState<string>('');
@@ -108,6 +107,9 @@ export const DeployPage = observer(() => {
   useEffect(() => {
     console.log(envVarList);
   }, [envVarList]);
+  useEffect(() => {
+    console.log({ loading, error });
+  }, [error]);
   return (
     <div className={styles.mainContent}>
       <div className={styles.headerRow}>
@@ -143,7 +145,7 @@ export const DeployPage = observer(() => {
                     type='url'
                     inputMode='url'
                     placeholder='https://github.com/username/repository'
-                    value={GithubUrl}
+                    value={GithubUrl || 'https://github.com/botoli/NovexPanel.git'}
                     onChange={(e) => setGithubUrl(e.target.value)}
                   />
                   <Icon icon='mdi:check-circle' className={styles.inputCheck} />
@@ -151,7 +153,7 @@ export const DeployPage = observer(() => {
                 <input
                   type='text'
                   placeholder='Папка проекта (например, bot/)'
-                  value={subdirectory}
+                  value={subdirectory || 'frontend'}
                   onChange={(e) => setSubdirectory(e.target.value)}
                 />
                 <p className={styles.helperText}>

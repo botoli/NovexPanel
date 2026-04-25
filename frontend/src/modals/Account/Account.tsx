@@ -26,7 +26,7 @@ const Account = observer(() => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  console.log({ loading, error });
+
   const [tokensData, setTokensData] = useState<TokenData[]>([]);
   const getTokensData = useCallback(async () => {
     try {
@@ -68,6 +68,9 @@ const Account = observer(() => {
       setLoading(false);
     }
   };
+  useEffect(() => {
+    console.log({ loading, error });
+  }, [error]);
   return (
     <div className={styles.contentWrap}>
       <Link to='/' className={styles.returnBtn}>

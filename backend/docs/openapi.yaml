@@ -8,6 +8,7 @@ info:
     Notes:
     - Auth-protected routes require JWT Bearer token.
     - WebSocket endpoints are documented for handshake and query params.
+    - Realtime deploy log stream is available over /site/ws (see docs/ws-protocol.md).
     - Deploy listing supports server filter and pagination parameters.
 servers:
   - url: http://localhost:8380
@@ -1089,7 +1090,17 @@ paths:
     get:
       tags: [WebSocket]
       summary: Site websocket handshake
-      description: Upgrade endpoint for UI websocket channel.
+      description: |
+        Upgrade endpoint for UI websocket channel.
+
+        Realtime deploy logs:
+        - subscribe with `{ "type": "subscribe_deploy_logs", "deploy_id": <id> }`
+        - unsubscribe with `{ "type": "unsubscribe_deploy_logs", "deploy_id": <id> }`
+        - backend pushes `{ "type": "deploy_log_line", "deploy_id", "line", "stream", "timestamp" }`
+
+        Compatibility:
+        - subscribe alias `{ "type": "deploy_logs", "deploy_id": <id> }` is accepted.
+        - backend also emits legacy `{ "type": "deploy_log", "deploy_id", "line", "is_error" }`.
       parameters:
         - in: query
           name: token
@@ -1107,7 +1118,14 @@ paths:
     get:
       tags: [WebSocket]
       summary: Agent websocket handshake
-      description: Upgrade endpoint for agent channel.
+      description: |
+        Upgrade endpoint for agent channel.
+
+        Realtime deploy log event from agent:
+        `{ "type": "deploy_log", "deploy_id", "line", "stream", "timestamp" }`
+
+        Compatibility:
+        - legacy field `is_error` (or `isError`) is also accepted.
       parameters:
         - in: query
           name: token

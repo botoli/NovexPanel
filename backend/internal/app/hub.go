@@ -391,7 +391,7 @@ func (h *Hub) UnsubscribeDeploy(site *SiteClient, deployID uint) {
 	delete(site.deploySubs, deployID)
 }
 
-func (h *Hub) BroadcastDeployLog(deployID uint, line string, isError bool) {
+func (h *Hub) BroadcastDeployLog(deployID uint, line, stream string, timestamp time.Time) {
 	h.mu.RLock()
 	subMap := h.deploySubscribers[deployID]
 	sites := make([]*SiteClient, 0, len(subMap))
@@ -400,7 +400,24 @@ func (h *Hub) BroadcastDeployLog(deployID uint, line string, isError bool) {
 	}
 	h.mu.RUnlock()
 
+	stream = strings.ToLower(strings.TrimSpace(stream))
+	if stream != "stderr" {
+		stream = "stdout"
+	}
+	isError := stream == "stderr"
+	if timestamp.IsZero() {
+		timestamp = time.Now().UTC()
+	}
+	timestampText := timestamp.UTC().Format(time.RFC3339)
+
 	message := map[string]any{
+		"type":      "deploy_log_line",
+		"deploy_id": deployID,
+		"line":      line,
+		"stream":    stream,
+		"timestamp": timestampText,
+	}
+	legacyMessage := map[string]any{
 		"type":      "deploy_log",
 		"deploy_id": deployID,
 		"line":      line,
@@ -408,6 +425,7 @@ func (h *Hub) BroadcastDeployLog(deployID uint, line string, isError bool) {
 	}
 	for _, site := range sites {
 		_ = site.sendJSON(message)
+		_ = site.sendJSON(legacyMessage)
 	}
 }
 

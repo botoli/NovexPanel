@@ -36,6 +36,13 @@ func (a *App) wsReadLimit(defaultLimit int64) int64 {
 }
 
 func (a *App) isRequestOriginAllowed(origin string, requireOrigin bool) bool {
+	if a.cfg.CORSAllowAll {
+		if origin == "" {
+			return !requireOrigin
+		}
+		return true
+	}
+
 	origin = strings.TrimSpace(origin)
 	if origin == "" {
 		return !requireOrigin

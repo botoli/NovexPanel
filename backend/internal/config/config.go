@@ -20,6 +20,7 @@ type Config struct {
 	SiteAllowedOrigins  []string
 	MaxRequestBodyBytes int64
 	WSReadLimitBytes    int64
+	CORSAllowAll        bool
 	// CommandAllowlist: comma-separated allowed command prefixes (see app package). Empty uses built-in defaults. "*" disables filtering.
 	CommandAllowlist string
 }
@@ -99,6 +100,8 @@ func Load() (Config, error) {
 	}
 
 	cfg.CommandAllowlist = strings.TrimSpace(getEnv("COMMAND_ALLOWLIST", ""))
+
+	cfg.CORSAllowAll = strings.EqualFold(strings.TrimSpace(getEnv("CORS_ALLOW_ALL", "false")), "true")
 
 	return cfg, nil
 }

@@ -13,6 +13,7 @@ Go backend for NovexPanel with JWT auth, agent management over WebSocket, real-t
 - Process list and kill process (`GET /servers/:id/processes`, `DELETE /servers/:id/processes/:pid`)
 - Command execution (`POST /servers/:id/command`)
 - Deploy request + logs (`POST /servers/:id/deploy`, `GET /deploys/:id/logs`)
+- Realtime deploy logs over websocket (`subscribe_deploy_logs` -> `deploy_log_line`)
 
 ## Project Layout
 
@@ -56,7 +57,25 @@ go mod tidy
 go run ./cmd/server
 ```
 
-By default backend runs on `:8080`.
+By default backend runs on `:8380`.
+
+### CORS for local development
+
+Two options are available:
+
+1. Restrict to explicit origins:
+
+```env
+SITE_ALLOWED_ORIGINS=http://localhost:5173
+```
+
+2. Temporarily allow all origins (development only):
+
+```env
+CORS_ALLOW_ALL=true
+```
+
+When `CORS_ALLOW_ALL=true`, backend enables permissive CORS for browser-based local development.
 
 ### 5) Create user and get JWT
 
