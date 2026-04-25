@@ -1272,7 +1272,7 @@ func (a *Agent) runDeploy(payload deployPayload) {
 	payload.normalize()
 	a.clearDeployRuntime(payload.DeployID)
 
-	const stepTimeout = 5 * time.Minute
+	const stepTimeout = 20 * time.Minute
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 
@@ -1403,6 +1403,11 @@ func (a *Agent) runDeploy(payload deployPayload) {
 	}
 	logf(fmt.Sprintf("detected project type: %s", projectType), false)
 
+	if err := ensureDockerAvailable(); err != nil {
+		finish(false, "", err.Error())
+		return
+	}
+
 	frontendBuildRequired := isFrontendProjectType(projectType)
 	if projectType == "static" {
 		shouldBuildStatic, detectErr := shouldBuildStaticProject(effectiveDir)
@@ -1456,29 +1461,16 @@ func (a *Agent) runDeploy(payload deployPayload) {
 				return
 			}
 		case "node":
-			logf("node project: installing dependencies (npm install)", false)
-			output, runErr := runDeployCommand(ctx, stepTimeout, effectiveDir, logf, "npm", "install")
-			if runErr != nil {
-				fail("npm install failed", output, runErr)
-				return
-			}
-
-			hasBuild, buildErr := hasBuildScript(effectiveDir)
-			if buildErr != nil {
-				fail("read package.json scripts failed", "", buildErr)
-				return
-			}
-			if hasBuild {
-				logf("node project: build script found, running npm run build", false)
-				output, runErr = runDeployCommand(ctx, stepTimeout, effectiveDir, logf, "npm", "run", "build")
-				if runErr != nil {
-					fail("npm run build failed", output, runErr)
-					return
-				}
-			}
+			// Host npm is intentionally skipped for node projects. Dependency install and
+			// optional build run in docker build to avoid host Node.js version dependency.
+			logf("node project: skipping host npm install/build, using docker build stage", false)
 		case "python":
 			logf("python project: build step is not required", false)
-		case "vite", "react", "vue", "svelte":
+		case "vite":
+			// Host npm is intentionally skipped for vite projects. Build runs in docker
+			// build so deployment works even when host Node.js is missing or outdated.
+			logf("vite project: skipping host npm install/build, using docker build stage", false)
+		case "react", "vue", "svelte":
 			step, output, runErr := runFrontendBuild(fmt.Sprintf("%s project", projectType))
 			if runErr != nil {
 				fail(step, output, runErr)
@@ -1496,10 +1488,15 @@ func (a *Agent) runDeploy(payload deployPayload) {
 			}
 		}
 	} else {
-		output, runErr := runDeployCommand(ctx, stepTimeout, effectiveDir, logf, "bash", "-lc", customBuild)
-		if runErr != nil {
-			fail("custom build failed", output, runErr)
-			return
+		switch projectType {
+		case "node", "vite":
+			logf(fmt.Sprintf("%s project: custom build command will run in docker build stage (host execution skipped)", projectType), false)
+		default:
+			output, runErr := runDeployCommand(ctx, stepTimeout, effectiveDir, logf, "bash", "-lc", customBuild)
+			if runErr != nil {
+				fail("custom build failed", output, runErr)
+				return
+			}
 		}
 	}
 
@@ -1532,7 +1529,7 @@ func (a *Agent) runDeploy(payload deployPayload) {
 	assignedPort = port
 	logf(fmt.Sprintf("assigned external port: %d", assignedPort), false)
 
-	imageTag, buildErr := a.buildDockerImage(ctx, stepTimeout, payload.DeployID, effectiveDir, containerProjectType, staticServeDir, appPort, envVars, logf)
+	imageTag, buildErr := a.buildDockerImage(ctx, stepTimeout, payload.DeployID, effectiveDir, containerProjectType, staticServeDir, appPort, envVars, customBuild, logf)
 	if buildErr != nil {
 		fail("docker build failed", "", buildErr)
 		return
@@ -1550,7 +1547,7 @@ func (a *Agent) runDeploy(payload deployPayload) {
 	finish(true, url, "")
 }
 
-func (a *Agent) buildDockerImage(parentCtx context.Context, stepTimeout time.Duration, deployID uint, workDir, projectType, staticServeDir string, appPort int, envVars map[string]string, logf func(string, bool)) (string, error) {
+func (a *Agent) buildDockerImage(parentCtx context.Context, stepTimeout time.Duration, deployID uint, workDir, projectType, staticServeDir string, appPort int, envVars map[string]string, customBuild string, logf func(string, bool)) (string, error) {
 	imageTag := fmt.Sprintf("deploy_%d:latest", deployID)
 
 	if fileExists(filepath.Join(workDir, "Dockerfile")) {
@@ -1612,6 +1609,10 @@ func (a *Agent) buildDockerImage(parentCtx context.Context, stepTimeout time.Dur
 		for _, key := range viteBuildArgKeys {
 			buildArgs = append(buildArgs, "--build-arg", fmt.Sprintf("%s=%s", key, envVars[key]))
 		}
+	}
+	if (projectType == "node" || projectType == "vite") && strings.TrimSpace(customBuild) != "" {
+		buildArgs = append(buildArgs, "--build-arg", fmt.Sprintf("NOVEX_CUSTOM_BUILD=%s", customBuild))
+		logf("forwarding custom build command into docker build stage (host execution skipped)", false)
 	}
 	buildArgs = append(buildArgs, ".")
 
@@ -2080,9 +2081,20 @@ ENTRYPOINT ["/app/app"]
 		return fmt.Sprintf(`FROM %s
 WORKDIR /app
 COPY package*.json ./
-RUN npm install --omit=dev
+RUN npm install
 COPY . .
+ARG NOVEX_CUSTOM_BUILD=""
 RUN node --version
+RUN if [ -n "$NOVEX_CUSTOM_BUILD" ]; then \
+			echo "running custom build command inside docker"; \
+			sh -lc "$NOVEX_CUSTOM_BUILD"; \
+		elif node -e "const s=require('./package.json').scripts||{}; process.exit(s.build?0:1)"; then \
+			echo "build script detected, running npm run build inside docker"; \
+			npm run build; \
+		else \
+			echo "no build script detected, skipping build step"; \
+		fi
+RUN npm prune --omit=dev
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup && chown -R appuser:appgroup /app
 USER appuser
 ENV PORT=%d
@@ -2105,10 +2117,16 @@ CMD ["npm", "start"]
 		return fmt.Sprintf(`FROM %s AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm ci
 COPY . .
 %sRUN node --version
-RUN npm run build
+ARG NOVEX_CUSTOM_BUILD=""
+RUN if [ -n "$NOVEX_CUSTOM_BUILD" ]; then \
+			echo "running custom build command inside docker"; \
+			sh -lc "$NOVEX_CUSTOM_BUILD"; \
+		else \
+			npm run build; \
+		fi
 
 FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
@@ -2493,6 +2511,13 @@ func runCommandContextDetailed(ctx context.Context, dir, name string, args ...st
 	}
 
 	return combinedOutput, stderrOutput, nil
+}
+
+func ensureDockerAvailable() error {
+	if _, err := exec.LookPath("docker"); err != nil {
+		return errors.New("docker is required for deployment but was not found on host")
+	}
+	return nil
 }
 
 func logDeployOutput(logf func(string, bool), output string, isErr bool) {

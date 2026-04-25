@@ -134,6 +134,36 @@ go run ./cmd/agent -backend ws://<backend-host>:8080 -token <AGENT_TOKEN> -name 
 
 Agent auto reconnects, sends metrics every 2 seconds, and prints colored logs.
 
+## Deploy Runtime Requirements
+
+- Docker is required on the host for deploy flow.
+- Node.js and npm are not required on the host for `node` and `vite` deploys.
+- For `node` and `vite` projects, dependency install and build run inside `docker build` using the image from `FROM node:XX-alpine`.
+- `go` and `static` deploy behavior stays the same from the host perspective.
+
+## Troubleshooting Deploy Build
+
+If `docker build` fails during deploy:
+
+1. Verify Docker CLI and daemon are available on host:
+
+```bash
+docker version
+docker info
+```
+
+2. Check agent deploy logs for the generated Dockerfile path and failing command.
+
+3. Rebuild manually in the same project directory using the shown command pattern:
+
+```bash
+docker build -f .novex.generated.Dockerfile -t deploy_test:latest .
+```
+
+4. For `vite` projects, ensure build dependencies are present in `package.json` and `npm run build` works inside Node 22 Alpine.
+
+5. If build needs custom flags or steps, set deploy `build_command`; for `node`/`vite`, it is executed in Docker build stage (not on host).
+
 ## Build Binaries
 
 Backend server:

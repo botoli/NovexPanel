@@ -37,6 +37,7 @@ export const DeploymentsPage = observer(() => {
         headers: { authorization: `Bearer ${tokenStore.getToken()}` },
       });
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      fetchData();
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Произошла ошибка');
@@ -161,10 +162,6 @@ export const DeploymentsPage = observer(() => {
                       <tr
                         key={project.id}
                         className={styles.tableRow}
-                        onClick={() => {
-                          navigate(`/servers/${server?.id}/deployments/${project.id}`);
-                          DeployStore.setDeployId(project.id);
-                        }}
                       >
                         <td className={styles.colType}>
                           <span className={styles.langBadge}>{project.type}</span>
@@ -218,6 +215,16 @@ export const DeploymentsPage = observer(() => {
                             title='Stop deployment'
                           >
                             <Icon icon='mdi:stop' />
+                          </button>
+                          <button
+                            className={styles.detailBtn}
+                            onClick={() => {
+                              navigate(`/servers/${server?.id}/deployments/${project.id}`);
+                              DeployStore.setDeployId(project.id);
+                            }}
+                            title='View details'
+                          >
+                            <Icon icon='weui:arrow-filled' />
                           </button>
                         </td>
                       </tr>

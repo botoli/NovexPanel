@@ -1,7 +1,7 @@
 import { Icon } from '@iconify/react';
 import { observer } from 'mobx-react-lite';
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { API_BASE } from '../../../../Api/api';
 import { DeployStore } from '../../../../Store/DeployStore';
 import { useCurrentServer } from '../../../../Store/ServerStore';
@@ -32,6 +32,7 @@ interface DeployData {
 }
 
 export const DeploymentDetailPage = observer(() => {
+  const navigate = useNavigate();
   // const [envVisible, setEnvVisible] = useState<Record<string, boolean>>({});
   const [deployData, setDeployData] = useState<DeployData | null>(null);
   const [deployLogs, setDeployLogs] = useState<
@@ -144,6 +145,10 @@ export const DeploymentDetailPage = observer(() => {
           deploy_id: DeployStore.getDeployId(),
         }));
       }
+      ws.send(JSON.stringify({
+        type: 'unsubscribe_runtime_logs',
+        deploy_id: DeployStore.getDeployId(),
+      }));
       ws.close();
     };
   }, [DeployStore.getDeployId()]);
@@ -155,6 +160,20 @@ export const DeploymentDetailPage = observer(() => {
   useEffect(() => {
     console.log({ loading, error });
   }, [error]);
+  const logContainerRef = useRef<HTMLDivElement>(null);
+  const [autoScroll, setAutoScroll] = useState(true);
+
+  const handleScroll = () => {
+    if (!logContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = logContainerRef.current;
+    const isAtBottom = scrollTop + clientHeight >= scrollHeight - 50;
+    setAutoScroll(isAtBottom);
+  };
+  useEffect(() => {
+    if (autoScroll && logContainerRef.current) {
+      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+    }
+  }, [deployLogs, autoScroll]);
 
   return (
     <div className={styles.root}>
@@ -206,6 +225,7 @@ export const DeploymentDetailPage = observer(() => {
               className={`${styles.btn} ${styles.btnDanger}`}
               onClick={() => {
                 deleteDeploy(DeployStore.getDeployId());
+                navigate(`/servers/${server?.id}/deployments/`);
               }}
             >
               <Icon icon='mdi:delete-outline' />
@@ -394,27 +414,8 @@ export const DeploymentDetailPage = observer(() => {
         <h2 className={styles.sectionTitle} id='buildlog-heading'>
           Логи сборки
         </h2>
-        {
-          /* <div className={styles.logToolbar}>
-          <button
-            type='button'
-            className={`${styles.btn} ${styles.btnSecondary}`}
-            onClick={downloadBuildLog}
-          >
-            <Icon icon='mdi:download' />
-            Скачать логи
-          </button>{' '}
-          <button
-            type='button'
-            className={`${styles.btn} ${styles.btnDanger}`}
-            onClick={clearBuildLogLocal}
-          >
-            <Icon icon='mdi:eraser' />
-            Очистить
-          </button>
-        </div> */
-        }
-        <div className={styles.logArea}>
+
+        <div className={styles.logArea} ref={logContainerRef} onScroll={handleScroll}>
           {deployLogs.map((log, idx) => (
             <pre
               key={idx}
