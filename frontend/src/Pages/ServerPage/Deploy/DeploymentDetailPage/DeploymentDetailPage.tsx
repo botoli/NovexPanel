@@ -1,7 +1,7 @@
 import { Icon } from '@iconify/react';
 import { observer } from 'mobx-react-lite';
 import { useEffect, useRef, useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { API_BASE } from '../../../../Api/api';
 import { DeployStore } from '../../../../Store/DeployStore';
 import { useCurrentServer } from '../../../../Store/ServerStore';
