@@ -1,39 +1,43 @@
-# NovexPanel — Architectural Review & Code Overview
-
-**Project**: NovexPanel — a self-hosted server management panel  
-**Stack**: Go 1.22 (backend) + React 19 / TypeScript / MobX (frontend)  
-**Author**: botoli  
-**Review date**: 2026-04-28  
+Вот полный перевод архитектурного обзора и анализа кода **NovexPanel** на русский язык.
 
 ---
 
-## 1. System Architecture
+# NovexPanel — Архитектурный обзор и анализ кода
 
-### 1.1 High-Level Overview
+**Проект**: NovexPanel — панель управления серверами с самостоятельным хостингом  
+**Стек**: Go 1.22 (бэкенд) + React 19 / TypeScript / MobX (фронтенд)  
+**Автор**: botoli  
+**Дата обзора**: 2026-04-28  
 
-NovexPanel follows a **3-tier architecture** with a central Go backend, a React SPA frontend, and lightweight Go agents deployed on managed servers.
+---
+
+## 1. Системная архитектура
+
+### 1.1 Общая схема
+
+NovexPanel следует **трехуровневой архитектуре** с центральным бэкендом на Go, одностраничным приложением (SPA) на React и легковесными агентами на Go, развернутыми на управляемых серверах.
 
 ```mermaid
 flowchart TB
-    subgraph Browser["Browser SPA"]
+    subgraph Browser["Браузер SPA"]
         FE["React 19 + TypeScript + MobX
-            Vite dev server :5174"]
+            Dev-сервер Vite :5174"]
     end
 
-    subgraph BackendServer["Backend Server"]
-        GB["Gin HTTP Server
-            Port :8380"]
+    subgraph BackendServer["Сервер бэкенда"]
+        GB["HTTP-сервер Gin
+            Порт :8380"]
         HUB["WebSocket Hub
             /site/ws + /agent/ws"]
         DB[(PostgreSQL / SQLite
-            GORM ORM)]
-        RATELIMITER["Rate Limiter
+            ORM GORM)]
+        RATELIMITER["Ограничитель запросов
             In-memory fixed window"]
     end
 
-    subgraph ManagedServer["Managed Server 1..N"]
-        AGENT["Go Agent Binary
-            WebSocket Client + PTY + Docker"]
+    subgraph ManagedServer["Управляемый сервер 1..N"]
+        AGENT["Бинарный файл агента Go
+            WebSocket-клиент + PTY + Docker"]
     end
 
     FE -->|REST API + WS| GB
@@ -41,25 +45,25 @@ flowchart TB
     GB --> DB
     HUB -->|WS /agent/ws| AGENT
     GB -->|REST /terminal/:id| AGENT
-    AGENT -->|gopsutil| OS["OS Metrics
-        CPU / RAM / Disk / Net"]
+    AGENT -->|gopsutil| OS["Метрики ОС
+        CPU / RAM / Диск / Сеть"]
     AGENT -->|Docker SDK| DOCKER["Docker Engine
-        Build + Run Containers"]
+        Сборка + Запуск контейнеров"]
     AGENT -->|creack/pty| PTY["PTY Shell
         bash -lc"]
 ```
 
-### 1.2 Communication Channels
+### 1.2 Каналы связи
 
-| Channel | Direction | Protocol | Endpoint | Auth |
-|---------|-----------|----------|----------|------|
-| Frontend ↔ Backend (data) | Bidirectional | REST (JSON) | `POST/GET/PATCH/DELETE /api/*` | JWT Bearer |
-| Frontend ↔ Backend (realtime) | Bidirectional | WebSocket | `/site/ws` | JWT query param |
-| Agent ↔ Backend (control) | Bidirectional | WebSocket | `/agent/ws` | Agent Token header |
-| Browser ↔ Agent (direct PTY) | Bidirectional | WebSocket | `/terminal/:id` | JWT query param |
-| Backend → Agent (commands) | Request/Response | WS Envelope | Via Hub `RequestAgent()` | N/A (inside WS) |
+| Канал | Направление | Протокол | Эндпоинт | Аутентификация |
+|-------|-------------|----------|----------|----------------|
+| Фронтенд ↔ Бэкенд (данные) | Двунаправленный | REST (JSON) | `POST/GET/PATCH/DELETE /api/*` | JWT Bearer |
+| Фронтенд ↔ Бэкенд (в реальном времени) | Двунаправленный | WebSocket | `/site/ws` | JWT в параметре запроса |
+| Агент ↔ Бэкенд (управление) | Двунаправленный | WebSocket | `/agent/ws` | Токен агента в заголовке |
+| Браузер ↔ Агент (прямой PTY) | Двунаправленный | WebSocket | `/terminal/:id` | JWT в параметре запроса |
+| Бэкенд → Агент (команды) | Запрос/Ответ | WS Envelope | Через Hub `RequestAgent()` | Н/Д (внутри WS) |
 
-### 1.3 Data Flow — Real-Time Metrics
+### 1.3 Поток данных — метрики в реальном времени
 
 ```mermaid
 sequenceDiagram
@@ -68,16 +72,16 @@ sequenceDiagram
     participant DB
     participant Frontend
 
-    Agent->>+BackendHub: WS message: metrics {cpu,ram,disk,net,...}
+    Agent->>+BackendHub: WS сообщение: metrics {cpu,ram,disk,net,...}
     BackendHub->>DB: persistMetrics - INSERT MetricPoint
-    BackendHub->>BackendHub: Update Server.last_metrics
-    BackendHub-->>-Frontend: Broadcast: metrics_update {metrics}
+    BackendHub->>BackendHub: Обновить Server.last_metrics
+    BackendHub-->>-Frontend: Рассылка: metrics_update {metrics}
     
-    Note over Agent: Every 2 seconds
-    Note over BackendHub: Background goroutine: DELETE old MetricPoints<br/>hourly cleanup based on configurable retention
+    Note over Agent: Каждые 2 секунды
+    Note over BackendHub: Фоновая горутина: DELETE старых MetricPoints<br/>очистка раз в час на основе настройки retention
 ```
 
-### 1.4 Data Flow — Deployment Pipeline
+### 1.4 Поток данных — конвейер развертывания
 
 ```mermaid
 sequenceDiagram
@@ -89,23 +93,23 @@ sequenceDiagram
     participant Docker
 
     User->>Backend: POST /deploy {repoUrl, branch, type, ...}
-    Backend->>DB: INSERT deploy row status=pending
-    Backend->>Hub: RequestAgent serverID, deploy command
+    Backend->>DB: INSERT строка deploy status=pending
+    Backend->>Hub: RequestAgent serverID, команда deploy
     Hub->>Agent: WS: deploy {deployID, repo, branch, subdir, buildCmd, envVars}
     
     activate Agent
     Agent->>Git: git clone --depth 1 --branch <branch> <repo>
-    Agent->>Agent: Detect project type (go/node/vite/react/static/dockerfile)
-    Agent->>Agent: Build (go build / npm run build / custom)
-    alt Has Dockerfile
+    Agent->>Agent: Определить тип проекта (go/node/vite/react/static/dockerfile)
+    Agent->>Agent: Сборка (go build / npm run build / пользовательская)
+    alt Есть Dockerfile
         Agent->>Docker: docker build -t novex-deploy-<id> .
         Agent->>Docker: docker run -d --restart unless-stopped
-    else Process Runtime
-        Agent->>Agent: Run compiled binary / static server directly
+    else Процесс рантайма
+        Agent->>Agent: Запустить скомпилированный бинарник / статический сервер напрямую
     end
-    Agent->>Agent: Find free port, start process
+    Agent->>Agent: Найти свободный порт, запустить процесс
     Agent->>Hub: WS: deploy_result {deployID, status, url, port}
-    Hub->>Backend: Route response
+    Hub->>Backend: Маршрутизация ответа
     Backend->>DB: UPDATE deploy status=success/running/failed
     Hub->>User: WS: deploy_complete {deployID, status}
     deactivate Agent
@@ -113,64 +117,64 @@ sequenceDiagram
 
 ---
 
-## 2. Backend Architecture
+## 2. Архитектура бэкенда
 
-### 2.1 Module Structure
+### 2.1 Структура модулей
 
 ```
 backend/
 ├── cmd/
-│   ├── agent/main.go      # Agent binary (2730 lines) - deployed on managed servers
-│   └── server/main.go     # Backend binary (63 lines) - entry point
+│   ├── agent/main.go      # Бинарный файл агента (2730 строк) — развертывается на управляемых серверах
+│   └── server/main.go     # Бинарный файл бэкенда (63 строки) — точка входа
 ├── internal/
-│   ├── app/               # Core application logic
-│   │   ├── app.go             # Router, middleware setup, App struct (183 lines)
-│   │   ├── hub.go             # WebSocket hub: agent/site clients, pub/sub (611 lines)
-│   │   ├── auth_handlers.go   # Register, Login, Token CRUD (355 lines)
-│   │   ├── ws_handlers.go     # WS message routing, metrics persistence (543 lines)
-│   │   ├── server_handlers.go # Server CRUD, metrics history, commands (822 lines)
-│   │   ├── deploy_handlers.go # Deploy CRUD, validation (802 lines)
-│   │   ├── terminal_ws_handler.go # Direct PTY WS handler (359 lines)
-│   │   ├── security_middleware.go  # Rate limiter, body limits, security headers (169 lines)
-│   │   ├── ws_security.go     # WS origin validation (100 lines)
-│   │   └── utils.go           # parseUintFromString, parseRemoteIP (20 lines)
-│   ├── auth/               # Authentication primitives
-│   │   ├── jwt.go              # JWT create/parse (HS256)
-│   │   ├── agent_token.go      # Agent token generation (SHA-256 hash, base64 raw)
-│   │   └── password.go         # bcrypt hash/compare
-│   ├── config/config.go    # Environment-based configuration (137 lines)
-│   ├── models/models.go    # GORM models: User, Server, AgentToken, Deploy, etc. (101 lines)
+│   ├── app/               # Основная логика приложения
+│   │   ├── app.go             # Маршрутизатор, прослойки, структура App (183 строки)
+│   │   ├── hub.go             # WebSocket хаб: клиенты агентов/сайтов, pub/sub (611 строк)
+│   │   ├── auth_handlers.go   # Регистрация, вход, управление токенами (355 строк)
+│   │   ├── ws_handlers.go     # Маршрутизация WS-сообщений, сохранение метрик (543 строки)
+│   │   ├── server_handlers.go # CRUD серверов, история метрик, команды (822 строки)
+│   │   ├── deploy_handlers.go # CRUD развертываний, валидация (802 строки)
+│   │   ├── terminal_ws_handler.go # Обработчик прямого PTY через WS (359 строк)
+│   │   ├── security_middleware.go  # Ограничитель запросов, лимиты тела, заголовки безопасности (169 строк)
+│   │   ├── ws_security.go     # Валидация источника WS (100 строк)
+│   │   └── utils.go           # parseUintFromString, parseRemoteIP (20 строк)
+│   ├── auth/               # Примитивы аутентификации
+│   │   ├── jwt.go              # Создание/разбор JWT (HS256)
+│   │   ├── agent_token.go      # Генерация токена агента (SHA-256 хеш, base64 raw)
+│   │   └── password.go         # Хеширование/сравнение bcrypt
+│   ├── config/config.go    # Конфигурация на основе переменных окружения (137 строк)
+│   ├── models/models.go    # Модели GORM: User, Server, AgentToken, Deploy и др. (101 строка)
 │   └── storage/
-│       ├── db.go           # DB open with PostgreSQL/SQLite detection (40 lines)
-│       └── migrations.go   # Auto-migration (56 lines)
+│       ├── db.go           # Открытие БД с определением PostgreSQL/SQLite (40 строк)
+│       └── migrations.go   # Автомиграции (56 строк)
 ├── docs/
-│   ├── openapi.yaml        # Full OpenAPI 3.0 spec (28+ endpoints)
-│   └── ws-protocol.md      # WebSocket protocol documentation
+│   ├── openapi.yaml        # Полная спецификация OpenAPI 3.0 (28+ эндпоинтов)
+│   └── ws-protocol.md      # Документация по WebSocket протоколу
 └── docker-compose.yml      # PostgreSQL 16
 ```
 
-### 2.2 Configuration (Environment Variables)
+### 2.2 Конфигурация (переменные окружения)
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `HTTP_ADDR` | `:8380` | Listen address |
-| `DATABASE_URL` | `novex.db` | Connection string (SQLite if file, else PostgreSQL) |
-| `JWT_SECRET` | required | HS256 signing key (min 32 chars) |
-| `JWT_TTL` | `72h` | Token lifetime (supports `d` suffix) |
-| `METRICS_RETENTION` | `24h` | Metric point retention |
-| `COMMAND_ALLOWLIST` | `systemctl status,docker ps,ls,df -h,ps aux` | Allowed remote commands |
+| Переменная | Значение по умолчанию | Описание |
+|------------|----------------------|-----------|
+| `HTTP_ADDR` | `:8380` | Адрес для прослушивания |
+| `DATABASE_URL` | `novex.db` | Строка подключения (SQLite если файл, иначе PostgreSQL) |
+| `JWT_SECRET` | обязательно | Ключ подписи HS256 (мин. 32 символа) |
+| `JWT_TTL` | `72h` | Время жизни токена (поддерживается суффикс `d`) |
+| `METRICS_RETENTION` | `24h` | Срок хранения точек метрик |
+| `COMMAND_ALLOWLIST` | `systemctl status,docker ps,ls,df -h,ps aux` | Разрешенные удаленные команды |
 
-### 2.3 Database Models (GORM)
+### 2.3 Модели базы данных (GORM)
 
 ```mermaid
 erDiagram
-    User ||--o{ AgentToken : "creates"
-    User ||--o{ Server : "owns"
-    AgentToken ||--o{ Server : "authenticates"
-    Server ||--o{ MetricPoint : "has history"
-    Server ||--o{ Deploy : "targets"
-    Deploy ||--o{ DeployLog : "logs"
-    Server ||--o{ CommandLog : "audit"
+    User ||--o{ AgentToken : "создает"
+    User ||--o{ Server : "владеет"
+    AgentToken ||--o{ Server : "аутентифицирует"
+    Server ||--o{ MetricPoint : "имеет историю"
+    Server ||--o{ Deploy : "целевой"
+    Deploy ||--o{ DeployLog : "логи"
+    Server ||--o{ CommandLog : "аудит"
 
     User {
         uint ID PK
@@ -189,7 +193,7 @@ erDiagram
     Server {
         uint ID PK
         uint UserID FK
-        uint TokenID FK UK "one agent per server"
+        uint TokenID FK UK "один агент на сервер"
         string Name
         string IP
         bool Online
@@ -198,7 +202,7 @@ erDiagram
     MetricPoint {
         uint ID PK
         uint ServerID FK
-        time Timestamp "composite index"
+        time Timestamp "составной индекс"
         float64 CPUUsage
         float64 RAMPercent
         float64 DiskPercent
@@ -206,7 +210,7 @@ erDiagram
         float64 DiskWriteSpeed
         float64 NetBytesSent
         float64 NetBytesRecv
-        json Raw "full gopsutil snapshot"
+        json Raw "полный снимок gopsutil"
     }
     Deploy {
         uint ID PK
@@ -225,65 +229,65 @@ erDiagram
     }
 ```
 
-### 2.4 REST API Endpoints (28+)
+### 2.4 REST API эндпоинты (28+)
 
-| Method | Path | Description | Auth |
-|--------|------|-------------|------|
-| `GET` | `/healthz` | Health check | None |
-| `POST` | `/auth/register` | Register user (rate: 10/5m) | None |
-| `POST` | `/auth/login` | Login (rate: 10/5m) | None |
-| `GET` | `/auth/me` | Current user info | JWT |
-| `GET` | `/auth/tokens` | List agent tokens | JWT |
-| `POST` | `/auth/tokens` | Create agent token | JWT |
-| `PATCH` | `/auth/tokens/:id` | Rename token | JWT |
-| `DELETE` | `/auth/tokens/:id` | Revoke token | JWT |
-| `GET` | `/servers` | List servers | JWT |
-| `GET` | `/servers/:id/metrics` | Metrics history (range/interval) | JWT |
-| `GET` | `/servers/:id/processes` | List processes via agent | JWT |
-| `POST` | `/servers/:id/command` | Run command (allowlisted) | JWT |
-| `DELETE` | `/servers/:id/processes/:pid` | Kill process | JWT |
-| `PATCH` | `/servers/:id` | Update server name | JWT |
-| `DELETE` | `/servers/:id` | Delete server + deploys | JWT |
-| `POST` | `/servers/:id/deploy` | Legacy deploy endpoint | JWT |
-| `GET` | `/servers/:id/deploys` | Legacy deploy list | JWT |
-| `GET` | `/deploy` | List deploys (filtered) | JWT |
-| `POST` | `/deploy` | Create deploy | JWT |
-| `GET` | `/deploy/:id` | Get deploy details | JWT |
-| `GET` | `/deploy/:id/log` | Get deploy log (aggregated) | JWT |
-| `GET` | `/deploy/:id/logs` | List deploy log entries | JWT |
-| `DELETE` | `/deploy/:id` | Stop + delete deploy | JWT |
+| Метод | Путь | Описание | Аутентификация |
+|-------|------|----------|----------------|
+| `GET` | `/healthz` | Проверка здоровья | Нет |
+| `POST` | `/auth/register` | Регистрация пользователя (ограничение: 10/5мин) | Нет |
+| `POST` | `/auth/login` | Вход (ограничение: 10/5мин) | Нет |
+| `GET` | `/auth/me` | Информация о текущем пользователе | JWT |
+| `GET` | `/auth/tokens` | Список токенов агентов | JWT |
+| `POST` | `/auth/tokens` | Создать токен агента | JWT |
+| `PATCH` | `/auth/tokens/:id` | Переименовать токен | JWT |
+| `DELETE` | `/auth/tokens/:id` | Отозвать токен | JWT |
+| `GET` | `/servers` | Список серверов | JWT |
+| `GET` | `/servers/:id/metrics` | История метрик (диапазон/интервал) | JWT |
+| `GET` | `/servers/:id/processes` | Список процессов через агента | JWT |
+| `POST` | `/servers/:id/command` | Выполнить команду (из разрешенного списка) | JWT |
+| `DELETE` | `/servers/:id/processes/:pid` | Завершить процесс | JWT |
+| `PATCH` | `/servers/:id` | Обновить имя сервера | JWT |
+| `DELETE` | `/servers/:id` | Удалить сервер + развертывания | JWT |
+| `POST` | `/servers/:id/deploy` | Устаревший эндпоинт развертывания | JWT |
+| `GET` | `/servers/:id/deploys` | Устаревший список развертываний | JWT |
+| `GET` | `/deploy` | Список развертываний (с фильтрацией) | JWT |
+| `POST` | `/deploy` | Создать развертывание | JWT |
+| `GET` | `/deploy/:id` | Получить детали развертывания | JWT |
+| `GET` | `/deploy/:id/log` | Получить лог развертывания (агрегированный) | JWT |
+| `GET` | `/deploy/:id/logs` | Список записей лога развертывания | JWT |
+| `DELETE` | `/deploy/:id` | Остановить + удалить развертывание | JWT |
 
-### 2.5 Security Architecture
+### 2.5 Архитектура безопасности
 
 ```mermaid
 flowchart LR
     subgraph Inbound
-        REQ["HTTP Request"]
+        REQ["HTTP Запрос"]
     end
-    subgraph Middleware["Gin Middleware Stack"]
-        CORS["CORS Middleware"]
-        LIMIT["Rate Limiter
-            Fixed Window
-            /auth: 10/5min
-            /api: 100/1min"]
-        BODY["Body Size Limit
+    subgraph Middleware["Стек прослоек Gin"]
+        CORS["Прослойка CORS"]
+        LIMIT["Ограничитель запросов
+            Фиксированное окно
+            /auth: 10/5мин
+            /api: 100/1мин"]
+        BODY["Лимит размера тела
             10MB"]
-        HEADERS["Security Headers
+        HEADERS["Заголовки безопасности
             X-Content-Type-Options: nosniff
             X-Frame-Options: DENY
             Content-Security-Policy"]
     end
-    subgraph Auth["Authentication"]
-        JWT_AUTH["JWT Bearer Auth
+    subgraph Auth["Аутентификация"]
+        JWT_AUTH["JWT Bearer аутентификация
             HS256
-            UserID in claims"]
-        AGENT_AUTH["Agent Token Auth
-            SHA-256 hash match
-            Header: X-Agent-Token"]
+            UserID в claims"]
+        AGENT_AUTH["Аутентификация токеном агента
+            SHA-256 сравнение хеша
+            Заголовок: X-Agent-Token"]
     end
     subgraph WS["WebSocket"]
-        WS_ORIGIN["Origin Validation
-            URL normalization"]
+        WS_ORIGIN["Валидация источника
+            Нормализация URL"]
     end
 
     REQ --> CORS --> LIMIT --> BODY --> HEADERS
@@ -294,311 +298,311 @@ flowchart LR
     JWT_AUTH --> WS_ORIGIN
 ```
 
-### 2.6 WebSocket Hub Architecture
+### 2.6 Архитектура WebSocket Hub
 
-The Hub (`backend/internal/app/hub.go`) is the most architecturally significant component. It manages:
+Hub (`backend/internal/app/hub.go`) — наиболее значимый компонент архитектуры. Он управляет:
 
-- **AgentClient** (per agent connection): holds `conn`, `serverID`, `userID`, `pending` map (map[string]chan json.RawMessage for request/response pattern)
-- **SiteClient** (per browser connection): holds `conn`, `userID`, sets of subscribed metrics/deploys/terminal serverIDs
-- **TerminalSession**: links `serverID` to `SiteClient` for terminal output routing
+- **AgentClient** (на каждое подключение агента): содержит `conn`, `serverID`, `userID`, карту `pending` (map[string]chan json.RawMessage для паттерна запрос/ответ)
+- **SiteClient** (на каждое подключение браузера): содержит `conn`, `userID`, наборы подписок на метрики/развертывания/терминалы по serverID
+- **TerminalSession**: связывает `serverID` с `SiteClient` для маршрутизации вывода терминала
 
-**Key Patterns:**
-- **Request/Response**: `RequestAgent()` sends a command with UUID, creates a channel, waits with timeout
-- **Fire-and-Forget**: `SendAgentEvent()` sends without waiting
-- **Pub/Sub**: `BroadcastMetrics()` publishes to all subscribed SiteClients
-- **Registration**: Agent connects → authenticated → Server record created if new → stored in `agents` map keyed by serverID
+**Ключевые паттерны:**
+- **Запрос/Ответ**: `RequestAgent()` отправляет команду с UUID, создает канал, ожидает с таймаутом
+- **Забудь и продолжай**: `SendAgentEvent()` отправляет без ожидания
+- **Pub/Sub**: `BroadcastMetrics()` публикует для всех подписанных SiteClient
+- **Регистрация**: Агент подключается → аутентифицируется → запись Server создается при необходимости → сохраняется в карте `agents` по serverID
 
 ---
 
-## 3. Agent Architecture
+## 3. Архитектура агента
 
-The agent (`backend/cmd/agent/main.go`, 2730 lines) is a **standalone Go binary** deployed on each managed server. It is a highly monolithic file containing:
+Агент (`backend/cmd/agent/main.go`, 2730 строк) — это **автономный бинарный файл Go**, развертываемый на каждом управляемом сервере. Это очень монолитный файл, содержащий:
 
-### 3.1 Agent Responsibilities
+### 3.1 Обязанности агента
 
-1. **WebSocket Connectivity**: Persistent WS connection with exponential backoff reconnection (1s → 30s max)
-2. **Metrics Collection**: Uses `gopsutil` to collect CPU (percent, load avg), RAM, disk usage + I/O, network I/O, processes, temperatures — every 2 seconds
-3. **Deploy Pipeline**: Git clone → project type detection → build (npm/go/custom/Dockerfile) → Docker build/run or process runtime → health check
-4. **Terminal Management**: PTY sessions via `creack/pty` — open, input, resize, close
-5. **Command Execution**: `bash -lc` with 60s timeout for shell commands
-6. **Process Management**: List and kill processes
+1. **WebSocket-подключение**: Постоянное WS-соединение с экспоненциальной задержкой переподключения (1с → макс. 30с)
+2. **Сбор метрик**: Использует `gopsutil` для сбора CPU (процент, средняя нагрузка), RAM, диска (использование + I/O), сети (I/O), процессов, температур — каждые 2 секунды
+3. **Конвейер развертывания**: Git clone → определение типа проекта → сборка (npm/go/пользовательская/Dockerfile) → Docker build/run или запуск процесса → проверка здоровья
+4. **Управление терминалом**: PTY-сессии через `creack/pty` — открытие, ввод, изменение размера, закрытие
+5. **Выполнение команд**: `bash -lc` с таймаутом 60с для shell-команд
+6. **Управление процессами**: Список и завершение процессов
 
-### 3.2 Project Type Detection (Agent)
+### 3.2 Определение типа проекта (агент)
 
-The agent auto-detects project type from a cloned repo:
+Агент автоматически определяет тип проекта из клонированного репозитория:
 
 ```mermaid
 flowchart TD
     CLONE["git clone repo"] --> DETECT
-    DETECT{"Has Dockerfile?"}
-    DETECT -->|Yes| DOCKER["docker build + docker run"]
-    DETECT -->|No| CHECK_GO{"Has go.mod?"}
-    CHECK_GO -->|Yes| GO["go mod download + go build -o app"]
-    CHECK_GO -->|No| CHECK_NODE{"Has package.json?"}
-    CHECK_NODE -->|Yes| NPM["npm install + npm run build<br/>OR custom build command"]
-    CHECK_NODE -->|No| CHECK_VITE{"Has vite.config?"}
-    CHECK_VITE -->|Yes| VITE["npm install + npx vite build"]
-    CHECK_NODE -->|No| CHECK_STATIC{"Has index.html?"}
-    CHECK_STATIC -->|Yes| STATIC["Serve static files"]
-    CHECK_STATIC -->|No| UNSUPPORTED["Error: unsupported type"]
+    DETECT{"Есть Dockerfile?"}
+    DETECT -->|Да| DOCKER["docker build + docker run"]
+    DETECT -->|Нет| CHECK_GO{"Есть go.mod?"}
+    CHECK_GO -->|Да| GO["go mod download + go build -o app"]
+    CHECK_GO -->|Нет| CHECK_NODE{"Есть package.json?"}
+    CHECK_NODE -->|Да| NPM["npm install + npm run build<br/>ИЛИ пользовательская команда сборки"]
+    CHECK_NODE -->|Нет| CHECK_VITE{"Есть vite.config?"}
+    CHECK_VITE -->|Да| VITE["npm install + npx vite build"]
+    CHECK_NODE -->|Нет| CHECK_STATIC{"Есть index.html?"}
+    CHECK_STATIC -->|Да| STATIC["Обслуживание статических файлов"]
+    CHECK_STATIC -->|Нет| UNSUPPORTED["Ошибка: неподдерживаемый тип"]
 ```
 
-### 3.3 Deploy Execution Flow (Agent)
+### 3.3 Выполнение развертывания (агент)
 
-The deploy pipeline in the agent is detailed and handles:
-- Path traversal prevention for subdirectory
-- Free port detection
-- Docker image builds with step timeouts
-- Container lifecycle management (run with restart policy, health checks, port mapping)
-- Process runtime fallback (when no Dockerfile)
-- Environment variable injection
-- Frontend framework detection (Vite, React, Angular, Vue, Svelte, Static)
-- Reverse proxy config for SPA routing
+Конвейер развертывания в агенте детально проработан и включает:
+- Защиту от обхода путей для подкаталога
+- Определение свободного порта
+- Сборку Docker-образов с таймаутами на этапы
+- Управление жизненным циклом контейнера (запуск с политикой перезапуска, проверка здоровья, проброс портов)
+- Запасной вариант запуска процесса (когда нет Dockerfile)
+- Внедрение переменных окружения
+- Определение фреймворков фронтенда (Vite, React, Angular, Vue, Svelte, Static)
+- Конфигурацию reverse proxy для маршрутизации SPA
 
 ---
 
-## 4. Frontend Architecture
+## 4. Архитектура фронтенда
 
-### 4.1 Component Tree
+### 4.1 Дерево компонентов
 
 ```
 App.tsx (React Router v7)
 ├── / → HomePage.tsx
-│   ├── Server cards with CPU sparkline (SVG)
-│   ├── Add server modal
-│   └── Auth buttons (AuthBtns.tsx)
+│   ├── Карточки серверов с CPU-спарклайном (SVG)
+│   ├── Модальное окно добавления сервера
+│   └── Кнопки аутентификации (AuthBtns.tsx)
 ├── /login → Login.tsx
 ├── /register → Registration.tsx
 ├── /account → Account.tsx
 └── /servers/:id → ServerPage.tsx
-    ├── LeftPanel.tsx (sidebar navigation)
+    ├── LeftPanel.tsx (боковая навигация)
     ├── /metrics → MetricsPage.tsx
     ├── /terminal → Terminal.tsx (XTerm)
     ├── /processes → ProcessesPage.tsx
     └── /deployments → DeploymentsPage.tsx
-        ├── Deploy.tsx (create deploy)
+        ├── Deploy.tsx (создание развертывания)
         └── /:deployId → DeploymentDetailPage.tsx
 ```
 
-### 4.2 State Management (MobX)
+### 4.2 Управление состоянием (MobX)
 
-| Store | Data | Persistence |
-|-------|------|-------------|
-| `TokenStore` | JWT token string | localStorage |
-| `AgentTokenStore` | Agent token string | In-memory only |
-| `DeployStore` | Current deploy ID | localStorage |
-| `ServerMetricsStore` | `ServerItem[]`, loading/error state | In-memory |
-| `ServerStore` | Current server (via URL param) | Computed from route |
+| Хранилище | Данные | Сохранение |
+|-----------|--------|-------------|
+| `TokenStore` | Строка JWT токена | localStorage |
+| `AgentTokenStore` | Строка токена агента | Только в памяти |
+| `DeployStore` | Текущий ID развертывания | localStorage |
+| `ServerMetricsStore` | `ServerItem[]`, состояние загрузки/ошибки | Только в памяти |
+| `ServerStore` | Текущий сервер (из параметра URL) | Вычисляется из маршрута |
 
-### 4.3 Data Fetching
+### 4.3 Получение данных
 
-- **`useLoadServers`** hook: polls `GET /servers` every 2 seconds with request deduplication
-- **Metrics**: Real-time via WebSocket `/site/ws` subscription `subscribe_metrics`
-- **Terminal**: WebSocket `/terminal/:id` for direct PTY interaction (XTerm frontend)
-- **Deploys**: REST CRUD with WebSocket deploy log streaming
+- **Хук `useLoadServers`**: опрашивает `GET /servers` каждые 2 секунды с дедупликацией запросов
+- **Метрики**: в реальном времени через WebSocket `/site/ws` подписка `subscribe_metrics`
+- **Терминал**: WebSocket `/terminal/:id` для прямого PTY-взаимодействия (фронтенд XTerm)
+- **Развертывания**: REST CRUD с потоковой передачей логов развертывания через WebSocket
 
-### 4.4 Frontend Dependencies (Key)
+### 4.4 Зависимости фронтенда (ключевые)
 
-| Package | Purpose |
-|---------|---------|
-| React 19 | UI framework |
-| TypeScript 6 | Type safety |
-| MobX + mobx-react-lite | State management |
-| React Router v7 | Routing |
-| Vite 8 | Build tool |
-| Recharts | Charts |
-| XTerm | Terminal emulator |
-| MUI | UI components |
-| SASS/SCSS | Styling |
-| @iconify/react | Icons |
+| Пакет | Назначение |
+|-------|-------------|
+| React 19 | UI фреймворк |
+| TypeScript 6 | Типизация |
+| MobX + mobx-react-lite | Управление состоянием |
+| React Router v7 | Маршрутизация |
+| Vite 8 | Инструмент сборки |
+| Recharts | Графики |
+| XTerm | Эмулятор терминала |
+| MUI | UI компоненты |
+| SASS/SCSS | Стилизация |
+| @iconify/react | Иконки |
 
 ---
 
-## 5. Code Quality Observations
+## 5. Замечания по качеству кода
 
-### 5.1 Strengths
+### 5.1 Сильные стороны
 
-1. **Comprehensive documentation**: OpenAPI spec + WS protocol doc in `/docs`
-2. **Well-organized backend**: Clean separation into `internal/app`, `internal/auth`, `internal/config`, `internal/models`, `internal/storage`
-3. **Robust deploy validation**: Input validation for repo URLs (HTTPS/SSH only), branch patterns, path traversal prevention, env var limits
-4. **Good security practices**:
-   - Agent tokens stored as SHA-256 hash, full token shown only once at creation
-   - bcrypt password hashing
-   - JWT with algorithm pinning (HS256 only)
-   - Rate limiting on auth endpoints
-   - Security headers (CSP, X-Frame-Options, X-Content-Type-Options)
-   - WS origin validation
-   - Body size limits (10MB)
-5. **Dual database support**: PostgreSQL for production, SQLite for dev/testing
-6. **Graceful shutdown**: Signal handling for SIGINT/SIGTERM
-7. **Background cleanup**: Metrics retention goroutine
+1. **Всесторонняя документация**: Спецификация OpenAPI + документация WS протокола в `/docs`
+2. **Хорошо организованный бэкенд**: Чистое разделение на `internal/app`, `internal/auth`, `internal/config`, `internal/models`, `internal/storage`
+3. **Надежная валидация развертываний**: Проверка URL репозиториев (только HTTPS/SSH), шаблонов веток, защита от обхода путей, лимиты переменных окружения
+4. **Хорошие практики безопасности**:
+   - Токены агентов хранятся как SHA-256 хеш, полный токен показывается только один раз при создании
+   - Bcrypt хеширование паролей
+   - JWT с фиксацией алгоритма (только HS256)
+   - Ограничение запросов для эндпоинтов аутентификации
+   - Заголовки безопасности (CSP, X-Frame-Options, X-Content-Type-Options)
+   - Валидация источника WS
+   - Лимиты размера тела (10MB)
+5. **Поддержка двух СУБД**: PostgreSQL для продакшена, SQLite для разработки/тестирования
+6. **Корректное завершение работы**: Обработка сигналов SIGINT/SIGTERM
+7. **Фоновая очистка**: Фоновая горутина для хранения метрик
 
-### 5.2 Concerns & Recommendations
+### 5.2 Проблемы и рекомендации
 
-#### 🔴 HIGH: Agent Monolith (2730 lines in one file)
+#### 🔴 ВЫСОКИЙ ПРИОРИТЕТ: Монолит агента (2730 строк в одном файле)
 
-The agent binary is a single 2730-line file. This makes testing, maintenance, and code review extremely difficult. Every function is in the `main` package with no separation of concerns.
+Бинарный файл агента представляет собой один файл размером 2730 строк. Это сильно затрудняет тестирование, поддержку и проверку кода. Все функции находятся в пакете `main` без разделения ответственности.
 
-**Recommendation**: Split into packages:
-- `internal/metrics/` — gopsutil collection
-- `internal/deploy/` — deployment pipeline
-- `internal/terminal/` — PTY management
-- `internal/wsclient/` — WebSocket client
-- `cmd/agent/main.go` — just wiring
+**Рекомендация**: Разделить на пакеты:
+- `internal/metrics/` — сбор gopsutil
+- `internal/deploy/` — конвейер развертывания
+- `internal/terminal/` — управление PTY
+- `internal/wsclient/` — WebSocket-клиент
+- `cmd/agent/main.go` — только связывание компонентов
 
-#### 🔴 HIGH: Agent Token Security Exposure
+#### 🔴 ВЫСОКИЙ ПРИОРИТЕТ: Уязвимость безопасности токена агента
 
-Agent tokens are sent as query parameters in the WebSocket upgrade URL:
+Токены агентов отправляются как параметры запроса в URL при обновлении WebSocket:
 
 ```go
 u := url.URL{Scheme: wsScheme, Host: a.cfg.ServerAddr, Path: "/agent/ws"}
 u.RawQuery = "token=" + url.QueryEscape(a.cfg.Token)
 ```
 
-Query parameters are frequently logged by proxies, load balancers, and web servers. This leaks the agent token.
+Параметры запроса часто логируются прокси-серверами, балансировщиками нагрузки и веб-серверами. Это приводит к утечке токена агента.
 
-**Recommendation**: Send token as a WebSocket subprotocol header or a custom HTTP header during upgrade. The server already reads `X-Agent-Token` header in `handleAgentWS` — the agent should send it that way.
+**Рекомендация**: Отправлять токен как заголовок подпротокола WebSocket или пользовательский HTTP-заголовок при обновлении. Сервер уже читает заголовок `X-Agent-Token` в `handleAgentWS` — агент должен отправлять его так.
 
-#### 🟡 MEDIUM: Redundant Deploy Endpoints
+#### 🟡 СРЕДНИЙ ПРИОРИТЕТ: Избыточные эндпоинты развертывания
 
-There are two deploy flows:
-1. `POST /servers/:id/deploy` + `GET /servers/:id/deploys` (legacy)
-2. `POST /deploy` + `GET /deploy` (current)
+Существует два потока развертывания:
+1. `POST /servers/:id/deploy` + `GET /servers/:id/deploys` (устаревший)
+2. `POST /deploy` + `GET /deploy` (текущий)
 
-The legacy endpoints in `server_handlers.go` contain duplicated logic with the newer endpoints in `deploy_handlers.go`. This creates confusion and maintenance burden.
+Устаревшие эндпоинты в `server_handlers.go` содержат дублированную логику с новыми эндпоинтами в `deploy_handlers.go`. Это создает путаницу и увеличивает сложность поддержки.
 
-**Recommendation**: Deprecate and remove the legacy `/servers/:id/deploy` endpoints.
+**Рекомендация**: Объявить устаревшими и удалить эндпоинты `/servers/:id/deploy`.
 
-#### 🟡 MEDIUM: Hardcoded Shell Command
+#### 🟡 СРЕДНИЙ ПРИОРИТЕТ: Жестко закодированная shell-команда
 
-Agent uses a hardcoded `bash -lc` for command execution:
+Агент использует жестко заданную команду `bash -lc` для выполнения команд:
 
 ```go
 cmd := exec.CommandContext(ctx, "bash", "-lc", command)
 ```
 
-This is Linux-specific and fails on systems without bash. Also, shell injection is trivially possible since commands are passed as a single string argument.
+Это специфично для Linux и не работает в системах без bash. Кроме того, внедрение shell-кода тривиально возможно, так как команды передаются как одна строка.
 
-**Recommendation**: 
-- Use `exec.Command` with individual args where possible
-- Support `/bin/sh` fallback
-- Consider a allowlist-only approach for commands (already partially implemented in backend)
+**Рекомендация**:
+- Использовать `exec.Command` с отдельными аргументами, где возможно
+- Добавить поддержку `/bin/sh` в качестве запасного варианта
+- Рассмотреть подход только с разрешенным списком команд (уже частично реализован в бэкенде)
 
-#### 🟡 MEDIUM: No Test Files
+#### 🟡 СРЕДНИЙ ПРИОРИТЕТ: Отсутствие тестов
 
-No `_test.go` files were found anywhere in the project. This is a significant gap for a project of this complexity.
+В проекте не найдено ни одного файла `_test.go`. Это существенный пробел для проекта такой сложности.
 
-**Recommendation**: Add unit tests for:
-- Auth handlers (login, register, token CRUD)
-- Deploy validation logic
-- Hub request/response pattern
-- Agent deploy pipeline stages
-- Metrics persistence and aggregation
+**Рекомендация**: Добавить модульные тесты для:
+- Обработчиков аутентификации (вход, регистрация, управление токенами)
+- Логики валидации развертываний
+- Паттерна запрос/ответ в Hub
+- Этапов конвейера развертывания агента
+- Сохранения и агрегации метрик
 
-#### 🟡 MEDIUM: Frontend State Mixing
+#### 🟡 СРЕДНИЙ ПРИОРИТЕТ: Смешение состояния на фронтенде
 
-The frontend uses a mix of:
-1. MobX stores (`ServerMetricsStore`, `TokenStore`, etc.)
-2. React context / URL params (`useCurrentServer`)
-3. Local component state (`useState` for forms)
+Фронтенд использует смесь:
+1. MobX-хранилищ (`ServerMetricsStore`, `TokenStore` и т.д.)
+2. React контекста / параметров URL (`useCurrentServer`)
+3. Локального состояния компонентов (`useState` для форм)
 
-This inconsistency can lead to state synchronization bugs.
+Эта несогласованность может приводить к ошибкам синхронизации состояния.
 
-**Recommendation**: Standardize on MobX stores for all global/application state, keeping local state only for transient UI concerns.
+**Рекомендация**: Стандартизировать использование MobX-хранилищ для всего глобального состояния приложения, оставив локальное состояние только для временных UI-задач.
 
-#### 🟡 MEDIUM: No Frontend Error Boundaries
+#### 🟡 СРЕДНИЙ ПРИОРИТЕТ: Отсутствие границ ошибок на фронтенде
 
-No React Error Boundaries were found. A runtime error in any component could crash the entire SPA.
+Не найдено ни одной React-границы ошибок (Error Boundary). Ошибка времени выполнения в любом компоненте может привести к падению всего SPA.
 
-**Recommendation**: Add a top-level Error Boundary component.
+**Рекомендация**: Добавить компонент Error Boundary верхнего уровня.
 
-#### 🟢 LOW: Password Validation Mismatch
+#### 🟢 НИЗКИЙ ПРИОРИТЕТ: Несоответствие валидации пароля
 
-Frontend validates password >= 6 chars, but backend uses `bcrypt.DefaultCost` with no minimum length enforcement. The registration handler in `auth_handlers.go` does not validate password length.
+Фронтенд проверяет, что пароль имеет длину >= 6 символов, но бэкенд использует `bcrypt.DefaultCost` без минимальной длины. Обработчик регистрации в `auth_handlers.go` не проверяет длину пароля.
 
-**Recommendation**: Add server-side password validation (e.g., min 8 chars, at least one number/special).
+**Рекомендация**: Добавить серверную валидацию пароля (например, минимум 8 символов, хотя бы одна цифра/спецсимвол).
 
-#### 🟢 LOW: JWT Secret Validation
+#### 🟢 НИЗКИЙ ПРИОРИТЕТ: Валидация JWT секрета
 
-The config enforces `JWT_SECRET` >= 32 chars, but does not check entropy or character variety.
+Конфигурация требует, чтобы `JWT_SECRET` был >= 32 символов, но не проверяет энтропию или разнообразие символов.
 
-#### 🟢 LOW: No Frontend API Abstraction
+#### 🟢 НИЗКИЙ ПРИОРИТЕТ: Отсутствие абстракции API на фронтенде
 
-API calls use raw `fetch()` directly in components (Login, Registration, HomePage). No centralized API client, no request interceptors, no error handling abstraction.
+API-вызовы используют сырой `fetch()` непосредственно в компонентах (Login, Registration, HomePage). Нет централизованного API-клиента, нет перехватчиков запросов, нет абстракции обработки ошибок.
 
-**Recommendation**: Create an API client class/module with:
-- `fetch` wrapper with JWT injection
-- Automatic 401 handling → redirect to login
-- Typed responses
-- Request/response interceptors
+**Рекомендация**: Создать класс/модуль API-клиента с:
+- Оберткой `fetch` с внедрением JWT
+- Автоматической обработкой 401 → перенаправление на логин
+- Типизированными ответами
+- Перехватчиками запросов/ответов
 
-#### 🟢 LOW: Missing Input Sanitization in Terminal
+#### 🟢 НИЗКИЙ ПРИОРИТЕТ: Отсутствие санитизации ввода в терминале
 
-The terminal WebSocket handler directly writes user input to the PTY. If the frontend sends binary frames, they are written directly. While this is expected PTY behavior, there's no rate limiting on terminal input.
+Обработчик WebSocket терминала напрямую записывает пользовательский ввод в PTY. Если фронтенд отправляет бинарные фреймы, они записываются напрямую. Хотя это ожидаемое поведение PTY, нет ограничения скорости на ввод в терминале.
 
-#### 🟢 LOW: Deploy Log Preview Truncation
+#### 🟢 НИЗКИЙ ПРИОРИТЕТ: Усечение предпросмотра логов развертывания
 
-The `DeployLog` model has no explicit length limit on its text field, and deploy logs can grow very large for long-running builds.
+Модель `DeployLog` не имеет явного ограничения длины для текстового поля, и логи развертывания могут стать очень большими для длительных сборок.
 
-#### 🟢 LOW: Environment Variable Leak
+#### 🟢 НИЗКИЙ ПРИОРИТЕТ: Утечка переменных окружения
 
-Deploy environment variables are returned in full detail from `GET /deploy/:id`:
+Переменные окружения развертывания возвращаются полностью из `GET /deploy/:id`:
 
 ```go
 c.JSON(http.StatusOK, gin.H{"deploy": deploy})
 ```
 
-This exposes env vars (which may contain secrets like API keys) in API responses. The frontend likely needs them, but this should at least be documented or filtered for non-owner users.
+Это раскрывает переменные окружения (которые могут содержать секреты вроде API-ключей) в API-ответах. Возможно, фронтенду они нужны, но это должно быть хотя бы задокументировано или отфильтровано для пользователей, не являющихся владельцами.
 
 ---
 
-## 6. Performance Considerations
+## 6. Соображения производительности
 
-| Aspect | Observation |
+| Аспект | Наблюдение |
 |--------|-------------|
-| Metrics polling | Agent pushes every 2s; backend broadcasts to all subscribers + persists to DB. At scale (100+ servers), this creates significant DB write load |
-| Metrics retention cleanup | Background goroutine runs hourly. `DELETE FROM metric_points WHERE timestamp < cutoff` can be slow on large tables without proper indexing |
-| Hub mutex contention | Hub uses `sync.RWMutex` for agent/site client maps. Under high concurrency (many agents + many sites), this could become a bottleneck |
-| Deploy validation | Runs in the HTTP handler goroutine. Large/CSS validation of repo URLs and branch patterns is fine, but subdirectory path resolution could block |
-| Agent WS reconnection | Exponential backoff from 1s to 30s max. At scale, synchronized reconnection (thundering herd) after a network event could overwhelm the backend |
-| Frontend polling | `useLoadServers` polls `/servers` every 2s. Combined with real-time WS metrics, this is redundant for server list data |
+| Опрос метрик | Агент отправляет каждые 2 секунды; бэкенд отправляет всем подписчикам + сохраняет в БД. В масштабе (100+ серверов) создает значительную нагрузку на запись в БД |
+| Очистка хранения метрик | Фоновая горутина запускается каждый час. `DELETE FROM metric_points WHERE timestamp < cutoff` может быть медленным на больших таблицах без правильной индексации |
+| Конкуренция в Hub | Hub использует `sync.RWMutex` для карт клиентов агентов/сайтов. При высокой конкурентности (много агентов + много сайтов) может стать узким местом |
+| Валидация развертывания | Выполняется в горутине обработчика HTTP. Проверка репозиториев и шаблонов веток в порядке, но разрешение пути подкаталога может блокироваться |
+| Переподключение агента | Экспоненциальная задержка от 1с до максимума 30с. В масштабе синхронизированное переподключение (thundering herd) после сетевого события может перегрузить бэкенд |
+| Опрос фронтенда | `useLoadServers` опрашивает `/servers` каждые 2 секунды. В сочетании с real-time WS метриками это избыточно для данных списка серверов |
 
 ---
 
-## 7. Security Audit Summary
+## 7. Итог аудита безопасности
 
-| Finding | Severity | Status |
-|---------|----------|--------|
-| Agent token in WS query param | 🔴 HIGH | Existing |
-| No password complexity enforcement | 🟢 LOW | Existing |
-| Deploy env vars exposed in API response | 🟢 LOW | Existing |
-| JWT algorithm pinning (HS256) | ✅ GOOD | Implemented |
-| bcrypt password hashing | ✅ GOOD | Implemented |
-| Rate limiting on auth endpoints | ✅ GOOD | Implemented |
-| Security headers (CSP, XFO, XCTO) | ✅ GOOD | Implemented |
-| Body size limit (10MB) | ✅ GOOD | Implemented |
-| CORS configuration | ✅ GOOD | Implemented |
-| Agent token shown once, SHA-256 stored | ✅ GOOD | Implemented |
-| Deploy input validation (repo, branch, path) | ✅ GOOD | Implemented |
-| Command allowlist for remote execution | ✅ GOOD | Partially implemented |
+| Находка | Серьезность | Статус |
+|---------|-------------|--------|
+| Токен агента в параметре запроса WS | 🔴 ВЫСОКИЙ | Существует |
+| Нет требований к сложности пароля | 🟢 НИЗКИЙ | Существует |
+| Переменные окружения развертывания раскрыты в API-ответе | 🟢 НИЗКИЙ | Существует |
+| Фиксация алгоритма JWT (HS256) | ✅ ХОРОШО | Реализовано |
+| Bcrypt хеширование паролей | ✅ ХОРОШО | Реализовано |
+| Ограничение запросов на эндпоинтах аутентификации | ✅ ХОРОШО | Реализовано |
+| Заголовки безопасности (CSP, XFO, XCTO) | ✅ ХОРОШО | Реализовано |
+| Лимит размера тела (10MB) | ✅ ХОРОШО | Реализовано |
+| Конфигурация CORS | ✅ ХОРОШО | Реализовано |
+| Токен агента показывается один раз, хранится SHA-256 | ✅ ХОРОШО | Реализовано |
+| Валидация ввода развертывания (репозиторий, ветка, путь) | ✅ ХОРОШО | Реализовано |
+| Разрешенный список команд для удаленного выполнения | ✅ ХОРОШО | Частично реализовано |
 
 ---
 
-## 8. Summary & Recommended Action Plan
+## 8. Резюме и рекомендуемый план действий
 
-### Priority Order
+### Порядок приоритетов
 
-1. **Split agent monolith** into packages (`cmd/agent/main.go` → `internal/agent/*`)
-2. **Move agent token from WS query param to header**
-3. **Deprecate legacy deploy endpoints** (`/servers/:id/deploy`)
-4. **Add test coverage** — start with auth handlers and deploy validation
-5. **Standardize frontend state** to MobX consistently
-6. **Add Error Boundaries** to React app
-7. **Add server-side password validation**
-8. **Create centralized frontend API client**
-9. **Consider Hub scalability** — partitioned mutex or sharded client maps
-10. **Optimize metrics retention cleanup** with batch deletion
+1. **Разделить монолит агента** на пакеты (`cmd/agent/main.go` → `internal/agent/*`)
+2. **Переместить токен агента из параметра запроса WS в заголовок**
+3. **Объявить устаревшими и удалить старые эндпоинты развертывания** (`/servers/:id/deploy`)
+4. **Добавить тесты** — начать с обработчиков аутентификации и валидации развертываний
+5. **Стандартизировать состояние на фронтенде** последовательно используя MobX
+6. **Добавить границы ошибок в React-приложение**
+7. **Добавить серверную валидацию пароля**
+8. **Создать централизованный API-клиент на фронтенде**
+9. **Рассмотреть масштабируемость Hub** — партиционированные мьютексы или шардированные карты клиентов
+10. **Оптимизировать очистку хранения метрик** с помощью пакетного удаления
 
-### Architecture Grade: **B+**
+### Оценка архитектуры: **B+**
 
-NovexPanel is a well-structured project with clear separation between backend, frontend, and agent components. The WebSocket hub pattern is well-implemented for real-time communication. The main areas for improvement are code organization (agent monolith), testing coverage, and a few security hardening points.
+NovexPanel — это хорошо структурированный проект с четким разделением на бэкенд, фронтенд и компоненты агента. Паттерн WebSocket Hub хорошо реализован для связи в реальном времени. Основные области для улучшения — организация кода (монолит агента), покрытие тестами и несколько моментов усиления безопасности.
