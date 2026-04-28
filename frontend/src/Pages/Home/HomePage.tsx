@@ -1,25 +1,20 @@
 import { Icon } from '@iconify/react';
 import { observer } from 'mobx-react-lite';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE } from '../../Api/api';
 import AuthBtns from '../../common/AuthBtns/AuthBtns';
 import { agentTokenStore } from '../../Store/AgentTokenStore';
 import { serverMetricsStore } from '../../Store/ServerMetricsStore';
 import { tokenStore } from '../../Store/TokenStore';
 import LeftPanel from '../LeftPanel/LeftPanel';
 import styles from './Home.module.scss';
-import { API_BASE } from '../../Api/api';
 
 type TopProcess = {
   cpu: number;
   mem: number;
   pid: number;
   name: string;
-};
-
-type CpuHistoryPoint = {
-  t: number;
-  v: number;
 };
 
 export type ServerItem = {
@@ -60,47 +55,31 @@ export type ServerItem = {
 const clampPercent = (value: number) => Math.max(0, Math.min(100, value));
 const formatPercent = (value: number) => `${Math.round(clampPercent(value))}%`;
 
-const SPARKLINE_WINDOW_MS = 60 * 60 * 1000;
-const SPARKLINE_POINTS_LIMIT = 1800;
-const SPARKLINE_WIDTH = 136;
-const SPARKLINE_HEIGHT = 34;
+const formatBytes = (value: number) => `${(value / 1024 / 1024 / 1024).toFixed(1)} GB`;
 
-const buildSparklinePath = (values: number[]) => {
-  const baseline = SPARKLINE_HEIGHT - 3;
-
-  if (values.length === 0) {
-    return {
-      linePath: `M 0 ${baseline} L ${SPARKLINE_WIDTH} ${baseline}`,
-      areaPath:
-        `M 0 ${SPARKLINE_HEIGHT} L 0 ${baseline} L ${SPARKLINE_WIDTH} ${baseline} L ${SPARKLINE_WIDTH} ${SPARKLINE_HEIGHT} Z`,
-    };
+const formatUptime = (seconds: number) => {
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    return '0m';
   }
 
-  const topPadding = 2;
-  const bottomPadding = 2;
-  const drawableHeight = SPARKLINE_HEIGHT - topPadding - bottomPadding;
-  const step = values.length > 1 ? SPARKLINE_WIDTH / (values.length - 1) : SPARKLINE_WIDTH;
+  const totalMinutes = Math.floor(seconds / 60);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
 
-  const points = values.map((value, index) => {
-    const x = values.length > 1 ? step * index : SPARKLINE_WIDTH / 2;
-    const y = topPadding + (1 - clampPercent(value) / 100) * drawableHeight;
+  const parts: string[] = [];
 
-    return { x, y };
-  });
+  if (days > 0) {
+    parts.push(`${days}d`);
+  }
 
-  const linePath = points
-    .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
-    .join(' ');
+  if (hours > 0 || days > 0) {
+    parts.push(`${hours}h`);
+  }
 
-  const firstPoint = points[0];
-  const lastPoint = points[points.length - 1];
+  parts.push(`${minutes}m`);
 
-  return {
-    linePath,
-    areaPath: `${linePath} L ${lastPoint.x.toFixed(2)} ${SPARKLINE_HEIGHT} L ${
-      firstPoint.x.toFixed(2)
-    } ${SPARKLINE_HEIGHT} Z`,
-  };
+  return parts.join(' ');
 };
 
 const HomePage = observer(() => {
@@ -108,9 +87,6 @@ const HomePage = observer(() => {
   const [error, setError] = useState<string | null>(null);
   const [isAddServerModalOpen, setIsAddServerModalOpen] = useState<boolean>(false);
   const [serverName, setServerName] = useState<string>('');
-  const [cpuHistoryByServer, setCpuHistoryByServer] = useState<Record<number, CpuHistoryPoint[]>>(
-    {},
-  );
   const servers = serverMetricsStore.getNowServers();
   const hasServers = servers.length > 0;
   const navigate = useNavigate();
@@ -121,29 +97,6 @@ const HomePage = observer(() => {
     if (value >= 40) return styles.toneMedium;
     return styles.toneLow;
   };
-
-  useEffect(() => {
-    if (servers.length === 0) {
-      setCpuHistoryByServer({});
-      return;
-    }
-
-    const now = Date.now();
-
-    setCpuHistoryByServer((prev) => {
-      const next: Record<number, CpuHistoryPoint[]> = {};
-
-      for (const server of servers) {
-        const existing = prev[server.id] ?? [];
-        const trimmed = existing.filter(point => now - point.t <= SPARKLINE_WINDOW_MS);
-        const usage = clampPercent(server.last_metrics.cpu.usage || 0);
-
-        next[server.id] = [...trimmed, { t: now, v: usage }].slice(-SPARKLINE_POINTS_LIMIT);
-      }
-
-      return next;
-    });
-  }, [servers]);
 
   const getAgentToken = async () => {
     if (!tokenStore.getToken()) {
@@ -273,7 +226,6 @@ const HomePage = observer(() => {
                   <button
                     type='button'
                     className={styles.retryBtn}
-                    // onClick={loadServers}
                     disabled={loading}
                   >
                     Retry
@@ -307,10 +259,14 @@ const HomePage = observer(() => {
                     const cpuUsage = clampPercent(server.last_metrics.cpu.usage || 0);
                     const ramUsage = clampPercent(server.last_metrics.ram.percent || 0);
                     const diskUsage = clampPercent(server.last_metrics.disk.percent || 0);
+                    const ramUsed = formatBytes(server.last_metrics.ram.used);
+                    const ramTotal = formatBytes(server.last_metrics.ram.total);
+                    const diskUsed = formatBytes(server.last_metrics.disk.used);
+                    const diskTotal = formatBytes(server.last_metrics.disk.total);
                     const cpuToneClass = getLoadToneClassName(cpuUsage);
-                    const cpuHistory = cpuHistoryByServer[server.id]
-                      ?? [{ t: Date.now(), v: cpuUsage }];
-                    const sparkline = buildSparklinePath(cpuHistory.map(point => point.v));
+                    const memoryToneClass = getLoadToneClassName(ramUsage);
+                    const diskToneClass = getLoadToneClassName(diskUsage);
+                    const hostname = server.name ?? `Server #${server.id}`;
 
                     return (
                       <article
@@ -331,7 +287,7 @@ const HomePage = observer(() => {
                         <header className={styles.serverHeader}>
                           <div className={styles.serverIdentity}>
                             <div className={styles.serverNameLine}>
-                              <div className={server.online ? styles.online : styles.offline}></div>
+                              <div className={server.online ? styles.online : styles.offline} />
                               <h2>{server.name ?? `Server #${server.id}`}</h2>
                             </div>
                             <p className={styles.serverIp}>{server.ip}</p>
@@ -341,13 +297,7 @@ const HomePage = observer(() => {
                             <span className={styles.serverStatus}>
                               {server.online ? 'Online' : 'Offline'}
                             </span>
-                            <div
-                              className={styles.serverActions}
-                              onClick={(event) => {
-                                event.preventDefault();
-                                event.stopPropagation();
-                              }}
-                            >
+                            <div className={styles.serverActions}>
                               <button
                                 type='button'
                                 className={styles.actionBtn}
@@ -382,71 +332,99 @@ const HomePage = observer(() => {
                           </div>
                         </header>
 
-                        <div className={styles.cpuSection}>
-                          <div className={styles.primaryMetricHead}>
-                            <span className={styles.primaryMetricLabel}>CPU</span>
-                            <strong
-                              className={`${styles.primaryMetricValue} ${styles.monoValue} ${cpuToneClass}`}
-                            >
-                              {formatPercent(cpuUsage)}
-                            </strong>
+                        <div className={styles.metricGrid}>
+                          <div className={`${styles.metricCard} ${styles.metricCardCpu}`}>
+                            <div className={styles.metricCardHeader}>
+                              <span className={styles.metricCardLabel}>
+                                <Icon icon='heroicons:cpu-chip-16-solid' /> CPU
+                              </span>
+                            </div>
+                            <div className={styles.metricCardBody}>
+                              <strong
+                                className={`${styles.metricCardValue} ${styles.monoValue} ${cpuToneClass}`}
+                              >
+                                {formatPercent(cpuUsage)}
+                              </strong>
+                              <span className={styles.metricCardMeta}>
+                                {server.last_metrics.cpu.cores} cores
+                              </span>
+                            </div>
                           </div>
 
-                          <div className={styles.progressTrackThin}>
-                            <div
-                              className={`${styles.progressFillThin} ${cpuToneClass}`}
-                              style={{ width: `${cpuUsage}%` }}
-                            />
+                          <div className={styles.metricCard}>
+                            <div className={styles.metricCardHeader}>
+                              <span className={styles.metricCardLabel}>
+                                <Icon icon='fa6-solid:memory' /> RAM
+                              </span>
+                            </div>
+                            <div className={styles.metricCardBody}>
+                              <strong
+                                className={`${styles.metricCardValue} ${styles.monoValue} ${memoryToneClass}`}
+                              >
+                                {formatPercent(ramUsage)}
+                              </strong>
+                              <span className={styles.metricCardMeta}>
+                                {ramUsed} / {ramTotal}
+                              </span>
+                            </div>
                           </div>
 
-                          <div className={styles.sparklineSection}>
-                            <svg
-                              className={styles.sparkline}
-                              viewBox={`0 0 ${SPARKLINE_WIDTH} ${SPARKLINE_HEIGHT}`}
-                              preserveAspectRatio='none'
-                              aria-hidden='true'
-                            >
-                              <path
-                                d={sparkline.areaPath}
-                                className={`${styles.sparklineFill} ${cpuToneClass}`}
-                              />
-                              <path
-                                d={sparkline.linePath}
-                                className={`${styles.sparklineLine} ${cpuToneClass}`}
-                              />
-                            </svg>
-                            <span className={styles.sparklineLabel}>CPU last hour</span>
+                          <div className={styles.metricCard}>
+                            <div className={styles.metricCardHeader}>
+                              <span className={styles.metricCardLabel}>
+                                <Icon icon='mdi:harddisk' /> Disk
+                              </span>
+                            </div>
+                            <div className={styles.metricCardBody}>
+                              <strong
+                                className={`${styles.metricCardValue} ${styles.monoValue} ${diskToneClass}`}
+                              >
+                                {formatPercent(diskUsage)}
+                              </strong>
+                              <span className={styles.metricCardMeta}>
+                                {diskUsed} / {diskTotal}
+                              </span>
+                            </div>
                           </div>
                         </div>
 
-                        <div className={styles.secondaryMetrics}>
-                          {[
-                            { key: 'ram', label: 'RAM', value: ramUsage },
-                            { key: 'disk', label: 'Disk', value: diskUsage },
-                          ].map(metric => {
-                            const toneClass = getLoadToneClassName(metric.value);
+                        <div className={styles.serverDetailsGrid}>
+                          <div className={styles.serverDetail}>
+                            <span className={styles.serverDetailLabel}>
+                              <Icon icon='line-md:computer' /> Hostname
+                            </span>
+                            <strong className={styles.serverDetailValue}>{hostname}</strong>
+                          </div>
 
-                            return (
-                              <div className={styles.secondaryMetric} key={metric.key}>
-                                <div className={styles.secondaryMetricHead}>
-                                  <span className={styles.secondaryMetricLabel}>
-                                    {metric.label}
-                                  </span>
-                                  <strong
-                                    className={`${styles.secondaryMetricValue} ${styles.monoValue} ${toneClass}`}
-                                  >
-                                    {formatPercent(metric.value)}
-                                  </strong>
-                                </div>
-                                <div className={styles.progressTrackThin}>
-                                  <div
-                                    className={`${styles.progressFillThin} ${toneClass}`}
-                                    style={{ width: `${metric.value}%` }}
-                                  />
-                                </div>
-                              </div>
-                            );
-                          })}
+                          <div className={styles.serverDetail}>
+                            <span className={styles.serverDetailLabel}>
+                              <Icon icon='iconamoon:clock-light' fontSize='30' /> Uptime
+                            </span>
+                            <strong className={`${styles.serverDetailValue} ${styles.monoValue}`}>
+                              {formatUptime(server.last_metrics.uptime)}
+                            </strong>
+                          </div>
+
+                          <div className={styles.serverDetail}>
+                            <span className={styles.serverDetailLabel}>
+                              <Icon icon='streamline-ultimate:temperature-thermometer-medium' />
+                              {' '}
+                              Temperature
+                            </span>
+                            <strong className={`${styles.serverDetailValue} ${styles.monoValue}`}>
+                              {server.last_metrics.temperature.toFixed(1)}°C
+                            </strong>
+                          </div>
+
+                          <div className={styles.serverDetail}>
+                            <span className={styles.serverDetailLabel}>
+                              <Icon icon='streamline-flex:network-remix' /> Network
+                            </span>
+                            <strong className={`${styles.serverDetailValue} ${styles.monoValue}`}>
+                              {(server.last_metrics.network.tx_speed / 1024).toFixed(1)} /{' '}
+                              {(server.last_metrics.network.rx_speed / 1024).toFixed(1)} KB/s
+                            </strong>
+                          </div>
                         </div>
                       </article>
                     );

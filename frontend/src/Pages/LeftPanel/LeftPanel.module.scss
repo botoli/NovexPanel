@@ -24,9 +24,10 @@
 }
 .tabactive {
   width: 100%;
-      background-color: $color-active;
-    color: $color-text-primary;
 
+  color: $color-status-online;
+  background: rgba(rgba(2, 54, 54, 0.136), 0.4);
+  border-radius: $radius-md;
   font-weight: $font-weight-semibold;
   display: flex;
   align-items: center;

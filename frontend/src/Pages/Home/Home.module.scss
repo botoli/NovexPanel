@@ -63,8 +63,9 @@
 
 .serverGrid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
   gap: $space-4;
+  align-items: stretch;
 }
 
 @keyframes statusPulseRing {
@@ -88,23 +89,14 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: $space-3;
-  min-height: 246px;
-  padding: $space-4;
-  border-radius: $radius-lg;
-  border: 1px solid $color-border;
-  background: $color-surface;
+  gap: 0;
+  min-height: 100%;
+  padding: 0;
+  border-radius: $radius-xl;
+  border: 1px solid red;
   overflow: hidden;
   cursor: pointer;
   transition: border-color $transition-base, background-color $transition-base, transform $transition-base;
-
-  &:hover,
-  &:focus-visible {
-    border-color: $color-border-hover;
-    background-color: #070707;
-   
-  }
-
   &:focus-visible {
     outline: none;
   }
@@ -133,6 +125,8 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: $space-3;
+  padding: $space-4 $space-4 $space-3;
+  border-bottom: 1px solid rgba($color-text-primary, 0.2);
 }
 
 .serverIdentity {
@@ -144,8 +138,8 @@
 
   h2 {
     margin: 0;
-    font-size: clamp(18px, 1.4vw, 22px);
-    line-height: 1.12;
+    font-size: clamp(18px, 1.5vw, 22px);
+    line-height: 1.1;
     font-weight: $font-weight-semibold;
     color: $color-text-primary;
     white-space: nowrap;
@@ -206,41 +200,41 @@
   flex-direction: column;
   align-items: flex-end;
   gap: $space-2;
+  min-width: max-content;
 }
 
 .serverStatus {
-  padding: 3px 9px;
+  padding: 4px 11px;
   border-radius: $radius-full;
-  border: 1px solid rgba($color-text-primary, 0.08);
-  color: rgba($color-text-primary, 0.55);
+  border: 1px solid rgba($color-text-primary, 0.09);
+  color: rgba($color-text-primary, 0.68);
   font-size: 10px;
   line-height: 1;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.11em;
+  background: rgba($color-text-primary, 0.03);
 }
 
 .serverActions {
   display: flex;
   gap: $space-1;
-  opacity: 0;
-  transform: translateY(-4px);
-  pointer-events: none;
+  opacity: 0.92;
+  transform: none;
+  pointer-events: auto;
   transition: opacity $transition-base, transform $transition-base;
 }
 
 .serverCard:hover .serverActions,
 .serverCard:focus-visible .serverActions {
   opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
 }
 
 .actionBtn {
-  width: 30px;
-  height: 30px;
-  border: 1px solid $color-border;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba($color-text-primary, 0.08);
   border-radius: $radius-sm;
-  background-color: $color-surface-2;
+  background: rgba($color-text-primary, 0.03);
   color: rgba($color-text-primary, 0.72);
   display: grid;
   place-items: center;
@@ -248,9 +242,9 @@
   transition: border-color $transition-base, color $transition-base, background-color $transition-base;
 
   &:hover {
-    border-color: $color-border-hover;
+    border-color: rgba($color-text-primary, 0.16);
     color: $color-text-primary;
-    background-color: rgba($color-text-primary, 0.04);
+    background-color: rgba($color-text-primary, 0.06);
   }
 
   svg {
@@ -258,44 +252,14 @@
   }
 }
 
-.cpuSection {
-  margin-top: auto;
-  display: flex;
-  flex-direction: column;
-  gap: $space-2;
-}
-
-.primaryMetricHead {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: $space-3;
-}
-
-.primaryMetricLabel {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.11em;
-  color: rgba($color-text-primary, 0.48);
-}
-
 .monoValue {
   font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-variant-numeric: tabular-nums;
 }
 
-.primaryMetricValue {
-  margin: 0;
-  font-size: clamp(35px, 3vw, 46px);
-  line-height: 0.95;
-  font-weight: $font-weight-semibold;
-  color: var(--load-color, $color-text-primary);
-  transition: color $transition-base;
-}
-
 .progressTrackThin {
   width: 100%;
-  height: 3px;
+  height: 4px;
   border-radius: $radius-full;
   background: rgba($color-text-primary, 0.12);
   overflow: hidden;
@@ -307,6 +271,125 @@
   border-radius: inherit;
   background-color: var(--load-color, rgba($color-text-primary, 0.88));
   transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1), background-color $transition-base;
+}
+
+.metricGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-bottom: 1px solid rgba($color-text-primary, 0.2);
+}
+
+.metricCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+  min-width: 0;
+  padding: $space-4;
+  border-right: 1px solid rgba($color-text-primary, 0.2);
+  background: rgba($color-text-primary, 0.01);
+
+  &:nth-child(3n) {
+    border-right: none;
+  }
+}
+
+.metricCardCpu {
+  background: linear-gradient(180deg, rgba($color-status-online, 0.04), rgba($color-text-primary, 0.01));
+}
+
+.metricCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-3;
+}
+
+.metricCardLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1;
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba($color-text-primary, 0.48);
+
+  svg {
+    font-size: 25px;
+  }
+}
+
+.metricPill {
+  padding: 4px 10px;
+  border-radius: $radius-full;
+  border: 1px solid rgba($color-text-primary, 0.08);
+  background: rgba($color-text-primary, 0.04);
+  color: rgba($color-text-primary, 0.7);
+  font-size: 10px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.metricCardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metricCardValue {
+  margin: 0;
+  font-size: clamp(30px, 3.2vw, 44px);
+  line-height: 0.95;
+  font-weight: $font-weight-semibold;
+  color: var(--load-color, $color-text-primary);
+  transition: color $transition-base;
+}
+
+.metricCardMeta {
+  color: rgba($color-text-primary, 0.55);
+  font-size: $font-size-small;
+  line-height: 1.35;
+}
+
+.serverDetailsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid rgba($color-text-primary, 0.2);
+}
+
+.serverDetail {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: $space-4;
+  border-right: 1px solid rgba($color-text-primary, 0.2);
+  border-bottom: 1px solid rgba($color-text-primary, 0.2);
+  background: rgba($color-text-primary, 0.015);
+
+  &:nth-child(2n) {
+    border-right: none;
+  }
+}
+.serverDetailLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1;
+  color: rgba($color-text-primary, 0.46);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+
+  svg {
+    font-size: 20px;
+  }
+}
+
+.serverDetailValue {
+  color: $color-text-primary;
+  font-size: $font-size-body;
+  line-height: 1.35;
+  font-weight: $font-weight-medium;
+  overflow-wrap: anywhere;
 }
 
 .sparklineSection {
@@ -386,7 +469,7 @@
 }
 
 .toneMedium {
-  --load-color: #{rgba($color-text-primary, 0.84)};
+  --load-color: #{rgba($color-status-idle, 0.84)};
 }
 
 .toneHigh {

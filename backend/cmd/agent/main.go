@@ -1654,14 +1654,18 @@ func (a *Agent) runContainer(parentCtx context.Context, stepTimeout time.Duratio
 	}
 
 	runArgs := []string{
-		"run", "-d", "--name", containerName,
-		"--security-opt", "no-new-privileges:true",
-		"--memory", memoryLimit,
-		"--cpus", cpusLimit,
-		"--pids-limit", pidsLimit,
-		"--cap-drop", "ALL",
-		"-p", fmt.Sprintf("%d:%d", hostPort, appPort),
-	}
+    "run", "-d", "--name", containerName,
+    "--security-opt", "no-new-privileges:true",
+    "--memory", memoryLimit,
+    "--cpus", cpusLimit,
+    "--pids-limit", pidsLimit,
+    "--cap-drop", "ALL",
+    "--cap-add", "NET_BIND_SERVICE",
+    "--cap-add", "CHOWN",
+    "--cap-add", "SETUID", // ← добавь эту строку
+    "--cap-add", "SETGID", // ← и эту
+    "-p", fmt.Sprintf("%d:%d", hostPort, appPort),
+}
 	if appPort <= 1024 {
 		runArgs = append(runArgs, "--cap-add", "NET_BIND_SERVICE")
 	}

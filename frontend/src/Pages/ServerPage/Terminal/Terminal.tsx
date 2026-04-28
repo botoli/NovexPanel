@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import { tokenStore } from '../../../Store/TokenStore';
+const WS_BASE = import.meta.env.VITE_WS_URL || 'ws://localhost:8380';
 
 export const TerminalPage = () => {
   const { id } = useParams();
@@ -45,7 +46,7 @@ export const TerminalPage = () => {
 
     // 2. Открыть WebSocket
     const token = tokenStore.getToken();
-    const ws = new WebSocket(`ws://localhost:8380/site/ws?token=${token}`);
+    const ws = new WebSocket(`${WS_BASE}/site/ws?token=${token}`);
 
     wsRef.current = ws;
 
@@ -134,6 +135,7 @@ export const TerminalPage = () => {
           pendingInputRef.current += data;
           return;
         }
+        console.log('Terminal input:', JSON.stringify(data));
         ws.send(
           JSON.stringify({
             type: 'terminal_input',
