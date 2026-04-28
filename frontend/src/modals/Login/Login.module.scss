@@ -9,7 +9,10 @@
 	flex-direction: column;
 	gap: $space-5;
 }
-
+.error{
+	color: $color-status-offline;
+	font-size: $font-size-small;
+}
 .returnBtn {
 	text-decoration: none;
 	width: fit-content;

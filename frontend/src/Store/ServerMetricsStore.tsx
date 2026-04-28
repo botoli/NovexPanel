@@ -3,7 +3,7 @@ import type { ServerItem } from '../Pages/Home/HomePage';
 export const serverMetricsStore = {
   nowServers: [] as ServerItem[],
   ServerMetricsError: null as string | null,
-  ServerMetricsLoading: false,
+  ServerMetricsLoading: true,
 
   setNowServers(newServers: ServerItem[]) {
     this.nowServers = newServers;

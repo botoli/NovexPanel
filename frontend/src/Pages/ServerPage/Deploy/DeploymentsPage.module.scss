@@ -156,24 +156,55 @@
   }
 
   tbody {
-    .tableRow {
-     
-      border-bottom: 1px solid rgba($color-border, 0.5);
+  .tableRow {
+    border-bottom: 1px solid rgba($color-border, 0.5);
+    transition: background-color 0.25s ease;
 
-      &:last-child {
-        border-bottom: none;
+    &:last-child {
+      border-bottom: none;
+    }
+
+    // hover effect
+    &:hover {
+      td {
+        background-color: rgba(255, 255, 255, 0.015);
       }
 
-      &:hover {
-        background: $color-hover;
-  
+      td::before {
+        opacity: 0.14;
       }
     }
 
     td {
+      position: relative;
+      overflow: hidden;
+
       padding: $space-4 $card-padding;
       vertical-align: middle;
       color: $color-text-primary;
+
+      transition:
+        background-color 0.25s ease,
+        border-color 0.25s ease;
+
+      // noise / grain layer
+      &::before {
+        content: '';
+
+        position: absolute;
+        inset: 0;
+
+        opacity: 0;
+        pointer-events: none;
+
+        transition: opacity 0.3s ease;
+
+        background-image: $hover-url;
+        background-size: 120px;
+        background-repeat: repeat;
+
+        mix-blend-mode: soft-light;
+      }
 
       // 🔹 Язык — бейдж
       .langBadge {
@@ -206,6 +237,7 @@
         padding: $space-1 $space-2;
         border-radius: $radius-sm;
         border: 1px solid transparent;
+        transition: border-color 0.2s ease;
 
         &:hover {
           border-color: $color-border;
@@ -260,15 +292,18 @@
         text-decoration: none;
         font-size: $font-size-small;
         border-bottom: 1px dashed transparent;
+        transition: border-color 0.2s ease;
 
         .linkIcon {
           color: $color-text-muted;
           font-size: 12px;
           opacity: 0.8;
+          transition: opacity 0.2s ease;
         }
 
         &:hover {
           border-bottom-color: $color-border-hover;
+
           .linkIcon {
             opacity: 1;
           }
@@ -290,6 +325,7 @@
       }
     }
   }
+}
 }
 
 // 🔘 STOP BUTTON

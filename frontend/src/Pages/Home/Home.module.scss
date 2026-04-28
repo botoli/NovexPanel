@@ -89,17 +89,51 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0;
   min-height: 100%;
   padding: 0;
   border-radius: $radius-xl;
-  border: 1px solid red;
+  border: 1px solid rgba($color-border, 0.8);
   overflow: hidden;
+  isolation: isolate;
+   background: linear-gradient(180deg, rgba($color-status-online, 0.04), rgba($color-text-primary, 0.01));
+
   cursor: pointer;
-  transition: border-color $transition-base, background-color $transition-base, transform $transition-base;
+  transition:
+    border-color $transition-base,
+    background-color $transition-base;
+
   &:focus-visible {
     outline: none;
   }
+
+  // grain / felt texture overlay
+  &::before {
+    content: '';
+
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity .35s ease;
+
+    background-image: $hover-url;
+    background-size: 100px;
+    background-repeat: repeat;
+
+    mix-blend-mode: soft-light;
+
+    pointer-events: none;
+  }
+
+  &:hover {
+    border-color: $color-border-hover;
+
+    &::before {
+      
+      opacity: 0.2;
+      
+    }
+  }
+  
 }
 
 .serverCardOnline {
@@ -155,24 +189,7 @@
   min-width: 0;
 }
 
-.online,
-.offline {
-  position: relative;
-  width: 9px;
-  height: 9px;
-  flex-shrink: 0;
-  border-radius: $radius-full;
-  background-color: currentColor;
 
-  &::after {
-    content: "";
-    position: absolute;
-    inset: -5px;
-    border: 1px solid currentColor;
-    border-radius: $radius-full;
-    animation: statusPulseRing 1.6s ease-out infinite;
-  }
-}
 
 .online {
   color: $color-status-online;
@@ -212,7 +229,7 @@
   line-height: 1;
   text-transform: uppercase;
   letter-spacing: 0.11em;
-  background: rgba($color-text-primary, 0.03);
+ 
 }
 
 .serverActions {
@@ -466,18 +483,22 @@
 
 .toneLow {
   --load-color: #{rgba($color-status-online, 0.78)};
+  transition: all 0.3s ease;
 }
 
 .toneMedium {
   --load-color: #{rgba($color-status-idle, 0.84)};
+   transition: all 0.3s ease;
 }
 
 .toneHigh {
   --load-color: #{rgba($color-status-offline, 0.74)};
+   transition: all 0.3s ease;
 }
 
 .toneCritical {
   --load-color: #{$color-status-offline};
+   transition: all 0.3s ease;
 }
 
 .metricsGrid {
@@ -701,30 +722,188 @@
   line-height: 1.5;
   color: $color-text-secondary;
 }
-.addServer{
+
+/* Loader Styles */
+.pageLoader {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: $space-2;
-  color: $color-text-secondary;
-
-
+  justify-content: center;
+  height: 50vh;
+  gap: $space-4;
 }
-.addserverCard{
+
+.modalLoader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-4;
+  padding: $space-4;
+}
+
+.loadingTitle {
+  font-size: 20px;
+  color: $color-text-primary;
+}
+
+.loadingHeader {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+}
+
+.loadingIcon {
+  font-size: 24px;
+  color: $color-status-online;
+  animation: pulse 2s infinite ease-in-out;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.95); }
+}
+
+.serverLoader {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: $color-surface-2;
+  padding: 8px;
+  border-radius: $radius-md;
+  border: 1px solid $color-border;
+  width: 320px;
+}
+
+.serverRack {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 50px;
+  background: $color-surface;
+  border: 1px solid $color-border;
+  border-radius: 4px;
+  padding: 0 8px;
+}
+
+.rackBar {
+  width: 40px;
+  height: 6px;
+  background: $color-border;
+  border-radius: 2px;
+}
+
+.rackLights {
+  display: flex;
+  gap: 4px;
+}
+
+.serverLight {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: $color-status-offline;
+}
+
+.serverRack:nth-child(1) .serverLight:nth-child(1) { animation: blink 1.5s infinite; }
+.serverRack:nth-child(1) .serverLight:nth-child(2) { animation: blink 2s infinite; }
+.serverRack:nth-child(1) .serverLight:nth-child(3) { animation: blink 1.2s infinite; }
+
+.serverRack:nth-child(2) .serverLight:nth-child(1) { animation: blink 1.5s infinite 0.3s; }
+.serverRack:nth-child(2) .serverLight:nth-child(2) { animation: blink 1.8s infinite 0.5s; background: $color-status-online; }
+.serverRack:nth-child(2) .serverLight:nth-child(3) { animation: blink 1.4s infinite 0.1s; }
+
+.serverRack:nth-child(3) .serverLight:nth-child(1) { animation: blink 1.6s infinite 0.7s; background: $color-status-online; }
+.serverRack:nth-child(3) .serverLight:nth-child(2) { animation: blink 1.9s infinite 0.2s; }
+.serverRack:nth-child(3) .serverLight:nth-child(3) { animation: blink 1.3s infinite 0.4s; }
+
+@keyframes blink {
+  0%, 100% { opacity: 0.2; background: $color-text-muted; }
+  50% { opacity: 1; background: $color-status-online; box-shadow: 0 0 5px $color-status-online; }
+}
+
+.loadingSubtitle {
+  color: $color-text-secondary;
+   font-size: 20px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.loadingDots span {
+  animation: dots 1.4s infinite;
+  opacity: 0;
+}
+
+.loadingDots span:nth-child(1) { animation-delay: 0s; }
+.loadingDots span:nth-child(2) { animation-delay: 0.2s; }
+.loadingDots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes dots {
+  0% { opacity: 0; }
+  50% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.addServer{
+  
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-3;
+  color: rgba($color-text-primary, 0.6);
+  z-index: 1;
+
+  h1 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    transition: color 0.3s ease;
+  }
+}
+
+.addServerIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba($color-text-primary, 0.05);
+  color: rgba($color-text-primary, 0.7);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.addserverCard {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: $space-2;
-  min-height: 188px;
-  padding: 12px;
-  border-radius: $card-radius;
-  border:dashed 1px ;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%; // matches grid stretch height
+  padding: $space-4;
+  border-radius: $radius-xl;
+  border: 2px dashed rgba($color-text-primary, 0.15);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   overflow: hidden;
-   transition: background-color $transition-base, border-color $transition-base, transform $transition-fast;
-  &:hover{
-   
-    border-color: $color-border-hover;
-    background-color: $color-hover;
+
+  &:hover {
+    border-color: rgba($color-status-online, 0.4);
+    background: rgba($color-status-online, 0.03);
+    box-shadow: 0 12px 24px rgba($color-status-online, 0.08);
+
+    .addServerIcon {
+      transform: scale(1.15) rotate(90deg);
+      background: rgba($color-status-online, 0.1);
+      color: $color-status-online;
+      box-shadow: 0 0 16px rgba($color-status-online, 0.2);
+    }
+    
+    .addServer h1 {
+      color: $color-status-online;
+    }
   }
 }
 
@@ -932,7 +1111,7 @@
   padding: 0 $space-5;
   border-radius: $btn-radius;
   cursor: pointer;
-  font-size: 20px;
+  font-size: 10px;
   font-weight: $font-weight-regular;
   letter-spacing: 0.01em;
   transition: background-color $transition-base, border-color $transition-base, transform $transition-fast;

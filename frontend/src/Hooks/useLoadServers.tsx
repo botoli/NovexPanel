@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { API_BASE } from '../Api/api';
 import { serverMetricsStore } from '../Store/ServerMetricsStore';
 import { tokenStore } from '../Store/TokenStore';
-
+export const loading = false;
 export const useLoadServers = () => {
   const isMounted = useRef(true);
   const isRequestInFlight = useRef(false);

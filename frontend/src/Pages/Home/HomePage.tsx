@@ -184,6 +184,49 @@ const HomePage = observer(() => {
               />
             </label>
 
+            {serverMetricsStore.ServerMetricsLoading && (
+              <div className={styles.modalLoader} role='status' aria-live='polite'>
+                <div className={styles.loadingHeader}>
+                  <Icon icon='mdi:server-network' className={styles.loadingIcon} />
+                  <span className={styles.loadingTitle}>Creating agent token</span>
+                </div>
+                <div className={styles.serverLoader}>
+                  <div className={styles.serverRack}>
+                    <div className={styles.rackBar} />
+                    <div className={styles.rackLights}>
+                      <span className={styles.serverLight} />
+                      <span className={styles.serverLight} />
+                      <span className={styles.serverLight} />
+                    </div>
+                  </div>
+                  <div className={styles.serverRack}>
+                    <div className={styles.rackBar} />
+                    <div className={styles.rackLights}>
+                      <span className={styles.serverLight} />
+                      <span className={styles.serverLight} />
+                      <span className={styles.serverLight} />
+                    </div>
+                  </div>
+                  <div className={styles.serverRack}>
+                    <div className={styles.rackBar} />
+                    <div className={styles.rackLights}>
+                      <span className={styles.serverLight} />
+                      <span className={styles.serverLight} />
+                      <span className={styles.serverLight} />
+                    </div>
+                  </div>
+                </div>
+                <div className={styles.loadingSubtitle}>
+                  Establishing secure link
+                  <span className={styles.loadingDots}>
+                    <span>.</span>
+                    <span>.</span>
+                    <span>.</span>
+                  </span>
+                </div>
+              </div>
+            )}
+
             <div className={styles.modalActions}>
               <button
                 type='button'
@@ -240,6 +283,45 @@ const HomePage = observer(() => {
                 </div>
               </div>
             )
+            : serverMetricsStore.ServerMetricsLoading
+            ? (
+              <div className={styles.pageLoader}>
+                <div className={styles.serverLoader}>
+                  <div className={styles.serverRack}>
+                    <div className={styles.rackBar} />
+                    <div className={styles.rackLights}>
+                      <span className={styles.serverLight} />
+                      <span className={styles.serverLight} />
+                      <span className={styles.serverLight} />
+                    </div>
+                  </div>
+                  <div className={styles.serverRack}>
+                    <div className={styles.rackBar} />
+                    <div className={styles.rackLights}>
+                      <span className={styles.serverLight} />
+                      <span className={styles.serverLight} />
+                      <span className={styles.serverLight} />
+                    </div>
+                  </div>
+                  <div className={styles.serverRack}>
+                    <div className={styles.rackBar} />
+                    <div className={styles.rackLights}>
+                      <span className={styles.serverLight} />
+                      <span className={styles.serverLight} />
+                      <span className={styles.serverLight} />
+                    </div>
+                  </div>
+                </div>
+                <div className={styles.loadingSubtitle}>
+                  Loading servers
+                  <span className={styles.loadingDots}>
+                    <span>.</span>
+                    <span>.</span>
+                    <span>.</span>
+                  </span>
+                </div>
+              </div>
+            )
             : hasServers
             ? (
               <>
@@ -287,7 +369,6 @@ const HomePage = observer(() => {
                         <header className={styles.serverHeader}>
                           <div className={styles.serverIdentity}>
                             <div className={styles.serverNameLine}>
-                              <div className={server.online ? styles.online : styles.offline} />
                               <h2>{server.name ?? `Server #${server.id}`}</h2>
                             </div>
                             <p className={styles.serverIp}>{server.ip}</p>
@@ -434,8 +515,10 @@ const HomePage = observer(() => {
                     onClick={!loading ? () => setIsAddServerModalOpen(true) : undefined}
                   >
                     <div className={styles.addServer}>
-                      <Icon icon='icons8:plus' fontSize='120' color='' />
-                      <h1>{loading ? 'Loading...' : 'Add server'}</h1>
+                      <div className={styles.addServerIcon}>
+                        <Icon icon='icons8:plus' fontSize='32' />
+                      </div>
+                      <h1>{loading ? 'Loading...' : 'Add new server'}</h1>
                     </div>
                   </article>
                 </section>

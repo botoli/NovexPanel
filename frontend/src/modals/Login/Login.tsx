@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { API_BASE } from '../../Api/api';
 import { tokenStore } from '../../Store/TokenStore';
+import type { ValidateError } from '../Registration/Registration';
 import styles from './Login.module.scss';
 
 const Login = observer(() => {
@@ -11,7 +12,35 @@ const Login = observer(() => {
   const [password, setPassword] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
- useEffect(() => {
+  const [validateError, setValidateError] = useState<ValidateError[]>([]);
+
+  useEffect(() => {
+    const newErrors: Array<{ message: string; type: string | string[]; }> = [];
+
+    // Валидация email (только если пользователь начал ввод)
+    if (email.length > 0) {
+      const emailRegex = /^[^\s@]+@([^\s@]+\.)+[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        newErrors.push({
+          message: 'Введите корректный email (пример: user@domain.com)',
+          type: 'email',
+        });
+      }
+    }
+
+    // Валидация пароля (только если пользователь начал ввод)
+    if (password.length > 0) {
+      if (password.length < 8) {
+        newErrors.push({ message: 'Пароль должен быть не менее 8 символов', type: 'password' });
+      } else if (password.length > 72) {
+        newErrors.push({ message: 'Пароль не должен превышать 72 символа', type: 'password' });
+      }
+    }
+
+    // Обновляем состояние ошибок
+    setValidateError(newErrors);
+  }, [email, password]);
+  useEffect(() => {
     console.log({ loading, error });
   }, [error]);
   const navigate = useNavigate();
@@ -54,7 +83,13 @@ const Login = observer(() => {
       setLoading(false);
     }
   };
-
+  const getErrorByType = (type: string) => {
+    return validateError.find(error =>
+      Array.isArray(error.type)
+        ? error.type.includes(type)
+        : error.type === type
+    );
+  };
   return (
     <div className={styles.contentWrap}>
       <Link to='/' className={styles.returnBtn}>
@@ -78,7 +113,9 @@ const Login = observer(() => {
               onChange={(e) => setEmail(e.target.value)}
             />
           </label>
-
+          {getErrorByType('email') && (
+            <p className={styles.error}>{getErrorByType('email')?.message}</p>
+          )}
           <label className={styles.field}>
             <span>Password</span>
             <input
@@ -88,7 +125,9 @@ const Login = observer(() => {
               onChange={(e) => setPassword(e.target.value)}
             />
           </label>
-
+          {getErrorByType('password') && (
+            <p className={styles.error}>{getErrorByType('password')?.message}</p>
+          )}
           <button type='button' className={styles.primaryBtn} onClick={handleSubmit}>
             Continue
           </button>
