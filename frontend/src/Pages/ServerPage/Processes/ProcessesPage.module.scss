@@ -1,5 +1,10 @@
 @use "../../../Styles/Variables.scss" as *;
 
+$rhythm-line-height: 1.4;
+$rhythm-row-height: 44px;
+$rhythm-badge-height: 24px;
+$rhythm-badge-font-size: 11px;
+
 @keyframes pulse {
   0% {
     opacity: 0.56;
@@ -62,6 +67,7 @@
   margin: $space-1 0 0;
   color: $color-text-secondary;
   font-size: $font-size-small;
+  line-height: $rhythm-line-height;
 }
 
 .toolbar {
@@ -163,13 +169,15 @@
 .metaPill {
   display: inline-flex;
   align-items: center;
+  min-height: $rhythm-badge-height;
   gap: $space-1;
   border-radius: $radius-full;
   border: 1px solid rgba($color-text-primary, 0.09);
   background: rgba($color-text-primary, 0.03);
   color: $color-text-secondary;
-  font-size: $font-size-small;
-  padding: 4px 10px;
+  font-size: $rhythm-badge-font-size;
+  line-height: 1;
+  padding: 0 10px;
 
   svg {
     width: 14px;
@@ -181,6 +189,7 @@
 .metaHint {
   color: $color-text-muted;
   font-size: $font-size-small;
+  line-height: $rhythm-line-height;
 }
 
 .tableCard {
@@ -199,8 +208,10 @@
 
   th,
   td {
-    padding: 11px $space-4;
+    height: $rhythm-row-height;
+    padding: 0 $space-4;
     white-space: nowrap;
+    line-height: $rhythm-line-height;
   }
 
   thead th {
@@ -306,10 +317,12 @@
 .typeBadge {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
+  min-height: $rhythm-badge-height;
+  padding: 0 8px;
   border-radius: $radius-full;
   border: 1px solid rgba($color-text-primary, 0.12);
-  font-size: 11px;
+  font-size: $rhythm-badge-font-size;
+  line-height: 1;
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: $color-text-secondary;
@@ -331,10 +344,12 @@
 .childBadge {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
+  min-height: $rhythm-badge-height;
+  padding: 0 8px;
   border-radius: $radius-full;
   border: 1px solid rgba($color-text-primary, 0.12);
-  font-size: 11px;
+  font-size: $rhythm-badge-font-size;
+  line-height: 1;
   color: $color-text-secondary;
   background: rgba($color-text-primary, 0.02);
 }
@@ -357,12 +372,14 @@
 .stateBadge {
   display: inline-flex;
   align-items: center;
+  min-height: $rhythm-badge-height;
   gap: 6px;
-  padding: 4px 9px;
+  padding: 0 9px;
   border-radius: $radius-full;
   border: 1px solid rgba($color-text-primary, 0.11);
   background: rgba($color-text-primary, 0.04);
-  font-size: 11px;
+  font-size: $rhythm-badge-font-size;
+  line-height: 1;
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }
@@ -400,14 +417,16 @@
 .killBtn {
   display: inline-flex;
   align-items: center;
+  min-height: $rhythm-badge-height;
   gap: $space-1;
-  padding: 5px 10px;
+  padding: 0 10px;
   border-radius: $radius-sm;
   border: 1px solid rgba($color-status-offline, 0.34);
   background: rgba($color-status-offline, 0.04);
   color: rgba($color-status-offline, 0.88);
   cursor: pointer;
-  font-size: 12px;
+  font-size: $rhythm-badge-font-size;
+  line-height: 1;
   font-weight: $font-weight-medium;
   transition:
     opacity 180ms ease,

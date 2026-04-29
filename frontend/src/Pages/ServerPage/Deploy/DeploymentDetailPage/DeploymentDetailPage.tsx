@@ -221,6 +221,17 @@ export const DeploymentDetailPage = observer(() => {
     return 'plain';
   };
 
+  const getStatusClass = (status?: string) => {
+    const normalized = status?.toLowerCase() ?? '';
+    if (normalized.includes('run') || normalized.includes('active') || normalized.includes('success')) {
+      return styles.statusRunning;
+    }
+    if (normalized.includes('stop') || normalized.includes('idle')) {
+      return styles.statusStopped;
+    }
+    return styles.statusFailed;
+  };
+
   return (
     <div className={styles.root}>
       <div className={styles.backRow}>
@@ -230,28 +241,15 @@ export const DeploymentDetailPage = observer(() => {
         </Link>
       </div>
 
-      {/* 1. Шапка */}
-      <header className={styles.pageHeader}>
-        <div className={styles.titleRow}>
+      <header className={styles.hero}>
+        <div className={styles.heroHead}>
           <div className={styles.titleBlock}>
-            <h1 className={styles.title}>
-              <span>Деплой #{deployData?.id}</span>
-              <span
-                className={`${styles.statusBadge} `}
-                role='status'
-              >
-                <span className={styles.statusDot} />
-                {deployData?.status}
-              </span>
-            </h1>
-            {DeployStore.deployId != null && (
-              <span
-                className={styles.infoLabel}
-                style={{ textTransform: 'none', letterSpacing: 'normal' }}
-              >
-                ID: {DeployStore.deployId}
-              </span>
-            )}
+            <p className={styles.eyebrow}>Deployment</p>
+            <h1 className={styles.title}>#{deployData?.id ?? DeployStore.deployId}</h1>
+            <span className={`${styles.statusBadge} ${getStatusClass(deployData?.status)}`} role='status'>
+              <span className={styles.statusDot} />
+              {deployData?.status ?? 'unknown'}
+            </span>
           </div>
           <div className={styles.headerActions}>
             <button
@@ -295,39 +293,34 @@ export const DeploymentDetailPage = observer(() => {
           </div>
         </div>
 
-        <div className={styles.infoGrid}>
-          <div className={styles.infoItem}>
-            <span className={styles.infoLabel}>Репозиторий</span>
-            <a
-              className={styles.link}
-              href={deployData?.repoUrl}
-              target='_blank'
-              rel='noopener noreferrer'
-            >
-              {deployData?.repoUrl}
+        <div className={styles.metaGrid}>
+          <div className={styles.metaCard}>
+            <span className={styles.metaLabel}>Repository</span>
+            <a className={styles.link} href={deployData?.repoUrl} target='_blank' rel='noopener noreferrer'>
+              {deployData?.repoUrl || '—'}
             </a>
           </div>
-          <div className={styles.infoItem}>
-            <span className={styles.infoLabel}>Ветка</span>
-            <span className={styles.infoValue}>{deployData?.branch}</span>
+          <div className={styles.metaCard}>
+            <span className={styles.metaLabel}>Branch</span>
+            <span className={styles.metaValue}>{deployData?.branch || '—'}</span>
           </div>
-          <div className={styles.infoItem}>
-            <span className={styles.infoLabel}>Тип</span>
-            <span className={styles.infoValue}>{deployData?.type}</span>
+          <div className={styles.metaCard}>
+            <span className={styles.metaLabel}>Type</span>
+            <span className={styles.metaValue}>{deployData?.type || '—'}</span>
           </div>
-          <div className={styles.infoItem}>
-            <span className={styles.infoLabel}>Папка проекта</span>
-            <span className={styles.infoValue}>{deployData?.subdirectory || '—'}</span>
+          <div className={styles.metaCard}>
+            <span className={styles.metaLabel}>Project Directory</span>
+            <span className={styles.metaValue}>{deployData?.subdirectory || '—'}</span>
           </div>
-          <div className={styles.infoItem}>
-            <span className={styles.infoLabel}>Создан</span>
-            <span className={styles.infoValue}>
+          <div className={styles.metaCard}>
+            <span className={styles.metaLabel}>Created</span>
+            <span className={styles.metaValue}>
               {formatDateTime(deployData?.createdAt ? deployData.createdAt.toString() : '')}
             </span>
           </div>
-          <div className={styles.infoItem}>
-            <span className={styles.infoLabel}>Обновлён</span>
-            <span className={styles.infoValue}>
+          <div className={styles.metaCard}>
+            <span className={styles.metaLabel}>Updated</span>
+            <span className={styles.metaValue}>
               {formatDateTime(deployData?.updatedAt ? deployData.updatedAt.toString() : '')}
             </span>
           </div>
@@ -390,12 +383,12 @@ export const DeploymentDetailPage = observer(() => {
         <h2 className={styles.sectionTitle} id='build-heading'>
           Сборка и запуск
         </h2>
-        <div className={styles.kvList}>
+        <div className={styles.specGrid}>
           {deployData?.buildCommand
             ? (
-              <div className={styles.kvRow}>
-                <span className={styles.kvKey}>Команда сборки</span>
-                <span className={styles.kvValue}>
+              <div className={styles.specItem}>
+                <span className={styles.specKey}>Команда сборки</span>
+                <span className={styles.specValue}>
                   <code>{deployData?.buildCommand}</code>
                 </span>
               </div>
@@ -403,25 +396,25 @@ export const DeploymentDetailPage = observer(() => {
             : null}
           {deployData?.outputDir
             ? (
-              <div className={styles.kvRow}>
-                <span className={styles.kvKey}>Выходная папка</span>
-                <span className={styles.kvValue}>
+              <div className={styles.specItem}>
+                <span className={styles.specKey}>Выходная папка</span>
+                <span className={styles.specValue}>
                   <code>{deployData?.outputDir}</code>
                 </span>
               </div>
             )
             : null}
-          <div className={styles.kvRow}>
-            <span className={styles.kvKey}>Порт приложения</span>
-            <span className={styles.kvValue}>{deployData?.port}</span>
+          <div className={styles.specItem}>
+            <span className={styles.specKey}>Порт приложения</span>
+            <span className={styles.specValue}>{deployData?.port ?? '—'}</span>
           </div>
-          <div className={styles.kvRow}>
-            <span className={styles.kvKey}>Внешний порт</span>
-            <span className={styles.kvValue}>{deployData?.port}</span>
+          <div className={styles.specItem}>
+            <span className={styles.specKey}>Внешний порт</span>
+            <span className={styles.specValue}>{deployData?.port ?? '—'}</span>
           </div>
-          <div className={styles.kvRow}>
-            <span className={styles.kvKey}>Ссылка на сервис</span>
-            <span className={styles.kvValue}>
+          <div className={styles.specItem}>
+            <span className={styles.specKey}>Ссылка на сервис</span>
+            <span className={styles.specValue}>
               <a
                 className={styles.link}
                 href={deployData?.url}
@@ -472,7 +465,7 @@ export const DeploymentDetailPage = observer(() => {
           Логи сборки
         </h2>
 
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
+        <div className={styles.logToolbar}>
           <button
             type='button'
             className={`${styles.btn} ${styles.btnSecondary}`}
@@ -495,10 +488,9 @@ export const DeploymentDetailPage = observer(() => {
           {deployLogs.map((log, idx) => (
             <pre
               key={idx}
-              className={log.stream === 'stderr' ? styles.errorLine : undefined}
-              style={{ margin: 0, fontFamily: 'monospace' }}
+              className={`${styles.logLine} ${log.stream === 'stderr' ? styles.logLineError : styles.logLineDefault}`}
             >
-      {log.line}
+              {log.line}
             </pre>
           ))}
         </div>
@@ -509,33 +501,27 @@ export const DeploymentDetailPage = observer(() => {
         <h2 className={styles.sectionTitle}>
           Логи работы приложения
         </h2>
-        <div className={styles.logArea} style={{ padding: 0 }}>
+        <div className={styles.logArea}>
           {appLogs.length === 0
             ? (
-              <div style={{ padding: 12, color: 'rgba(255,255,255,0.6)' }}>No runtime logs yet.</div>
+              <div className={styles.logEmpty}>No runtime logs yet.</div>
             )
             : appLogs.map((l, idx) => {
               const level = parseLogLevel(l.line);
-              const color =
+              const lineClass =
                 level === 'error'
-                  ? '#ef4444'
+                  ? styles.logLevelError
                   : level === 'warn'
-                  ? '#f59e0b'
+                  ? styles.logLevelWarn
                   : level === 'info'
-                  ? '#60a5fa'
+                  ? styles.logLevelInfo
                   : level === 'debug'
-                  ? 'rgba(255,255,255,0.6)'
-                  : 'rgba(255,255,255,0.85)';
+                  ? styles.logLevelDebug
+                  : styles.logLevelPlain;
               return (
                 <pre
                   key={idx}
-                  style={{
-                    margin: 0,
-                    padding: '2px 12px',
-                    fontFamily: 'monospace',
-                    color,
-                    whiteSpace: 'pre-wrap',
-                  }}
+                  className={`${styles.logLine} ${lineClass}`}
                 >
                   {l.line}
                 </pre>
