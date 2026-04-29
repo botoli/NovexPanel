@@ -1,5 +1,10 @@
 @use "../../../Styles/Variables.scss" as *;
 
+$rhythm-line-height: 1.4;
+$rhythm-row-height: 44px;
+$rhythm-badge-height: 24px;
+$rhythm-badge-font-size: 11px;
+
 // 🧭 PAGE HEADER
 // ========================================
 
@@ -146,6 +151,7 @@
         text-transform: uppercase;
         letter-spacing: $letter-spacing-heading;
         white-space: nowrap;
+        line-height: $rhythm-line-height;
 
         .thIcon {
           width: 14px;
@@ -187,9 +193,11 @@
       position: relative;
       overflow: hidden;
 
-      padding: $space-4 $card-padding;
+      height: $rhythm-row-height;
+      padding: 0 $card-padding;
       vertical-align: middle;
       color: $color-text-primary;
+      line-height: $rhythm-line-height;
 
       transition:
         background-color 0.25s ease,
@@ -218,11 +226,13 @@
       .langBadge {
         display: inline-flex;
         align-items: center;
-        padding: $space-1 $space-3;
+        min-height: $rhythm-badge-height;
+        padding: 0 $space-3;
         background: rgba($color-text-secondary, 0.1);
         border: 1px solid rgba($color-border, 0.8);
         border-radius: $radius-sm;
-        font-size: $font-size-small;
+        font-size: $rhythm-badge-font-size;
+        line-height: 1;
         font-weight: $font-weight-medium;
         color: $color-text-primary;
       }
@@ -257,10 +267,12 @@
       .statusBadge {
         display: inline-flex;
         align-items: center;
+        min-height: $rhythm-badge-height;
         gap: $space-2;
-        padding: $space-1 $space-3;
+        padding: 0 $space-3;
         border-radius: $radius-full;
-        font-size: $font-size-small;
+        font-size: $rhythm-badge-font-size;
+        line-height: 1;
         font-weight: $font-weight-medium;
         border: 1px solid transparent;
 
@@ -351,13 +363,15 @@
 
 .repoName {
   font-weight: $font-weight-semibold;
+  line-height: $rhythm-line-height;
 }
 
 .commitMeta {
   display: inline-flex;
   flex-wrap: wrap;
   gap: 8px;
-  font-size: 12px;
+  font-size: $rhythm-badge-font-size;
+  line-height: $rhythm-line-height;
   color: rgba($color-text-secondary, 0.9);
 }
 
@@ -380,7 +394,7 @@
 }
 
 .logToggle {
-  height: 26px;
+  min-height: $rhythm-badge-height;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -390,7 +404,8 @@
   border-radius: $radius-sm;
   padding: 0 $space-2;
   cursor: pointer;
-  font-size: 11px;
+  font-size: $rhythm-badge-font-size;
+  line-height: 1;
 
   svg {
     width: 14px;
@@ -405,7 +420,8 @@
   background: rgba($color-bg, 0.32);
 
   .logPreviewTitle {
-    font-size: 12px;
+    font-size: $rhythm-badge-font-size;
+    line-height: $rhythm-line-height;
     color: $color-text-secondary;
     margin-bottom: $space-2;
   }
