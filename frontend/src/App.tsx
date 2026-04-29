@@ -21,6 +21,8 @@ import SettingsPage from './Pages/Settings/SettingsPage';
 import RunbooksPage from './Pages/ServerPage/Runbooks/RunbooksPage';
 import RunbookDetailPage from './Pages/ServerPage/Runbooks/RunbookDetailPage';
 import ServicesPage from './Pages/ServerPage/Services/ServicesPage';
+import FilesPage from './Pages/ServerPage/Files/FilesPage';
+import SecretsPage from './Pages/ServerPage/Secrets/SecretsPage';
 
 const App = observer(() => {
   useLoadServers();
@@ -32,6 +34,7 @@ const App = observer(() => {
       <Routes>
         <Route path='/' element={<HomePage />} />
         <Route path='/settings' element={<SettingsPage />} />
+        <Route path='/secrets' element={<SecretsPage />} />
 
         <Route path='/servers/:id' element={<ServerPage />}>
           <Route path='metrics' element={<MetricsPage />} />
@@ -43,6 +46,8 @@ const App = observer(() => {
           <Route path='runbooks' element={<RunbooksPage />} />
           <Route path='runbooks/:runbookId' element={<RunbookDetailPage />} />
           <Route path='services' element={<ServicesPage />} />
+          <Route path='files' element={<FilesPage />} />
+          <Route path='secrets' element={<SecretsPage />} />
         </Route>
 
         <Route path='/account' element={<Account />} />

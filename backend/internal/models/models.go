@@ -218,3 +218,61 @@ type ServiceActionLog struct {
 	ErrorMessage string    `gorm:"size:512" json:"error_message"`
 	CreatedAt    time.Time `gorm:"index" json:"created_at"`
 }
+
+type FileOpVersion struct {
+	ID         uint           `gorm:"primaryKey" json:"id"`
+	UserID     uint           `gorm:"index;not null" json:"user_id"`
+	ServerID   uint           `gorm:"index;not null" json:"server_id"`
+	Path       string         `gorm:"size:512;index;not null" json:"path"`
+	Checksum   string         `gorm:"size:128;index;not null" json:"checksum"`
+	Content    string         `gorm:"type:text;not null" json:"content"`
+	Provider   string         `gorm:"size:32;index;not null" json:"provider"`
+	Validation datatypes.JSON `gorm:"type:jsonb;default:'{}'" json:"validation"`
+	CreatedBy  uint           `gorm:"index;not null" json:"created_by"`
+	CreatedAt  time.Time      `gorm:"index" json:"created_at"`
+}
+
+type FileOpAuditLog struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	UserID    uint      `gorm:"index;not null" json:"user_id"`
+	ServerID  uint      `gorm:"index;not null" json:"server_id"`
+	Path      string    `gorm:"size:512;index;not null" json:"path"`
+	Provider  string    `gorm:"size:32;index;not null" json:"provider"`
+	Action    string    `gorm:"size:32;index;not null" json:"action"`
+	Success   bool      `gorm:"default:false" json:"success"`
+	Message   string    `gorm:"size:1024" json:"message"`
+	Checksum  string    `gorm:"size:128;index" json:"checksum"`
+	CreatedAt time.Time `gorm:"index" json:"created_at"`
+}
+
+type SecretVaultItem struct {
+	ID             uint       `gorm:"primaryKey" json:"id"`
+	UserID         uint       `gorm:"index;not null" json:"user_id"`
+	ServerID       uint       `gorm:"index;not null" json:"server_id"`
+	ServiceScope   string     `gorm:"size:180;index" json:"service_scope"`
+	Name           string     `gorm:"size:180;index;not null" json:"name"`
+	Type           string     `gorm:"size:32;index;not null" json:"type"`
+	EncryptedValue string     `gorm:"type:text;not null" json:"-"`
+	EncryptedDEK   string     `gorm:"type:text;not null" json:"-"`
+	Nonce          string     `gorm:"size:64;not null" json:"-"`
+	KeyVersion     int        `gorm:"not null;default:1" json:"key_version"`
+	MaskedValue    string     `gorm:"size:255;not null" json:"masked_value"`
+	LastRotatedAt  *time.Time `json:"last_rotated_at"`
+	ExpiresAt      *time.Time `gorm:"index" json:"expires_at"`
+	RevokedAt      *time.Time `gorm:"index" json:"revoked_at"`
+	UsageCount     int        `gorm:"not null;default:0" json:"usage_count"`
+	LastUsedAt     *time.Time `json:"last_used_at"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+}
+
+type SecretVaultAuditLog struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	UserID    uint      `gorm:"index;not null" json:"user_id"`
+	ServerID  uint      `gorm:"index;not null" json:"server_id"`
+	SecretID  *uint     `gorm:"index" json:"secret_id"`
+	Action    string    `gorm:"size:40;index;not null" json:"action"`
+	Target    string    `gorm:"size:64;index" json:"target"`
+	Message   string    `gorm:"size:1024" json:"message"`
+	CreatedAt time.Time `gorm:"index" json:"created_at"`
+}

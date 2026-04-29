@@ -567,6 +567,26 @@ func (a *App) sendDeployCommandToAgent(serverID uint, deployID uint, repoURL, br
 	if envVars == nil {
 		envVars = map[string]string{}
 	}
+	resolvedEnvVars := make(map[string]string, len(envVars))
+	for key, value := range envVars {
+		v := strings.TrimSpace(value)
+		if strings.HasPrefix(strings.ToLower(v), "secret://") {
+			secretName := strings.TrimSpace(strings.TrimPrefix(v, "secret://"))
+			secretValue, item, resolveErr := a.resolveSecretValue(userIDFromDeployOrZero(a.db, deployID), serverID, secretName, "")
+			if resolveErr != nil {
+				return errors.New("failed to resolve secret env reference: " + secretName)
+			}
+			resolvedEnvVars[key] = secretValue
+			now := time.Now().UTC()
+			_ = a.db.Model(&models.SecretVaultItem{}).Where("id = ?", item.ID).Updates(map[string]any{
+				"usage_count":  item.UsageCount + 1,
+				"last_used_at": &now,
+			}).Error
+			a.logSecretAudit(item.UserID, item.ServerID, &item.ID, "inject", "deploy", item.Name)
+			continue
+		}
+		resolvedEnvVars[key] = value
+	}
 
 	payload := map[string]any{
 		"deploy_id":    deployID,
@@ -588,8 +608,8 @@ func (a *App) sendDeployCommandToAgent(serverID uint, deployID uint, repoURL, br
 		"buildCommand":  normalizedBuild,
 		"output_dir":    normalizedOutput,
 		"outputDir":     normalizedOutput,
-		"envVars":       envVars,
-		"env_vars":      envVars,
+		"envVars":       resolvedEnvVars,
+		"env_vars":      resolvedEnvVars,
 	}
 
 	log.Printf("dispatch deploy command: deploy_id=%d server_id=%d command=deploy branch=%q repo=%q type=%q subdirectory=%q", deployID, serverID, normalizedBranch, normalizedRepoURL, normalizedProjectType, normalizedSubdirectory)
@@ -859,6 +879,17 @@ func parseDeployEnvVars(raw datatypes.JSON) map[string]string {
 		return map[string]string{}
 	}
 	return out
+}
+
+func userIDFromDeployOrZero(db *gorm.DB, deployID uint) uint {
+	if db == nil || deployID == 0 {
+		return 0
+	}
+	var deploy models.Deploy
+	if err := db.Select("user_id").Where("id = ?", deployID).First(&deploy).Error; err != nil {
+		return 0
+	}
+	return deploy.UserID
 }
 
 func hasDangerousInputChars(value string) bool {

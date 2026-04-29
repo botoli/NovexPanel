@@ -1,0 +1,54 @@
+:root {
+  --fo-bg: var(--color-bg, #0f1115);
+  --fo-surface: var(--color-bg-secondary, #151922);
+  --fo-border: var(--color-border, #252b36);
+  --fo-text: var(--color-text-primary, #d8dee9);
+}
+
+.page { padding: 16px; color: var(--fo-text); display: grid; gap: 12px; }
+.header, .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.layout { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; }
+.card { background: var(--fo-surface); border: 1px solid var(--fo-border); border-radius: 10px; padding: 12px; }
+.list { display: grid; gap: 6px; max-height: 320px; overflow: auto; }
+.listItem {
+  border: 1px solid var(--fo-border);
+  border-radius: 8px;
+  background: var(--fo-bg);
+  color: var(--fo-text);
+  padding: 8px;
+  text-align: left;
+}
+.input, .select, .btn, .btnPrimary {
+  border: 1px solid var(--fo-border);
+  border-radius: 8px;
+  background: var(--fo-bg);
+  color: var(--fo-text);
+  padding: 8px 10px;
+}
+.btnPrimary { background: var(--fo-surface); }
+.diffGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.label { margin-bottom: 6px; font-size: 12px; opacity: 0.8; }
+.code {
+  border: 1px solid var(--fo-border);
+  border-radius: 8px;
+  background: var(--fo-bg);
+  padding: 8px;
+  max-height: 360px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+.editor {
+  width: 100%;
+  min-height: 360px;
+  border: 1px solid var(--fo-border);
+  border-radius: 8px;
+  background: var(--fo-bg);
+  color: var(--fo-text);
+  padding: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  resize: vertical;
+}

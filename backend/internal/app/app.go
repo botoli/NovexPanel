@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"novexpanel/backend/internal/auth"
@@ -26,6 +27,14 @@ type App struct {
 
 	apiLimiter  *fixedWindowRateLimiter
 	authLimiter *fixedWindowRateLimiter
+	fileLockMu  sync.Mutex
+	fileLocks   map[string]fileLockState
+}
+
+type fileLockState struct {
+	Token     string
+	UserID    uint
+	ExpiresAt time.Time
 }
 
 func New(cfg config.Config, db *gorm.DB) *App {
@@ -35,6 +44,7 @@ func New(cfg config.Config, db *gorm.DB) *App {
 		hub:         NewHub(db),
 		apiLimiter:  newFixedWindowRateLimiter(240, time.Minute),
 		authLimiter: newFixedWindowRateLimiter(10, 5*time.Minute),
+		fileLocks:   make(map[string]fileLockState),
 	}
 }
 
@@ -92,6 +102,23 @@ func (a *App) Router() *gin.Engine {
 		authGroup.GET("/servers/:id/services/dependencies", a.handleServiceDependencies)
 		authGroup.GET("/servers/:id/services/restart-history", a.handleServiceRestartHistory)
 		authGroup.GET("/servers/:id/services/audit", a.handleServiceAuditLogs)
+		authGroup.GET("/servers/:id/secrets", a.handleListSecrets)
+		authGroup.POST("/servers/:id/secrets", a.handleCreateSecret)
+		authGroup.PATCH("/servers/:id/secrets/:secretId", a.handleUpdateSecret)
+		authGroup.POST("/servers/:id/secrets/:secretId/rotate", a.handleRotateSecret)
+		authGroup.POST("/servers/:id/secrets/:secretId/revoke", a.handleRevokeSecret)
+		authGroup.POST("/servers/:id/secrets/:secretId/reveal", a.handleRevealSecret)
+		authGroup.POST("/servers/:id/secrets/inject", a.handleInjectSecrets)
+		authGroup.GET("/servers/:id/secrets/audit", a.handleSecretsAudit)
+		authGroup.GET("/servers/:id/files/tree", a.handleFileTree)
+		authGroup.GET("/servers/:id/files/content", a.handleFileContent)
+		authGroup.POST("/servers/:id/files/validate", a.handleFileValidate)
+		authGroup.POST("/servers/:id/files/lock", a.handleFileLock)
+		authGroup.POST("/servers/:id/files/unlock", a.handleFileUnlock)
+		authGroup.GET("/servers/:id/files/history", a.handleFileHistory)
+		authGroup.GET("/servers/:id/files/audit", a.handleFileAudit)
+		authGroup.POST("/servers/:id/files/apply", a.handleFileApply)
+		authGroup.POST("/servers/:id/files/rollback", a.handleFileRollback)
 		authGroup.POST("/servers/:id/deploy", a.handleServerDeploy)
 		authGroup.POST("/servers/:id/runbooks", a.handleCreateRunbook)
 		authGroup.GET("/servers/:id/runbooks", a.handleListRunbooks)
@@ -144,6 +171,18 @@ func (a *App) Router() *gin.Engine {
 
 func (a *App) StartBackgroundJobs(ctx context.Context) {
 	go a.metricsRetentionWorker(ctx, time.Hour)
+	go func() {
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				a.rotateExpiredSecretsTick()
+			}
+		}
+	}()
 }
 
 func (a *App) userAuthMiddleware() gin.HandlerFunc {

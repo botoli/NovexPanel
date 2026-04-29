@@ -5,8 +5,10 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -874,6 +876,179 @@ func (a *Agent) handleCommand(msg commandMessage) {
 			return
 		}
 		a.sendCommandResponse(msg.RequestID, true, history, "")
+	case "file_list":
+		var payload struct {
+			Path string `json:"path"`
+		}
+		if len(msg.Payload) > 0 {
+			_ = json.Unmarshal(msg.Payload, &payload)
+		}
+		path := strings.TrimSpace(payload.Path)
+		if path == "" {
+			path = "/etc"
+		}
+		entries, err := os.ReadDir(path)
+		if err != nil {
+			respondError(err)
+			return
+		}
+		items := make([]map[string]any, 0, len(entries))
+		for _, entry := range entries {
+			name := entry.Name()
+			full := filepath.Join(path, name)
+			kind := "file"
+			if entry.IsDir() {
+				kind = "dir"
+			}
+			items = append(items, map[string]any{
+				"name": name,
+				"path": full,
+				"type": kind,
+			})
+		}
+		a.sendCommandResponse(msg.RequestID, true, map[string]any{"path": path, "items": items}, "")
+	case "file_read":
+		var payload struct {
+			Path string `json:"path"`
+		}
+		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			respondError(fmt.Errorf("invalid payload"))
+			return
+		}
+		path := strings.TrimSpace(payload.Path)
+		if !isSupportedFilePath(path) {
+			respondError(fmt.Errorf("path is not allowed"))
+			return
+		}
+		contentBytes, err := os.ReadFile(path)
+		if err != nil {
+			respondError(err)
+			return
+		}
+		content := string(contentBytes)
+		a.sendCommandResponse(msg.RequestID, true, map[string]any{
+			"path":     path,
+			"content":  content,
+			"checksum": fileSHA256(content),
+		}, "")
+	case "file_validate":
+		var payload struct {
+			Provider string `json:"provider"`
+			Path     string `json:"path"`
+			Content  string `json:"content"`
+		}
+		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			respondError(fmt.Errorf("invalid payload"))
+			return
+		}
+		validation, err := validateFileContent(payload.Provider, payload.Path, payload.Content)
+		if err != nil {
+			respondError(err)
+			return
+		}
+		a.sendCommandResponse(msg.RequestID, true, validation, "")
+	case "file_apply":
+		var payload struct {
+			Provider     string `json:"provider"`
+			Path         string `json:"path"`
+			Content      string `json:"content"`
+			ExpectedHash string `json:"expected_hash"`
+		}
+		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			respondError(fmt.Errorf("invalid payload"))
+			return
+		}
+		path := strings.TrimSpace(payload.Path)
+		if !isSupportedFilePath(path) {
+			respondError(fmt.Errorf("path is not allowed"))
+			return
+		}
+		currentBytes, err := os.ReadFile(path)
+		if err != nil {
+			respondError(err)
+			return
+		}
+		currentContent := string(currentBytes)
+		currentHash := fileSHA256(currentContent)
+		if strings.TrimSpace(payload.ExpectedHash) != "" && !strings.EqualFold(strings.TrimSpace(payload.ExpectedHash), currentHash) {
+			respondError(fmt.Errorf("optimistic lock conflict: file changed"))
+			return
+		}
+		validation, err := validateFileContent(payload.Provider, path, payload.Content)
+		if err != nil {
+			respondError(err)
+			return
+		}
+		if ok, _ := validation["ok"].(bool); !ok {
+			a.sendCommandResponse(msg.RequestID, true, map[string]any{
+				"ok":         false,
+				"validation": validation,
+				"error":      validation["error"],
+			}, "")
+			return
+		}
+		backupDir := filepath.Join(os.TempDir(), "novex-fileops-backups")
+		if err := os.MkdirAll(backupDir, 0o755); err != nil {
+			respondError(err)
+			return
+		}
+		backupFile := filepath.Join(backupDir, fmt.Sprintf("%s.%d.bak", filepath.Base(path), time.Now().UnixNano()))
+		if err := os.WriteFile(backupFile, currentBytes, 0o600); err != nil {
+			respondError(err)
+			return
+		}
+		tmpFile := path + ".novex.tmp"
+		if err := os.WriteFile(tmpFile, []byte(payload.Content), 0o600); err != nil {
+			respondError(err)
+			return
+		}
+		if err := os.Rename(tmpFile, path); err != nil {
+			_ = os.Remove(tmpFile)
+			respondError(err)
+			return
+		}
+		if err := applyFileProviderAction(payload.Provider, path); err != nil {
+			_ = os.WriteFile(path, currentBytes, 0o600)
+			respondError(fmt.Errorf("apply failed: %s", err.Error()))
+			return
+		}
+		if err := healthCheckProvider(payload.Provider, path); err != nil {
+			_ = os.WriteFile(path, currentBytes, 0o600)
+			respondError(fmt.Errorf("health check failed: %s", err.Error()))
+			return
+		}
+		a.sendCommandResponse(msg.RequestID, true, map[string]any{
+			"ok":          true,
+			"path":        path,
+			"backup_path": backupFile,
+			"checksum":    fileSHA256(payload.Content),
+			"validation":  validation,
+		}, "")
+	case "file_rollback":
+		var payload struct {
+			Path    string `json:"path"`
+			Content string `json:"content"`
+		}
+		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			respondError(fmt.Errorf("invalid payload"))
+			return
+		}
+		path := strings.TrimSpace(payload.Path)
+		if !isSupportedFilePath(path) {
+			respondError(fmt.Errorf("path is not allowed"))
+			return
+		}
+		tmpFile := path + ".novex.rollback.tmp"
+		if err := os.WriteFile(tmpFile, []byte(payload.Content), 0o600); err != nil {
+			respondError(err)
+			return
+		}
+		if err := os.Rename(tmpFile, path); err != nil {
+			_ = os.Remove(tmpFile)
+			respondError(err)
+			return
+		}
+		a.sendCommandResponse(msg.RequestID, true, map[string]any{"ok": true, "path": path, "checksum": fileSHA256(payload.Content)}, "")
 	case "run_terminal":
 		var payload struct {
 			SessionID string `json:"session_id"`
@@ -3357,4 +3532,143 @@ func (a *Agent) serviceRestartHistory(providerRaw, service string) (map[string]a
 	default:
 		return nil, fmt.Errorf("unsupported provider")
 	}
+}
+
+func isSupportedFilePath(path string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(path))
+	if normalized == "" {
+		return false
+	}
+	allowedPrefixes := []string{"/etc/nginx", "/etc/systemd", "/etc/supervisor", "/opt", "/srv", "/var/www", "/home"}
+	for _, prefix := range allowedPrefixes {
+		if strings.HasPrefix(normalized, prefix) {
+			return true
+		}
+	}
+	return strings.HasSuffix(normalized, ".env") ||
+		strings.HasSuffix(normalized, ".yaml") ||
+		strings.HasSuffix(normalized, ".yml") ||
+		strings.HasSuffix(normalized, ".json") ||
+		strings.HasSuffix(normalized, ".toml") ||
+		strings.HasSuffix(normalized, ".conf") ||
+		strings.HasSuffix(normalized, "docker-compose.yml")
+}
+
+func fileSHA256(content string) string {
+	sum := sha256.Sum256([]byte(content))
+	return hex.EncodeToString(sum[:])
+}
+
+func validateFileContent(provider, path, content string) (map[string]any, error) {
+	provider = strings.TrimSpace(strings.ToLower(provider))
+	path = strings.TrimSpace(path)
+	validation := map[string]any{"ok": true, "provider": provider, "checks": []string{}}
+	if provider == "" {
+		provider = "generic"
+	}
+	appendCheck := func(text string) {
+		checks := validation["checks"].([]string)
+		checks = append(checks, text)
+		validation["checks"] = checks
+	}
+	switch provider {
+	case "nginx":
+		tmpFile, err := os.CreateTemp("", "novex-nginx-*.conf")
+		if err != nil {
+			return nil, err
+		}
+		defer os.Remove(tmpFile.Name())
+		if _, err := tmpFile.WriteString(content); err != nil {
+			return nil, err
+		}
+		_ = tmpFile.Close()
+		stdout, stderr, exitCode, err := runShellCommand(fmt.Sprintf("nginx -t -c %s", tmpFile.Name()))
+		appendCheck("nginx -t")
+		if err != nil || exitCode != 0 {
+			validation["ok"] = false
+			validation["error"] = strings.TrimSpace(stderr + "\n" + stdout)
+		}
+	case "docker-compose":
+		tmpFile, err := os.CreateTemp("", "novex-compose-*.yml")
+		if err != nil {
+			return nil, err
+		}
+		defer os.Remove(tmpFile.Name())
+		if _, err := tmpFile.WriteString(content); err != nil {
+			return nil, err
+		}
+		_ = tmpFile.Close()
+		stdout, stderr, exitCode, err := runShellCommand(fmt.Sprintf("docker compose -f %s config -q", tmpFile.Name()))
+		appendCheck("docker compose config -q")
+		if err != nil || exitCode != 0 {
+			validation["ok"] = false
+			validation["error"] = strings.TrimSpace(stderr + "\n" + stdout)
+		}
+	case "systemd":
+		tmpFile, err := os.CreateTemp("", "novex-systemd-*.service")
+		if err != nil {
+			return nil, err
+		}
+		defer os.Remove(tmpFile.Name())
+		if _, err := tmpFile.WriteString(content); err != nil {
+			return nil, err
+		}
+		_ = tmpFile.Close()
+		stdout, stderr, exitCode, err := runShellCommand(fmt.Sprintf("systemd-analyze verify %s", tmpFile.Name()))
+		appendCheck("systemd-analyze verify")
+		if err != nil || exitCode != 0 {
+			validation["ok"] = false
+			validation["error"] = strings.TrimSpace(stderr + "\n" + stdout)
+		}
+	default:
+		appendCheck("generic syntax check skipped")
+	}
+	_ = path
+	return validation, nil
+}
+
+func applyFileProviderAction(provider, path string) error {
+	provider = strings.TrimSpace(strings.ToLower(provider))
+	switch provider {
+	case "nginx":
+		_, stderr, exitCode, err := runShellCommand("nginx -t")
+		if err != nil || exitCode != 0 {
+			return fmt.Errorf(strings.TrimSpace(stderr))
+		}
+		_, stderr, exitCode, err = runShellCommand("sudo systemctl reload nginx")
+		if err != nil || exitCode != 0 {
+			return fmt.Errorf(strings.TrimSpace(stderr))
+		}
+	case "docker-compose":
+		_, stderr, exitCode, err := runShellCommand(fmt.Sprintf("docker compose -f %s config -q", path))
+		if err != nil || exitCode != 0 {
+			return fmt.Errorf(strings.TrimSpace(stderr))
+		}
+		_, stderr, exitCode, err = runShellCommand(fmt.Sprintf("docker compose -f %s up -d", path))
+		if err != nil || exitCode != 0 {
+			return fmt.Errorf(strings.TrimSpace(stderr))
+		}
+	case "systemd":
+		_, stderr, exitCode, err := runShellCommand("sudo systemctl daemon-reload")
+		if err != nil || exitCode != 0 {
+			return fmt.Errorf(strings.TrimSpace(stderr))
+		}
+	}
+	return nil
+}
+
+func healthCheckProvider(provider, path string) error {
+	switch strings.TrimSpace(strings.ToLower(provider)) {
+	case "nginx":
+		_, stderr, exitCode, err := runShellCommand("systemctl is-active nginx")
+		if err != nil || exitCode != 0 {
+			return fmt.Errorf(strings.TrimSpace(stderr))
+		}
+	case "docker-compose":
+		_, stderr, exitCode, err := runShellCommand(fmt.Sprintf("docker compose -f %s ps", path))
+		if err != nil || exitCode != 0 {
+			return fmt.Errorf(strings.TrimSpace(stderr))
+		}
+	}
+	return nil
 }

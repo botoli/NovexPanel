@@ -29,6 +29,10 @@ func runMigrations(db *gorm.DB) error {
 		&models.RunbookExecutionLog{},
 		&models.RunbookAuditEvent{},
 		&models.ServiceActionLog{},
+		&models.FileOpVersion{},
+		&models.FileOpAuditLog{},
+		&models.SecretVaultItem{},
+		&models.SecretVaultAuditLog{},
 	); err != nil {
 		return fmt.Errorf("automigrate schema: %w", err)
 	}
