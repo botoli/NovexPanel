@@ -223,12 +223,14 @@
 }
 
 .techCard {
-	position: relative;
+	
 	display: flex;
+	
 	flex-direction: column;
 	align-items: flex-start;
 	gap: 6px;
 	padding: $space-4;
+	height: 100%;
 	border-radius: $radius-lg;
 	border: 1px solid rgba($color-text-primary, 0.09);
 	background:
@@ -259,7 +261,6 @@
 
 .techCardSelected {
 	border-color: rgba($color-status-online, 0.55);
-
 }
 
 .techCheck {
@@ -423,13 +424,65 @@
 	cursor: pointer;
 	transition:
 		transform $transition-base,
-		border-color $transition-base,
-		
+		border-color $transition-base;
 
 	svg {
 		font-size: 18px;
 	}
 	}
+}
+
+.envTableContainer {
+	background: rgba($color-bg, 0.08);
+	border: 1px solid rgba($color-text-primary, 0.09);
+	border-radius: $radius-lg;
+	overflow: hidden;
+	margin-top: $space-2;
+}
+
+.envTable {
+	width: 100%;
+	border-collapse: collapse;
+	text-align: left;
+	font-size: $font-size-body;
+
+	th {
+		padding: $space-3 $space-4;
+		color: rgba($color-text-primary, 0.72);
+		font-weight: $font-weight-medium;
+		font-size: $font-size-small;
+		background: rgba($color-text-primary, 0.03);
+		border-bottom: 1px solid rgba($color-text-primary, 0.09);
+	}
+
+	tr {
+		transition: background-color $transition-base;
+		
+		&:hover {
+			background: rgba($color-bg, 0.12);
+		}
+	}
+
+	td {
+		padding: $space-3 $space-4;
+		color: $color-text-primary;
+		border-bottom: 1px solid rgba($color-text-primary, 0.05);
+		word-break: break-all;
+	}
+
+	tr:last-child td {
+		border-bottom: none;
+	}
+}
+
+.envKey {
+	font-weight: $font-weight-medium;
+	width: 35%;
+	color: rgba($color-status-online, 0.9) !important;
+}
+
+.envValue {
+	color: rgba($color-text-primary, 0.85) !important;
 }
 
 .featureDesc {

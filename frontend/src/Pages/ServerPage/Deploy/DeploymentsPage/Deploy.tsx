@@ -207,7 +207,18 @@ export const DeployPage = observer(() => {
                     type='text'
                     placeholder='Key'
                     value={envKey}
-                    onChange={(e) => setEnvKey(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      // Если в тексте есть знак "=", разбиваем строку
+                      if (val.includes('=')) {
+                        const [key, ...rest] = val.split('=');
+                        setEnvKey(key.trim());
+                        setEnvValue(rest.join('=').trim());
+                      } else {
+                        // Иначе просто обновляем ключ
+                        setEnvKey(val);
+                      }
+                    }}
                   />
                 </div>
                 <div className={styles.inputSection}>
@@ -229,11 +240,26 @@ export const DeployPage = observer(() => {
                 </button>
               </div>
 
-              {envVarList?.map((env, index) => (
-                <div key={index} className={styles.addEnvBtn}>
-                  <span>{env.envKey}: {env.envValue}</span>
+              {envVarList.length > 0 && (
+                <div className={styles.envTableContainer}>
+                  <table className={styles.envTable}>
+                    <thead>
+                      <tr>
+                        <th>Key</th>
+                        <th>Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {envVarList.map((env, index) => (
+                        <tr key={index}>
+                          <td className={styles.envKey}>{env.envKey}</td>
+                          <td className={styles.envValue}>{env.envValue}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              ))}
+              )}
               <button
                 type='button'
                 className={styles.primaryBtn}

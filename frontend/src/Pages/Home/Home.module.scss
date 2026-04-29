@@ -95,7 +95,7 @@
   border: 1px solid rgba($color-border, 0.8);
   overflow: hidden;
   isolation: isolate;
-   background: linear-gradient(180deg, rgba($color-status-online, 0.04), rgba($color-text-primary, 0.01));
+   
 
   cursor: pointer;
   transition:
@@ -116,7 +116,7 @@
     transition: opacity .35s ease;
 
     background-image: $hover-url;
-    background-size: 100px;
+    background-size: 60px;
     background-repeat: repeat;
 
     mix-blend-mode: soft-light;
@@ -129,7 +129,7 @@
 
     &::before {
       
-      opacity: 0.2;
+      opacity: 0.4;
       
     }
   }
@@ -294,6 +294,7 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   border-bottom: 1px solid rgba($color-text-primary, 0.2);
+  
 }
 
 .metricCard {
@@ -308,18 +309,19 @@
 
   &:nth-child(3n) {
     border-right: none;
+  
   }
+  
 }
 
-.metricCardCpu {
-  background: linear-gradient(180deg, rgba($color-status-online, 0.04), rgba($color-text-primary, 0.01));
-}
+
 
 .metricCardHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: $space-3;
+   
 }
 
 .metricCardLabel {
@@ -332,7 +334,7 @@
   color: rgba($color-text-primary, 0.48);
 
   svg {
-    font-size: 25px;
+    font-size: 20px;
   }
 }
 
@@ -351,6 +353,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+   
 }
 
 .metricCardValue {
@@ -360,18 +363,21 @@
   font-weight: $font-weight-semibold;
   color: var(--load-color, $color-text-primary);
   transition: color $transition-base;
+  
 }
 
 .metricCardMeta {
   color: rgba($color-text-primary, 0.55);
   font-size: $font-size-small;
   line-height: 1.35;
+  
 }
 
 .serverDetailsGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   border-top: 1px solid rgba($color-text-primary, 0.2);
+  
 }
 
 .serverDetail {
@@ -891,14 +897,12 @@
 
   &:hover {
     border-color: rgba($color-status-online, 0.4);
-    background: rgba($color-status-online, 0.03);
     box-shadow: 0 12px 24px rgba($color-status-online, 0.08);
 
     .addServerIcon {
       transform: scale(1.15) rotate(90deg);
-      background: rgba($color-status-online, 0.1);
       color: $color-status-online;
-      box-shadow: 0 0 16px rgba($color-status-online, 0.2);
+   
     }
     
     .addServer h1 {

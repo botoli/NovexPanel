@@ -6,6 +6,7 @@ import { API_BASE } from '../../Api/api';
 import AuthBtns from '../../common/AuthBtns/AuthBtns';
 import { agentTokenStore } from '../../Store/AgentTokenStore';
 import { tokenStore } from '../../Store/TokenStore';
+import { Confirm } from '../Confirm/Confirm';
 import styles from './Account.module.scss';
 export interface TokenData {
   created_at: string;
@@ -25,6 +26,7 @@ export interface TokenData {
 const Account = observer(() => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [tokensData, setTokensData] = useState<TokenData[]>([]);
@@ -139,17 +141,26 @@ const Account = observer(() => {
                 <button
                   type='button'
                   className={styles.ghostBtn}
-                  onClick={() => {
-                    tokenStore.clearToken();
-                    agentTokenStore.clearAgentToken();
-                    navigate('/');
-                  }}
+                  onClick={() => setIsConfirmOpen(true)}
                 >
                   <Icon
                     icon='mdi:logout'
                     className={styles.btnIcon}
                   />
                   Log out
+                  <Confirm
+                    isOpen={isConfirmOpen}
+                    title='Confirm Logout'
+                    description='Are you sure you want to log out?'
+                    confirmText='Log out'
+                    danger={true} // кнопка будет красной ($color-status-offline)
+                    onConfirm={() => {
+                      tokenStore.clearToken();
+                      agentTokenStore.clearAgentToken();
+                      navigate('/');
+                    }}
+                    onCancel={() => setIsConfirmOpen(false)}
+                  />
                 </button>
                 <button type='button' className={styles.deleteBtn}>
                   <Icon icon='mdi:delete-outline' className={styles.btnIcon} />

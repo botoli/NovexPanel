@@ -3,6 +3,7 @@ import { observer } from 'mobx-react-lite';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { API_BASE } from '../../../../Api/api';
+import { Confirm } from '../../../../modals/Confirm/Confirm';
 import { DeployStore } from '../../../../Store/DeployStore';
 import { useCurrentServer } from '../../../../Store/ServerStore';
 import { tokenStore } from '../../../../Store/TokenStore';
@@ -40,7 +41,9 @@ export const DeploymentDetailPage = observer(() => {
   >([]);
   const [appLogs, setAppLogs] = useState<{ line: string; stream: string; }[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [env, setEnv] = useState<{ key: string; value: string; }[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [isConfirmOpen, setIsConfirmOpen] = useState<boolean>(false);
   const wsRef = useRef<WebSocket | null>(null);
   const { server } = useCurrentServer();
   const fetchDeployData = async () => {
@@ -57,6 +60,9 @@ export const DeploymentDetailPage = observer(() => {
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const data = await response.json();
       setDeployData(data);
+      const envArray: [string, string][] = Object.entries(data.env_vars);
+      setEnv(envArray.map(([key, value]) => ({ key, value })));
+      console.log(env);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Произошла ошибка');
     } finally {
@@ -224,10 +230,21 @@ export const DeploymentDetailPage = observer(() => {
               type='button'
               className={`${styles.btn} ${styles.btnDanger}`}
               onClick={() => {
-                deleteDeploy(DeployStore.getDeployId());
-                navigate(`/servers/${server?.id}/deployments/`);
+                setIsConfirmOpen(true);
               }}
             >
+              <Confirm
+                isOpen={isConfirmOpen}
+                title='Confirm Deletion'
+                description={`Are you sure you want to delete this deployment ${DeployStore.getDeployId()}? This action cannot be undone.`}
+                confirmText='Delete'
+                danger={true} // кнопка будет красной ($color-status-offline)
+                onConfirm={() => {
+                  deleteDeploy(DeployStore.getDeployId());
+                  navigate(`/servers/${server?.id}/deployments/`);
+                }}
+                onCancel={() => setIsConfirmOpen(false)}
+              />
               <Icon icon='mdi:delete-outline' />
               Delete
             </button>
@@ -273,13 +290,11 @@ export const DeploymentDetailPage = observer(() => {
         </div>
       </header>
 
-      {/* 2. Переменные окружения */}
-      {
-        /* <section className={styles.section} aria-labelledby='env-heading'>
+      <section className={styles.section} aria-labelledby='env-heading'>
         <h2 className={styles.sectionTitle} id='env-heading'>
           Переменные окружения
         </h2>
-        {deployData?.env.length === 0
+        {env.length === 0
           ? <p className={styles.emptyHint}>Нет переменных окружения</p>
           : (
             <div className={styles.tableWrap}>
@@ -291,10 +306,9 @@ export const DeploymentDetailPage = observer(() => {
                     <th style={{ width: 1 }} />
                   </tr>
                 </thead>
-                {
-                  /* <tbody>
-                  {data.env.map((row) => {
-                    const vis = envVisible[row.key] === true;
+                <tbody>
+                  {env.map((row) => {
+                    const vis = row.value === row.value;
                     return (
                       <tr key={row.key}>
                         <td>
@@ -308,25 +322,24 @@ export const DeploymentDetailPage = observer(() => {
                           </code>
                         </td>
                         <td>
-                          <button
+                          {
+                            /* <button
                             type='button'
                             className={styles.showBtn}
                             onClick={() => toggleEnv(row.key)}
                           >
                             {vis ? 'скрыть' : 'показать'}
-                          </button>
+                          </button> */
+                          }
                         </td>
                       </tr>
                     );
                   })}
-                </tbody> */
-      }
-      {
-        /* </table>
+                </tbody>
+              </table>
             </div>
           )}
-      </section> */
-      }
+      </section>
 
       {/* 3. Сборка и запуск */}
       <section className={styles.section} aria-labelledby='build-heading'>
@@ -440,47 +453,6 @@ export const DeploymentDetailPage = observer(() => {
           value={appLogs.map(line => line.line).join('\n')}
           aria-label='Логи работы приложения'
         />
-      </section>
-
-      {/* 7. Действия */}
-      <section className={styles.section} aria-labelledby='actions-heading'>
-        <h2 className={styles.sectionTitle} id='actions-heading'>
-          Действия
-        </h2>
-        <div className={styles.actionsList}>
-          <div className={styles.actionRow}>
-            <span className={styles.actionLabel}>Перезапустить контейнер</span>
-            <button type='button' className={`${styles.btn} ${styles.btnSecondary}`}>
-              <Icon icon='mdi:restart' />
-              Restart
-            </button>
-          </div>
-          <div className={styles.actionRow}>
-            <span className={styles.actionLabel}>Остановить контейнер</span>
-            <button type='button' className={`${styles.btn} ${styles.btnSecondary}`}>
-              <Icon icon='mdi:stop' />
-              Stop
-            </button>
-          </div>
-          <div className={styles.actionRow}>
-            <span className={styles.actionLabel}>
-              Удалить деплой: контейнер, образ, запись в БД
-            </span>
-            <button type='button' className={`${styles.btn} ${styles.btnDanger}`}>
-              <Icon icon='mdi:delete-outline' />
-              Delete
-            </button>
-          </div>
-          <div className={styles.actionRow}>
-            <span className={styles.actionLabel}>
-              Запустить новый деплой с теми же параметрами (новая сборка)
-            </span>
-            <button type='button' className={`${styles.btn} ${styles.btnPrimary}`}>
-              <Icon icon='mdi:rocket-launch' />
-              Redeploy
-            </button>
-          </div>
-        </div>
       </section>
     </div>
   );

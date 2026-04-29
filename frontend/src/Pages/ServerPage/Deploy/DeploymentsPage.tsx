@@ -6,6 +6,7 @@ import { tokenStore } from '../../../Store/TokenStore';
 
 import { NavLink, useNavigate } from 'react-router-dom';
 import { API_BASE } from '../../../Api/api';
+import { Confirm } from '../../../modals/Confirm/Confirm';
 import { DeployStore } from '../../../Store/DeployStore';
 import styles from './DeploymentsPage.module.scss';
 interface DeployData {
@@ -28,6 +29,7 @@ export const DeploymentsPage = observer(() => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [DeploymentProjects, setDeploymentProjects] = useState<DeployData[] | null>(null);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const deleteDeploy = async (id: number) => {
     try {
       setLoading(true);
@@ -209,11 +211,20 @@ export const DeploymentsPage = observer(() => {
                           <button
                             className={styles.deleteBtn}
                             onClick={() => {
-                              deleteDeploy(project.id);
+                              setIsConfirmOpen(true);
                               navigate(`/servers/${server?.id}/deployments`);
                             }}
                             title='Stop deployment'
                           >
+                            <Confirm
+                              isOpen={isConfirmOpen}
+                              title='Confirm Deletion'
+                              description='Are you sure you want to delete this deployment? This action cannot be undone.'
+                              confirmText='Delete'
+                              danger={true} // кнопка будет красной ($color-status-offline)
+                              onConfirm={() => deleteDeploy(project.id)}
+                              onCancel={() => setIsConfirmOpen(false)}
+                            />
                             <Icon icon='mdi:stop' />
                           </button>
                           <button
