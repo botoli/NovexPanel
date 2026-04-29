@@ -3,10 +3,10 @@ import { Icon } from '@iconify/react';
 import { observer } from 'mobx-react-lite';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { refreshStore } from '../../../Store/RefreshStore';
-import { toastStore } from '../../../Store/ToastStore';
 import { API_BASE } from '../../../Api/api';
 import { Confirm } from '../../../modals/Confirm/Confirm';
+import { refreshStore } from '../../../Store/RefreshStore';
+import { toastStore } from '../../../Store/ToastStore';
 import { tokenStore } from '../../../Store/TokenStore';
 import styles from './ProcessesPage.module.scss';
 
@@ -73,7 +73,9 @@ const ProcessesPage = observer(() => {
   const [viewMode, setViewMode] = useState<'list' | 'tree'>('tree');
   const [page, setPage] = useState(1);
   const pageSize = 100;
-  const [confirm, setConfirm] = useState<{ action: ProcessAction; pid: number; name: string; } | null>(null);
+  const [confirm, setConfirm] = useState<
+    { action: ProcessAction; pid: number; name: string; } | null
+  >(null);
 
   const { id } = useParams<{ id?: string; }>();
   const serverId = id ? Number(id) : Number.NaN;
@@ -145,7 +147,10 @@ const ProcessesPage = observer(() => {
     }
 
     if (filterState !== 'all') {
-      list = list.filter(p => (filterState === 'stopped' ? isStoppedHeuristic(p.state) : !isStoppedHeuristic(p.state)));
+      list = list.filter(p => (filterState === 'stopped'
+        ? isStoppedHeuristic(p.state)
+        : !isStoppedHeuristic(p.state))
+      );
     }
 
     const sorted = [...list].sort((a, b) => {
@@ -334,7 +339,11 @@ const ProcessesPage = observer(() => {
                 void refreshStore.run(async () => {
                   await fetchProcesses();
                 }, 'server').catch((err) => {
-                  toastStore.push('error', err instanceof Error ? err.message : 'Refresh failed', 'Processes');
+                  toastStore.push(
+                    'error',
+                    err instanceof Error ? err.message : 'Refresh failed',
+                    'Processes',
+                  );
                 });
               }}
             >
@@ -351,7 +360,8 @@ const ProcessesPage = observer(() => {
           {pagedProcesses.total} total
         </span>
         <span className={styles.metaHint}>
-          Showing {pagedProcesses.items.length} / {pagedProcesses.total}. Page {pagedProcesses.page}/{pagedProcesses.pageCount}.
+          Showing {pagedProcesses.items.length} / {pagedProcesses.total}. Page{' '}
+          {pagedProcesses.page}/{pagedProcesses.pageCount}.
         </span>
       </div>
 
@@ -377,7 +387,8 @@ const ProcessesPage = observer(() => {
               <tbody>
                 {pagedProcesses.items.map(({ p: process, depth }) => {
                   const tone = getProcessTone(process.cpu, process.mem);
-                  const hasChildren = Boolean(process.has_children) || (tree.children.get(process.pid)?.length ?? 0) > 0;
+                  const hasChildren = Boolean(process.has_children)
+                    || (tree.children.get(process.pid)?.length ?? 0) > 0;
                   const isExpanded = expanded.has(process.pid);
                   const isSystem = (process.type || 'user') === 'system';
                   const cpuHot = (process.cpu ?? 0) >= 70;
@@ -390,7 +401,11 @@ const ProcessesPage = observer(() => {
                         <div className={styles.nameTreeCell}>
                           {viewMode === 'tree'
                             ? (
-                              <span className={styles.treeIndent} style={{ width: depth * 14 }} aria-hidden='true' />
+                              <span
+                                className={styles.treeIndent}
+                                style={{ width: depth * 14 }}
+                                aria-hidden='true'
+                              />
                             )
                             : null}
                           {viewMode === 'tree'
@@ -399,7 +414,9 @@ const ProcessesPage = observer(() => {
                                 type='button'
                                 className={styles.expander}
                                 disabled={!hasChildren}
-                                aria-label={hasChildren ? (isExpanded ? 'Collapse' : 'Expand') : 'No child processes'}
+                                aria-label={hasChildren
+                                  ? (isExpanded ? 'Collapse' : 'Expand')
+                                  : 'No child processes'}
                                 onClick={() => {
                                   if (!hasChildren) return;
                                   setExpanded((prev) => {
@@ -410,12 +427,20 @@ const ProcessesPage = observer(() => {
                                   });
                                 }}
                               >
-                                <Icon icon={hasChildren ? (isExpanded ? 'mdi:chevron-down' : 'mdi:chevron-right') : 'mdi:minus'} />
+                                <Icon
+                                  icon={hasChildren
+                                    ? (isExpanded ? 'mdi:chevron-down' : 'mdi:chevron-right')
+                                    : 'mdi:minus'}
+                                />
                               </button>
                             )
                             : null}
                           <span className={styles.processName}>{process.name}</span>
-                          <span className={`${styles.typeBadge} ${isSystem ? styles.typeSystem : styles.typeUser}`}>
+                          <span
+                            className={`${styles.typeBadge} ${
+                              isSystem ? styles.typeSystem : styles.typeUser
+                            }`}
+                          >
                             {isSystem ? 'system' : 'user'}
                           </span>
                           {hasChildren ? <span className={styles.childBadge}>child</span> : null}
@@ -441,7 +466,8 @@ const ProcessesPage = observer(() => {
                         <button
                           type='button'
                           className={styles.killBtn}
-                          onClick={() => setConfirm({ action: 'stop', pid: process.pid, name: process.name })}
+                          onClick={() =>
+                            setConfirm({ action: 'stop', pid: process.pid, name: process.name })}
                         >
                           <Icon icon='mdi:pause' className={styles.btnIcon} />
                           Stop
@@ -449,7 +475,8 @@ const ProcessesPage = observer(() => {
                         <button
                           type='button'
                           className={styles.killBtn}
-                          onClick={() => setConfirm({ action: 'restart', pid: process.pid, name: process.name })}
+                          onClick={() =>
+                            setConfirm({ action: 'restart', pid: process.pid, name: process.name })}
                         >
                           <Icon icon='mdi:restart' className={styles.btnIcon} />
                           Restart
@@ -457,7 +484,8 @@ const ProcessesPage = observer(() => {
                         <button
                           type='button'
                           className={styles.killBtn}
-                          onClick={() => setConfirm({ action: 'kill', pid: process.pid, name: process.name })}
+                          onClick={() =>
+                            setConfirm({ action: 'kill', pid: process.pid, name: process.name })}
                         >
                           <Icon icon='mdi:close-thick' className={styles.btnIcon} />
                           Kill
@@ -502,30 +530,32 @@ const ProcessesPage = observer(() => {
 
       <Confirm
         isOpen={confirm != null}
-        title={
-          confirm
-            ? `${confirm.action === 'kill' ? 'Kill' : confirm.action === 'restart' ? 'Restart' : 'Stop'} process`
-            : ''
-        }
-        description={
-          confirm
-            ? (
+        title={confirm
+          ? `${
+            confirm.action === 'kill' ? 'Kill' : confirm.action === 'restart' ? 'Restart' : 'Stop'
+          } process`
+          : ''}
+        description={confirm
+          ? (
+            <div>
               <div>
-                <div>
-                  <strong>{confirm.name}</strong> (PID {confirm.pid})
-                </div>
-                <div style={{ marginTop: 8, color: 'rgba(255,255,255,0.75)' }}>
-                  {confirm.action === 'kill'
-                    ? 'This will forcibly terminate the process.'
-                    : confirm.action === 'restart'
-                    ? 'This will send a terminate signal; a supervisor may restart it.'
-                    : 'This will try to stop the process gracefully.'}
-                </div>
+                <strong>{confirm.name}</strong> (PID {confirm.pid})
               </div>
-            )
-            : null
-        }
-        confirmText={confirm?.action === 'kill' ? 'Kill' : confirm?.action === 'restart' ? 'Restart' : 'Stop'}
+              <div style={{ marginTop: 8, color: 'rgba(255,255,255,0.75)' }}>
+                {confirm.action === 'kill'
+                  ? 'This will forcibly terminate the process.'
+                  : confirm.action === 'restart'
+                  ? 'This will send a terminate signal; a supervisor may restart it.'
+                  : 'This will try to stop the process gracefully.'}
+              </div>
+            </div>
+          )
+          : null}
+        confirmText={confirm?.action === 'kill'
+          ? 'Kill'
+          : confirm?.action === 'restart'
+          ? 'Restart'
+          : 'Stop'}
         danger={confirm?.action === 'kill'}
         onCancel={() => setConfirm(null)}
         onConfirm={async () => {
@@ -533,12 +563,11 @@ const ProcessesPage = observer(() => {
           const { action, pid } = confirm;
           setConfirm(null);
           try {
-            const url =
-              action === 'kill'
-                ? `${API_BASE}/servers/${serverId}/processes/${pid}`
-                : action === 'stop'
-                ? `${API_BASE}/servers/${serverId}/processes/${pid}/stop`
-                : `${API_BASE}/servers/${serverId}/processes/${pid}/restart`;
+            const url = action === 'kill'
+              ? `${API_BASE}/servers/${serverId}/processes/${pid}`
+              : action === 'stop'
+              ? `${API_BASE}/servers/${serverId}/processes/${pid}/stop`
+              : `${API_BASE}/servers/${serverId}/processes/${pid}/restart`;
             const method = action === 'kill' ? 'DELETE' : 'POST';
             const resp = await fetch(url, {
               method,
