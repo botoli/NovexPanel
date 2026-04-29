@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -389,7 +390,17 @@ func (a *App) handleServerProcesses(c *gin.Context) {
 		return
 	}
 
-	raw, err := a.hub.RequestAgent(serverID, "get_processes", nil, 20*time.Second)
+	limit := 200
+	if rawLimit := strings.TrimSpace(c.Query("limit")); rawLimit != "" {
+		if parsed, parseErr := strconv.Atoi(rawLimit); parseErr == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+	if limit > 2000 {
+		limit = 2000
+	}
+
+	raw, err := a.hub.RequestAgent(serverID, "get_processes", map[string]any{"limit": limit}, 20*time.Second)
 	if err != nil {
 		log.Printf("get_processes agent request failed (server_id=%d): %v", serverID, err)
 		c.JSON(http.StatusBadGateway, gin.H{"error": publicAgentError(err)})
@@ -634,6 +645,92 @@ func (a *App) handleKillServerProcess(c *gin.Context) {
 		return
 	}
 
+	decoded, err := decodeRawJSON(raw)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "invalid response from agent"})
+		return
+	}
+	c.JSON(http.StatusOK, decoded)
+}
+
+func (a *App) handleStopServerProcess(c *gin.Context) {
+	userID, ok := userIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	serverID, err := parseUintParam(c, "id")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid server id"})
+		return
+	}
+
+	if _, err := a.requireServerForUser(userID, serverID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "server not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load server"})
+		return
+	}
+
+	pidRaw := c.Param("pid")
+	parsed, parseErr := parsePositiveInt(pidRaw)
+	if parseErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid pid"})
+		return
+	}
+
+	raw, err := a.hub.RequestAgent(serverID, "stop_process", map[string]any{"pid": parsed}, 20*time.Second)
+	if err != nil {
+		log.Printf("stop_process agent request failed (server_id=%d pid=%d): %v", serverID, parsed, err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": publicAgentError(err)})
+		return
+	}
+	decoded, err := decodeRawJSON(raw)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "invalid response from agent"})
+		return
+	}
+	c.JSON(http.StatusOK, decoded)
+}
+
+func (a *App) handleRestartServerProcess(c *gin.Context) {
+	userID, ok := userIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	serverID, err := parseUintParam(c, "id")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid server id"})
+		return
+	}
+
+	if _, err := a.requireServerForUser(userID, serverID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "server not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load server"})
+		return
+	}
+
+	pidRaw := c.Param("pid")
+	parsed, parseErr := parsePositiveInt(pidRaw)
+	if parseErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid pid"})
+		return
+	}
+
+	raw, err := a.hub.RequestAgent(serverID, "restart_process", map[string]any{"pid": parsed}, 20*time.Second)
+	if err != nil {
+		log.Printf("restart_process agent request failed (server_id=%d pid=%d): %v", serverID, parsed, err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": publicAgentError(err)})
+		return
+	}
 	decoded, err := decodeRawJSON(raw)
 	if err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": "invalid response from agent"})

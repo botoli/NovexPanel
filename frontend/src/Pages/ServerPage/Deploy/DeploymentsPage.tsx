@@ -8,6 +8,8 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { API_BASE } from '../../../Api/api';
 import { Confirm } from '../../../modals/Confirm/Confirm';
 import { DeployStore } from '../../../Store/DeployStore';
+import { refreshStore } from '../../../Store/RefreshStore';
+import { toastStore } from '../../../Store/ToastStore';
 import styles from './DeploymentsPage.module.scss';
 interface DeployData {
   serverId: number | undefined;
@@ -48,9 +50,10 @@ export const DeploymentsPage = observer(() => {
       setLoading(false);
     }
   };
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (opts?: { silent?: boolean; }) => {
     try {
-      setLoading(true);
+      const silent = Boolean(opts?.silent);
+      if (!silent) setLoading(true);
       setError(null);
       const response = await fetch(
         `${API_BASE}/deploys?serverId=${server?.id}`,
@@ -62,19 +65,28 @@ export const DeploymentsPage = observer(() => {
       const data = await response.json();
       setDeploymentProjects(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Произошла ошибка');
+      const msg = err instanceof Error ? err.message : 'Произошла ошибка';
+      setError(msg);
+      if (!opts?.silent) {
+        toastStore.push('error', msg, 'Deployments');
+      }
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   }, [server?.id]);
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 2000);
+    const interval = setInterval(() => fetchData({ silent: true }), 2000);
     return () => {
       isMounted.current = false;
       clearInterval(interval);
     };
   }, []);
+
+  useEffect(() => {
+    // Manual refresh from global refresh button.
+    void fetchData();
+  }, [refreshStore.refreshKey]);
   useEffect(() => {
     console.log({ loading, error });
   }, [error]);

@@ -86,6 +86,8 @@ func (a *App) Router() *gin.Engine {
 		authGroup.POST("/servers/:id/command", a.handleServerCommand)
 		authGroup.POST("/servers/:id/deploy", a.handleServerDeploy)
 		authGroup.DELETE("/servers/:id/processes/:pid", a.handleKillServerProcess)
+		authGroup.POST("/servers/:id/processes/:pid/stop", a.handleStopServerProcess)
+		authGroup.POST("/servers/:id/processes/:pid/restart", a.handleRestartServerProcess)
 		authGroup.DELETE("/servers/:id", a.handleDeleteServer)
 
 		authGroup.POST("/deploy", a.handleCreateDeploy)

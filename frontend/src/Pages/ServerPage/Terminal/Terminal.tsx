@@ -13,20 +13,40 @@ export const TerminalPage = () => {
   const fitAddonRef = useRef<FitAddon | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const pendingInputRef = useRef<string>('');
+  const onDataDisposableRef = useRef<{ dispose: () => void } | null>(null);
 
   useEffect(() => {
     if (!id) return;
 
     const serverId = Number.parseInt(id, 10);
     if (!Number.isFinite(serverId) || serverId <= 0) return;
+    let disposed = false;
 
     const isRecord = (v: unknown): v is Record<string, unknown> =>
       typeof v === 'object' && v !== null;
+
+    // Important for React StrictMode/dev: ensure we never have 2 active terminals/sockets.
+    onDataDisposableRef.current?.dispose();
+    onDataDisposableRef.current = null;
+    try {
+      wsRef.current?.close();
+    } catch {
+      // ignore
+    }
+    wsRef.current = null;
+    try {
+      termRef.current?.dispose();
+    } catch {
+      // ignore
+    }
+    termRef.current = null;
+    fitAddonRef.current = null;
 
     // 1. Создать терминал
     const term = new Terminal({
       cursorBlink: true,
       fontSize: 14,
+      disableStdin: false,
       theme: {
         background: '#000000',
         foreground: '#f0f0f0',
@@ -39,6 +59,8 @@ export const TerminalPage = () => {
     fitAddonRef.current = fitAddon;
 
     if (terminalRef.current) {
+      // Ensure no previous xterm instance is attached.
+      terminalRef.current.innerHTML = '';
       term.open(terminalRef.current);
       fitAddon.fit();
       term.focus();
@@ -51,6 +73,7 @@ export const TerminalPage = () => {
     wsRef.current = ws;
 
     ws.onopen = () => {
+      if (disposed) return;
       term.writeln('Connected. Opening agent terminal...\r\n');
       sessionIdRef.current = null;
       pendingInputRef.current = '';
@@ -65,7 +88,31 @@ export const TerminalPage = () => {
     };
 
     ws.onmessage = (event) => {
-      if (typeof event.data !== 'string') return;
+      if (disposed) return;
+      if (wsRef.current !== ws) return;
+      if (typeof event.data !== 'string') {
+        // Some environments deliver WS text as Blob/ArrayBuffer.
+        if (event.data instanceof Blob) {
+          event.data
+            .text()
+            .then((text) => {
+              if (disposed) return;
+              if (wsRef.current !== ws) return;
+              ws.onmessage?.({ ...event, data: text } as MessageEvent);
+            })
+            .catch(() => {});
+        } else if (event.data instanceof ArrayBuffer) {
+          try {
+            const text = new TextDecoder().decode(event.data);
+            if (disposed) return;
+            if (wsRef.current !== ws) return;
+            ws.onmessage?.({ ...event, data: text } as MessageEvent);
+          } catch {
+            // ignore
+          }
+        }
+        return;
+      }
 
       let msg: unknown;
       try {
@@ -120,22 +167,25 @@ export const TerminalPage = () => {
     };
 
     ws.onerror = (error) => {
+      if (disposed) return;
       term.writeln(`\r\n\x1b[31mWebSocket error: ${JSON.stringify(error)}\x1b[0m`);
     };
 
     ws.onclose = () => {
+      if (disposed) return;
       term.writeln('\r\n\x1b[33mConnection closed. Reload page to reconnect.\x1b[0m');
     };
 
     // 3. Отправка ввода
-    term.onData((data) => {
+    onDataDisposableRef.current = term.onData((data) => {
+      if (disposed) return;
+      if (wsRef.current !== ws) return;
       if (ws.readyState === WebSocket.OPEN) {
         const sessionId = sessionIdRef.current;
         if (!sessionId) {
           pendingInputRef.current += data;
           return;
         }
-        console.log('Terminal input:', JSON.stringify(data));
         ws.send(
           JSON.stringify({
             type: 'terminal_input',
@@ -168,12 +218,31 @@ export const TerminalPage = () => {
 
     // 5. Очистка
     return () => {
+      disposed = true;
       window.removeEventListener('resize', handleResize);
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'close_terminal', server_id: serverId }));
+      onDataDisposableRef.current?.dispose();
+      onDataDisposableRef.current = null;
+      ws.onopen = null;
+      ws.onmessage = null;
+      ws.onerror = null;
+      ws.onclose = null;
+      try {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'close_terminal', server_id: serverId }));
+        }
+      } catch {
+        // ignore
       }
-      ws.close();
-      term.dispose();
+      try {
+        ws.close(1000, 'cleanup');
+      } catch {
+        // ignore
+      }
+      try {
+        term.dispose();
+      } catch {
+        // ignore
+      }
     };
   }, [id]);
 

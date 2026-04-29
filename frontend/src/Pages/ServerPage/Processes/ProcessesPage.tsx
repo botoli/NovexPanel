@@ -1,12 +1,30 @@
 import { Icon } from '@iconify/react';
 
 import { observer } from 'mobx-react-lite';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { serverMetricsStore } from '../../../Store/ServerMetricsStore';
+import { refreshStore } from '../../../Store/RefreshStore';
+import { toastStore } from '../../../Store/ToastStore';
+import { API_BASE } from '../../../Api/api';
+import { tokenStore } from '../../../Store/TokenStore';
 import styles from './ProcessesPage.module.scss';
 
 type ProcessTone = 'calm' | 'watch' | 'hot';
+
+type ProcessRow = {
+  pid: number;
+  name: string;
+  cpu: number;
+  mem: number;
+  state?: string;
+  user?: string;
+  uptime?: number;
+  threads?: number;
+  ppid?: number;
+  has_children?: boolean;
+  start_time?: string;
+  type?: 'system' | 'user' | string;
+};
 
 const getProcessTone = (cpu: number, mem: number): ProcessTone => {
   if (cpu >= 70 || mem >= 70) return 'hot';
@@ -26,66 +44,118 @@ const TONE_CLASS: Record<ProcessTone, string> = {
   hot: styles.toneHot,
 };
 
-const ProcessesSkeleton = () => (
-  <section className={styles.processes}>
-    <header className={styles.header}>
-      <div className={styles.heading}>
-        <div className={`${styles.skeletonLine} ${styles.skeletonTitle}`} />
-        <div className={`${styles.skeletonLine} ${styles.skeletonSubtitle}`} />
-      </div>
-
-      <div className={styles.toolbar}>
-        <div className={`${styles.skeletonControl} ${styles.skeletonSearch}`} />
-        <div className={`${styles.skeletonControl} ${styles.skeletonButton}`} />
-      </div>
-    </header>
-
-    <div className={styles.tableCard}>
-      <div className={styles.tableSkeleton}>
-        {Array.from({ length: 7 }).map((_, index) => (
-          <div key={`process-row-skeleton-${index}`} className={styles.skeletonRow}>
-            <span className={`${styles.skeletonLine} ${styles.skeletonPid}`} />
-            <span className={`${styles.skeletonLine} ${styles.skeletonName}`} />
-            <span className={`${styles.skeletonLine} ${styles.skeletonNum}`} />
-            <span className={`${styles.skeletonLine} ${styles.skeletonNum}`} />
-            <span className={`${styles.skeletonLine} ${styles.skeletonStatus}`} />
-            <span className={`${styles.skeletonLine} ${styles.skeletonAction}`} />
-          </div>
-        ))}
-      </div>
-    </div>
-  </section>
-);
-
 const ProcessesPage = observer(() => {
   const [searchText, setSearchText] = useState<string>('');
+  const [pidQuery, setPidQuery] = useState<string>('');
+  const [filterType, setFilterType] = useState<'all' | 'system' | 'user'>('all');
+  const [sortKey, setSortKey] = useState<'cpu' | 'mem' | 'name' | 'uptime'>('cpu');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [page, setPage] = useState(1);
+  const pageSize = 100;
+
   const { id } = useParams<{ id?: string; }>();
   const serverId = id ? Number(id) : Number.NaN;
 
-  const allServers = serverMetricsStore.getNowServers();
-  const server = allServers.find(s => s.id === serverId);
+  const [rows, setRows] = useState<ProcessRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchProcesses = useCallback(async (opts?: { silent?: boolean; }) => {
+    const silent = Boolean(opts?.silent);
+    try {
+      if (!silent) setLoading(true);
+      setError(null);
+      const resp = await fetch(`${API_BASE}/servers/${serverId}/processes?limit=500`, {
+        headers: { Authorization: `Bearer ${tokenStore.getToken()}` },
+      });
+      if (!resp.ok) {
+        let msg = `HTTP ${resp.status}`;
+        try {
+          const body = await resp.json();
+          if (body?.error) msg = String(body.error);
+        } catch {
+          // ignore
+        }
+        throw new Error(msg);
+      }
+      const data = await resp.json();
+      const list = Array.isArray(data?.processes) ? (data.processes as ProcessRow[]) : [];
+      setRows(list);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to load processes';
+      setError(msg);
+      if (!silent) toastStore.push('error', msg, 'Processes');
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }, [serverId]);
+
+  useEffect(() => {
+    if (!Number.isFinite(serverId)) return;
+    void fetchProcesses();
+    const interval = setInterval(() => fetchProcesses({ silent: true }), 4000);
+    return () => clearInterval(interval);
+  }, [fetchProcesses, serverId]);
+
+  useEffect(() => {
+    if (!Number.isFinite(serverId)) return;
+    void fetchProcesses();
+  }, [refreshStore.refreshKey, fetchProcesses, serverId]);
 
   const filteredProcesses = useMemo(() => {
-    if (!server) return [];
+    let list = rows;
 
-    return server.last_metrics.top_processes.filter(p =>
-      p.name.toLowerCase().includes(searchText.toLowerCase())
-    );
-  }, [server, searchText]);
+    const pidFilter = pidQuery.trim();
+    if (pidFilter) {
+      const n = Number(pidFilter);
+      if (Number.isFinite(n)) {
+        list = list.filter(p => p.pid === n);
+      }
+    }
+
+    const q = searchText.trim().toLowerCase();
+    if (q) {
+      list = list.filter(p => (p.name || '').toLowerCase().includes(q));
+    }
+
+    if (filterType !== 'all') {
+      list = list.filter(p => (p.type || 'user') === filterType);
+    }
+
+    const sorted = [...list].sort((a, b) => {
+      const dir = sortDir === 'asc' ? 1 : -1;
+      const get = (p: ProcessRow) => {
+        if (sortKey === 'cpu') return p.cpu ?? 0;
+        if (sortKey === 'mem') return p.mem ?? 0;
+        if (sortKey === 'uptime') return p.uptime ?? 0;
+        return (p.name ?? '').toLowerCase();
+      };
+      const av = get(a);
+      const bv = get(b);
+      if (typeof av === 'string' && typeof bv === 'string') return av.localeCompare(bv) * dir;
+      return ((av as number) - (bv as number)) * dir;
+    });
+
+    return sorted;
+  }, [rows, pidQuery, searchText, filterType, sortKey, sortDir]);
+
+  const pagedProcesses = useMemo(() => {
+    const total = filteredProcesses.length;
+    const pageCount = Math.max(1, Math.ceil(total / pageSize));
+    const safePage = Math.min(page, pageCount);
+    const start = (safePage - 1) * pageSize;
+    return {
+      page: safePage,
+      pageCount,
+      items: filteredProcesses.slice(start, start + pageSize),
+      total,
+    };
+  }, [filteredProcesses, page]);
 
   if (!Number.isFinite(serverId)) {
     return <div className={styles.stateMessage}>Invalid server id</div>;
   }
-
-  if (allServers.length === 0) {
-    return <ProcessesSkeleton />;
-  }
-
-  if (!server) {
-    return <div className={styles.stateMessage}>Server not found</div>;
-  }
-
-  const hasProcesses = filteredProcesses.length > 0;
+  const hasProcesses = pagedProcesses.items.length > 0;
 
   return (
     <section className={styles.processes}>
@@ -110,9 +180,62 @@ const ProcessesPage = observer(() => {
             />
           </label>
 
-          <button type='button' className={styles.refreshBtn}>
+          <label className={styles.search} aria-label='Filter processes by PID'>
+            <Icon icon='mdi:numeric' />
+            <input
+              type='text'
+              placeholder='PID...'
+              value={pidQuery}
+              onChange={(e) => setPidQuery(e.target.value)}
+              inputMode='numeric'
+            />
+          </label>
+
+          <select
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value as any)}
+            className={styles.refreshBtn}
+            aria-label='Filter by type'
+          >
+            <option value='all'>All</option>
+            <option value='user'>User</option>
+            <option value='system'>System</option>
+          </select>
+
+          <select
+            value={`${sortKey}:${sortDir}`}
+            onChange={(e) => {
+              const [k, d] = e.target.value.split(':');
+              setSortKey(k as any);
+              setSortDir(d as any);
+            }}
+            className={styles.refreshBtn}
+            aria-label='Sort processes'
+          >
+            <option value='cpu:desc'>CPU (high)</option>
+            <option value='cpu:asc'>CPU (low)</option>
+            <option value='mem:desc'>Memory (high)</option>
+            <option value='mem:asc'>Memory (low)</option>
+            <option value='uptime:desc'>Uptime (long)</option>
+            <option value='uptime:asc'>Uptime (short)</option>
+            <option value='name:asc'>Name (A-Z)</option>
+            <option value='name:desc'>Name (Z-A)</option>
+          </select>
+
+          <button
+            type='button'
+            className={styles.refreshBtn}
+            disabled={refreshStore.refreshing || loading}
+            onClick={() => {
+              void refreshStore.run(async () => {
+                await fetchProcesses();
+              }, 'server').catch((err) => {
+                toastStore.push('error', err instanceof Error ? err.message : 'Refresh failed', 'Processes');
+              });
+            }}
+          >
             <Icon icon='mdi:refresh' />
-            Refresh
+            {refreshStore.refreshing || loading ? 'Refreshing...' : 'Refresh'}
           </button>
         </div>
       </header>
@@ -120,12 +243,15 @@ const ProcessesPage = observer(() => {
       <div className={styles.metaRow}>
         <span className={styles.metaPill}>
           <Icon icon='mdi:layers-triple-outline' />
-          {filteredProcesses.length} visible
+          {pagedProcesses.total} total
         </span>
-        <span className={styles.metaHint}>Actions are shown on row hover.</span>
+        <span className={styles.metaHint}>
+          Showing {pagedProcesses.items.length} / {pagedProcesses.total}. Page {pagedProcesses.page}/{pagedProcesses.pageCount}.
+        </span>
       </div>
 
       <div className={styles.tableCard}>
+        {error ? <div className={styles.stateMessage}>{error}</div> : null}
         {hasProcesses
           ? (
             <table className={styles.table}>
@@ -136,11 +262,15 @@ const ProcessesPage = observer(() => {
                   <th className={styles.numCol}>CPU</th>
                   <th className={styles.numCol}>MEM</th>
                   <th className={styles.stateCol}>State</th>
+                  <th>User</th>
+                  <th className={styles.numCol}>Uptime</th>
+                  <th className={styles.numCol}>Threads</th>
+                  <th className={styles.pidCol}>PPID</th>
                   <th className={styles.actionCol}>Action</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredProcesses.map((process) => {
+                {pagedProcesses.items.map((process) => {
                   const tone = getProcessTone(process.cpu, process.mem);
 
                   return (
@@ -157,8 +287,70 @@ const ProcessesPage = observer(() => {
                           {TONE_LABEL[tone]}
                         </span>
                       </td>
+                      <td className={styles.nameCell}>{process.user || '—'}</td>
+                      <td className={styles.numCell}>
+                        {process.uptime ? `${Math.floor(process.uptime / 60)}m` : '—'}
+                      </td>
+                      <td className={styles.numCell}>{process.threads ?? '—'}</td>
+                      <td className={styles.pidCell}>{process.ppid ?? '—'}</td>
                       <td className={styles.actionCell}>
-                        <button type='button' className={styles.killBtn}>
+                        <button
+                          type='button'
+                          className={styles.killBtn}
+                          onClick={async () => {
+                            try {
+                              const resp = await fetch(`${API_BASE}/servers/${serverId}/processes/${process.pid}/stop`, {
+                                method: 'POST',
+                                headers: { Authorization: `Bearer ${tokenStore.getToken()}` },
+                              });
+                              if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                              toastStore.push('success', `Stop signal sent to PID ${process.pid}`, 'Processes');
+                              void fetchProcesses({ silent: true });
+                            } catch (e) {
+                              toastStore.push('error', e instanceof Error ? e.message : 'Stop failed', 'Processes');
+                            }
+                          }}
+                        >
+                          <Icon icon='mdi:pause' className={styles.btnIcon} />
+                          Stop
+                        </button>
+                        <button
+                          type='button'
+                          className={styles.killBtn}
+                          onClick={async () => {
+                            try {
+                              const resp = await fetch(`${API_BASE}/servers/${serverId}/processes/${process.pid}/restart`, {
+                                method: 'POST',
+                                headers: { Authorization: `Bearer ${tokenStore.getToken()}` },
+                              });
+                              if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                              toastStore.push('success', `Restart signal sent to PID ${process.pid}`, 'Processes');
+                              void fetchProcesses({ silent: true });
+                            } catch (e) {
+                              toastStore.push('error', e instanceof Error ? e.message : 'Restart failed', 'Processes');
+                            }
+                          }}
+                        >
+                          <Icon icon='mdi:restart' className={styles.btnIcon} />
+                          Restart
+                        </button>
+                        <button
+                          type='button'
+                          className={styles.killBtn}
+                          onClick={async () => {
+                            try {
+                              const resp = await fetch(`${API_BASE}/servers/${serverId}/processes/${process.pid}`, {
+                                method: 'DELETE',
+                                headers: { Authorization: `Bearer ${tokenStore.getToken()}` },
+                              });
+                              if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                              toastStore.push('success', `Killed PID ${process.pid}`, 'Processes');
+                              void fetchProcesses({ silent: true });
+                            } catch (e) {
+                              toastStore.push('error', e instanceof Error ? e.message : 'Kill failed', 'Processes');
+                            }
+                          }}
+                        >
                           <Icon icon='mdi:close-thick' className={styles.btnIcon} />
                           Kill
                         </button>
@@ -172,9 +364,32 @@ const ProcessesPage = observer(() => {
           : (
             <div className={styles.emptyState}>
               <Icon icon='mdi:file-search-outline' />
-              No processes found for this filter.
+              {loading ? 'Loading processes...' : 'No processes found for this filter.'}
             </div>
           )}
+
+        {pagedProcesses.pageCount > 1
+          ? (
+            <div className={styles.metaRow}>
+              <button
+                type='button'
+                className={styles.refreshBtn}
+                disabled={pagedProcesses.page <= 1}
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+              >
+                Prev
+              </button>
+              <button
+                type='button'
+                className={styles.refreshBtn}
+                disabled={pagedProcesses.page >= pagedProcesses.pageCount}
+                onClick={() => setPage(p => Math.min(pagedProcesses.pageCount, p + 1))}
+              >
+                Next
+              </button>
+            </div>
+          )
+          : null}
       </div>
     </section>
   );

@@ -19,10 +19,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/creack/pty"
@@ -718,7 +720,20 @@ func (a *Agent) handleCommand(msg commandMessage) {
 		}
 		a.sendCommandResponse(msg.RequestID, true, resp, "")
 	case "get_processes":
-		processes, err := a.collectProcesses(30)
+		var payload struct {
+			Limit int `json:"limit"`
+		}
+		if len(msg.Payload) > 0 {
+			_ = json.Unmarshal(msg.Payload, &payload)
+		}
+		limit := payload.Limit
+		if limit <= 0 {
+			limit = 200
+		}
+		if limit > 2000 {
+			limit = 2000
+		}
+		processes, err := a.collectProcesses(limit)
 		if err != nil {
 			respondError(err)
 			return
@@ -737,6 +752,41 @@ func (a *Agent) handleCommand(msg commandMessage) {
 			return
 		}
 		if err := killProcess(payload.PID); err != nil {
+			respondError(err)
+			return
+		}
+		a.sendCommandResponse(msg.RequestID, true, map[string]any{"success": true}, "")
+	case "stop_process":
+		var payload struct {
+			PID int `json:"pid"`
+		}
+		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			respondError(fmt.Errorf("invalid payload"))
+			return
+		}
+		if payload.PID <= 0 {
+			respondError(fmt.Errorf("invalid pid"))
+			return
+		}
+		if err := terminateProcess(payload.PID); err != nil {
+			respondError(err)
+			return
+		}
+		a.sendCommandResponse(msg.RequestID, true, map[string]any{"success": true}, "")
+	case "restart_process":
+		var payload struct {
+			PID int `json:"pid"`
+		}
+		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			respondError(fmt.Errorf("invalid payload"))
+			return
+		}
+		if payload.PID <= 0 {
+			respondError(fmt.Errorf("invalid pid"))
+			return
+		}
+		// Best-effort: send a graceful terminate signal. A supervisor (systemd, pm2, etc) may restart it.
+		if err := terminateProcess(payload.PID); err != nil {
 			respondError(err)
 			return
 		}
@@ -1055,13 +1105,23 @@ func (a *Agent) collectProcesses(limit int) ([]map[string]any, error) {
 	}
 
 	type procInfo struct {
-		PID  int32
-		Name string
-		CPU  float64
-		Mem  float32
+		PID        int32
+		Name       string
+		CPU        float64
+		Mem        float32
+		State      string
+		User       string
+		Uptime     float64
+		Threads    int32
+		PPID       int32
+		HasChild   bool
+		StartTime  string
+		ProcType   string
 	}
 
+	now := time.Now()
 	items := make([]procInfo, 0, len(procs))
+	ppidIndex := make(map[int32][]int32, len(procs))
 	for _, p := range procs {
 		name, err := p.Name()
 		if err != nil || name == "" {
@@ -1069,12 +1129,51 @@ func (a *Agent) collectProcesses(limit int) ([]map[string]any, error) {
 		}
 		cpuPercent, _ := p.CPUPercent()
 		memPercent, _ := p.MemoryPercent()
+		ppid, _ := p.Ppid()
+		ppidIndex[ppid] = append(ppidIndex[ppid], p.Pid)
+
+		username, _ := p.Username()
+		statusSlice, _ := p.Status()
+		state := ""
+		if len(statusSlice) > 0 {
+			state = statusSlice[0]
+		}
+		threads, _ := p.NumThreads()
+		createMs, _ := p.CreateTime()
+		startTime := ""
+		uptime := float64(0)
+		if createMs > 0 {
+			start := time.Unix(0, createMs*int64(time.Millisecond)).UTC()
+			startTime = start.Format(time.RFC3339)
+			uptime = now.Sub(start).Seconds()
+			if uptime < 0 {
+				uptime = 0
+			}
+		}
+		procType := "user"
+		if strings.HasPrefix(username, "root") || username == "SYSTEM" || username == "NT AUTHORITY\\SYSTEM" {
+			procType = "system"
+		}
 		items = append(items, procInfo{
-			PID:  p.Pid,
-			Name: name,
-			CPU:  cpuPercent,
-			Mem:  memPercent,
+			PID:     p.Pid,
+			Name:    name,
+			CPU:     cpuPercent,
+			Mem:     memPercent,
+			State:   state,
+			User:    username,
+			Uptime:  uptime,
+			Threads: threads,
+			PPID:    ppid,
+			// HasChild computed later.
+			StartTime: startTime,
+			ProcType:  procType,
 		})
+	}
+
+	for idx := range items {
+		if len(ppidIndex[items[idx].PID]) > 0 {
+			items[idx].HasChild = true
+		}
 	}
 
 	sort.Slice(items, func(i, j int) bool {
@@ -1088,10 +1187,18 @@ func (a *Agent) collectProcesses(limit int) ([]map[string]any, error) {
 	result := make([]map[string]any, 0, len(items))
 	for _, item := range items {
 		result = append(result, map[string]any{
-			"pid":  item.PID,
-			"name": item.Name,
-			"cpu":  item.CPU,
-			"mem":  item.Mem,
+			"pid":          item.PID,
+			"name":         item.Name,
+			"cpu":          item.CPU,
+			"mem":          item.Mem,
+			"state":        item.State,
+			"user":         item.User,
+			"uptime":       item.Uptime,
+			"threads":      item.Threads,
+			"ppid":         item.PPID,
+			"has_children": item.HasChild,
+			"start_time":   item.StartTime,
+			"type":         item.ProcType,
 		})
 	}
 
@@ -1102,6 +1209,20 @@ func killProcess(pid int) error {
 	proc, err := os.FindProcess(pid)
 	if err != nil {
 		return err
+	}
+	return proc.Kill()
+}
+
+func terminateProcess(pid int) error {
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		return err
+	}
+	// On Unix, Signal is supported; on Windows it may be a no-op or return an error.
+	if runtime.GOOS != "windows" {
+		if err := proc.Signal(syscall.SIGTERM); err == nil {
+			return nil
+		}
 	}
 	return proc.Kill()
 }

@@ -15,27 +15,31 @@ import { DeploymentDetailPage } from './Pages/ServerPage/Deploy/DeploymentDetail
 import { DeploymentsPage } from './Pages/ServerPage/Deploy/DeploymentsPage';
 import { DeployPage } from './Pages/ServerPage/Deploy/DeploymentsPage/Deploy';
 import { TerminalPage } from './Pages/ServerPage/Terminal/Terminal';
+import { ToastHost } from './common/Toast/ToastHost';
 
 const App = observer(() => {
   useLoadServers();
 
   return (
-    <Routes>
-      <Route path='/' element={<HomePage />} />
+    <>
+      <ToastHost />
+      <Routes>
+        <Route path='/' element={<HomePage />} />
 
-      <Route path='/servers/:id' element={<ServerPage />}>
-        <Route path='metrics' element={<MetricsPage />} />
-        <Route path='processes' element={<ProcessesPage />} />
-        <Route path='terminal' element={<TerminalPage />} />
-        <Route path='deployments' element={<DeploymentsPage />} />
-        <Route path='deployments/:deployId' element={<DeploymentDetailPage />} />
-        <Route path='deploy' element={<DeployPage />} />
-      </Route>
+        <Route path='/servers/:id' element={<ServerPage />}>
+          <Route path='metrics' element={<MetricsPage />} />
+          <Route path='processes' element={<ProcessesPage />} />
+          <Route path='terminal' element={<TerminalPage />} />
+          <Route path='deployments' element={<DeploymentsPage />} />
+          <Route path='deployments/:deployId' element={<DeploymentDetailPage />} />
+          <Route path='deploy' element={<DeployPage />} />
+        </Route>
 
-      <Route path='/account' element={<Account />} />
-      <Route path='/login' element={<Login />} />
-      <Route path='/register' element={<Registration />} />
-    </Routes>
+        <Route path='/account' element={<Account />} />
+        <Route path='/login' element={<Login />} />
+        <Route path='/register' element={<Registration />} />
+      </Routes>
+    </>
   );
 });
 

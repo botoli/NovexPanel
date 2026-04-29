@@ -5,6 +5,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { API_BASE } from '../../../../Api/api';
 import { Confirm } from '../../../../modals/Confirm/Confirm';
 import { DeployStore } from '../../../../Store/DeployStore';
+import { refreshStore } from '../../../../Store/RefreshStore';
+import { toastStore } from '../../../../Store/ToastStore';
 import { useCurrentServer } from '../../../../Store/ServerStore';
 import { tokenStore } from '../../../../Store/TokenStore';
 import styles from './DeploymentDetailPage.module.scss';
@@ -46,9 +48,10 @@ export const DeploymentDetailPage = observer(() => {
   const [isConfirmOpen, setIsConfirmOpen] = useState<boolean>(false);
   const wsRef = useRef<WebSocket | null>(null);
   const { server } = useCurrentServer();
-  const fetchDeployData = async () => {
+  const fetchDeployData = async (opts?: { silent?: boolean; }) => {
     try {
-      setLoading(true);
+      const silent = Boolean(opts?.silent);
+      if (!silent) setLoading(true);
       setError(null);
       const response = await fetch(`${API_BASE}/deploys/${DeployStore.getDeployId()}`, {
         method: 'GET',
@@ -64,14 +67,17 @@ export const DeploymentDetailPage = observer(() => {
       setEnv(envArray.map(([key, value]) => ({ key, value })));
       console.log(env);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Произошла ошибка');
+      const msg = err instanceof Error ? err.message : 'Произошла ошибка';
+      setError(msg);
+      if (!opts?.silent) toastStore.push('error', msg, 'Deployment');
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   };
-  const fetchDeployLogs = async () => {
+  const fetchDeployLogs = async (opts?: { silent?: boolean; replace?: boolean; }) => {
     try {
-      setLoading(true);
+      const silent = Boolean(opts?.silent);
+      if (!silent) setLoading(true);
       setError(null);
       const response = await fetch(`${API_BASE}/deploys/${DeployStore.getDeployId()}/log`, {
         method: 'GET',
@@ -87,11 +93,17 @@ export const DeploymentDetailPage = observer(() => {
         line: lineItem.line,
         stream: lineItem.stream,
       }));
-      setDeployLogs(prev => [...prev, ...newLines]);
+      if (opts?.replace) {
+        setDeployLogs(newLines);
+      } else {
+        setDeployLogs(prev => [...prev, ...newLines]);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Произошла ошибка');
+      const msg = err instanceof Error ? err.message : 'Произошла ошибка';
+      setError(msg);
+      if (!opts?.silent) toastStore.push('error', msg, 'Deployment logs');
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   };
   const deleteDeploy = async (id: number) => {
@@ -161,8 +173,14 @@ export const DeploymentDetailPage = observer(() => {
 
   useEffect(() => {
     fetchDeployData();
-    fetchDeployLogs();
+    fetchDeployLogs({ replace: true });
   }, []);
+
+  useEffect(() => {
+    // Manual refresh from global refresh button.
+    void fetchDeployData();
+    void fetchDeployLogs({ replace: true });
+  }, [refreshStore.refreshKey]);
   useEffect(() => {
     console.log({ loading, error });
   }, [error]);
