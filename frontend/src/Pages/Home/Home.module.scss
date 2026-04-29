@@ -907,6 +907,7 @@
     
     .addServer h1 {
       color: $color-status-online;
+     
     }
   }
 }
@@ -1115,7 +1116,7 @@
   padding: 0 $space-5;
   border-radius: $btn-radius;
   cursor: pointer;
-  font-size: 10px;
+  font-size: 18px;
   font-weight: $font-weight-regular;
   letter-spacing: 0.01em;
   transition: background-color $transition-base, border-color $transition-base, transform $transition-fast;
