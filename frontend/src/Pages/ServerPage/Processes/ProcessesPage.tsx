@@ -250,94 +250,98 @@ const ProcessesPage = observer(() => {
         </div>
 
         <div className={styles.toolbar}>
-          <label className={styles.search} aria-label='Filter processes by name'>
-            <Icon icon='mdi:magnify' />
-            <input
-              type='text'
-              placeholder='Filter by name...'
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-            />
-          </label>
+          <div className={styles.controlsPrimary}>
+            <label className={styles.search} aria-label='Filter processes by name'>
+              <Icon icon='mdi:magnify' />
+              <input
+                type='text'
+                placeholder='Search process name...'
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+              />
+            </label>
 
-          <label className={styles.search} aria-label='Filter processes by PID'>
-            <Icon icon='mdi:numeric' />
-            <input
-              type='text'
-              placeholder='PID...'
-              value={pidQuery}
-              onChange={(e) => setPidQuery(e.target.value)}
-              inputMode='numeric'
-            />
-          </label>
+            <label className={styles.search} aria-label='Filter processes by PID'>
+              <Icon icon='mdi:numeric' />
+              <input
+                type='text'
+                placeholder='PID...'
+                value={pidQuery}
+                onChange={(e) => setPidQuery(e.target.value)}
+                inputMode='numeric'
+              />
+            </label>
+          </div>
 
-          <select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value as any)}
-            className={styles.refreshBtn}
-            aria-label='Filter by type'
-          >
-            <option value='all'>All</option>
-            <option value='user'>User</option>
-            <option value='system'>System</option>
-          </select>
+          <div className={styles.controlsSecondary}>
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value as any)}
+              className={styles.refreshBtn}
+              aria-label='Filter by type'
+            >
+              <option value='all'>All users</option>
+              <option value='user'>User</option>
+              <option value='system'>System</option>
+            </select>
 
-          <select
-            value={filterState}
-            onChange={(e) => setFilterState(e.target.value as any)}
-            className={styles.refreshBtn}
-            aria-label='Filter by state'
-          >
-            <option value='all'>All states</option>
-            <option value='active'>Active</option>
-            <option value='stopped'>Stopped</option>
-          </select>
+            <select
+              value={filterState}
+              onChange={(e) => setFilterState(e.target.value as any)}
+              className={styles.refreshBtn}
+              aria-label='Filter by state'
+            >
+              <option value='all'>All states</option>
+              <option value='active'>Active</option>
+              <option value='stopped'>Stopped</option>
+            </select>
 
-          <select
-            value={`${sortKey}:${sortDir}`}
-            onChange={(e) => {
-              const [k, d] = e.target.value.split(':');
-              setSortKey(k as any);
-              setSortDir(d as any);
-            }}
-            className={styles.refreshBtn}
-            aria-label='Sort processes'
-          >
-            <option value='cpu:desc'>CPU (high)</option>
-            <option value='cpu:asc'>CPU (low)</option>
-            <option value='mem:desc'>Memory (high)</option>
-            <option value='mem:asc'>Memory (low)</option>
-            <option value='uptime:desc'>Uptime (long)</option>
-            <option value='uptime:asc'>Uptime (short)</option>
-            <option value='name:asc'>Name (A-Z)</option>
-            <option value='name:desc'>Name (Z-A)</option>
-          </select>
+            <select
+              value={`${sortKey}:${sortDir}`}
+              onChange={(e) => {
+                const [k, d] = e.target.value.split(':');
+                setSortKey(k as any);
+                setSortDir(d as any);
+              }}
+              className={styles.refreshBtn}
+              aria-label='Sort processes'
+            >
+              <option value='cpu:desc'>CPU (high)</option>
+              <option value='cpu:asc'>CPU (low)</option>
+              <option value='mem:desc'>Memory (high)</option>
+              <option value='mem:asc'>Memory (low)</option>
+              <option value='uptime:desc'>Uptime (long)</option>
+              <option value='uptime:asc'>Uptime (short)</option>
+              <option value='name:asc'>Name (A-Z)</option>
+              <option value='name:desc'>Name (Z-A)</option>
+            </select>
 
-          <button
-            type='button'
-            className={styles.refreshBtn}
-            onClick={() => setViewMode(m => (m === 'tree' ? 'list' : 'tree'))}
-            aria-label='Toggle tree view'
-          >
-            <Icon icon={viewMode === 'tree' ? 'mdi:file-tree' : 'mdi:view-list'} />
-            {viewMode === 'tree' ? 'Tree' : 'List'}
-          </button>
+            <button
+              type='button'
+              className={styles.refreshBtn}
+              onClick={() => setViewMode(m => (m === 'tree' ? 'list' : 'tree'))}
+              aria-label='Toggle tree view'
+            >
+              <Icon icon={viewMode === 'tree' ? 'mdi:file-tree' : 'mdi:view-list'} />
+              {viewMode === 'tree' ? 'Tree view' : 'List view'}
+            </button>
 
-          <button
-            type='button'
-            className={styles.refreshBtn}
-            disabled={refreshStore.refreshing || loading}
-            onClick={() => {
-              void refreshStore.run(async () => {
-                await fetchProcesses();
-              }, 'server').catch((err) => {
-                toastStore.push('error', err instanceof Error ? err.message : 'Refresh failed', 'Processes');
-              });
-            }}
-          >
-            <Icon icon='mdi:refresh' />
-            {refreshStore.refreshing || loading ? 'Refreshing...' : 'Refresh'}
-          </button>
+            <button
+              type='button'
+              className={styles.refreshBtn}
+              disabled={refreshStore.refreshing || loading}
+              onClick={() => {
+                void refreshStore.run(async () => {
+                  await fetchProcesses();
+                }, 'server').catch((err) => {
+                  toastStore.push('error', err instanceof Error ? err.message : 'Refresh failed', 'Processes');
+                });
+              }}
+            >
+              <Icon icon='mdi:refresh' />
+              {refreshStore.refreshing || loading ? 'Refreshing...' : 'Refresh'}
+            </button>
+          </div>
         </div>
       </header>
 

@@ -65,6 +65,15 @@ export const DeploymentsPage = observer(() => {
     return { icon: 'mdi:information-outline', label: s || 'unknown' };
   };
 
+  const toggleLogs = (id: number) => {
+    setExpandedLogs((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const lastLogLines = (preview?: string, maxLines: number = 6) => {
     const text = (preview || '').trimEnd();
     if (!text) return [];
@@ -181,19 +190,16 @@ export const DeploymentsPage = observer(() => {
                     <Icon icon='mdi:source-repository' className={styles.thIcon} />Project
                   </th>
                   <th>
-                    <Icon icon='mdi:git-branch' className={styles.thIcon} />Branch / Commit
-                  </th>
-                  <th>
-                    <Icon icon='mdi:clock-outline' className={styles.thIcon} />Updated
+                    <Icon icon='mdi:git-branch' className={styles.thIcon} />Branch
                   </th>
                   <th>
                     <Icon icon='mdi:signal' className={styles.thIcon} />Status
                   </th>
                   <th>
-                    <Icon icon='mdi:code-tags' className={styles.thIcon} />Stack
+                    <Icon icon='mdi:clock-outline' className={styles.thIcon} />Updated
                   </th>
                   <th>
-                    <Icon icon='mdi:link-variant' className={styles.thIcon} />URL / Logs
+                    <Icon icon='mdi:link-variant' className={styles.thIcon} />URL
                   </th>
                   <th className={styles.actionsTh}>Actions</th>
                 </tr>
@@ -233,137 +239,84 @@ export const DeploymentsPage = observer(() => {
                   )
                   : (
                     DeploymentProjects?.map((project) => (
-                      <tr
-                        key={project.id}
-                        className={styles.tableRow}
-                      >
+                      <tr key={project.id} className={styles.tableRow}>
                         <td className={styles.colRepo}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div className={styles.repoBlock}>
+                            <div className={styles.repoMain}>
                               <Icon icon='mdi:folder-outline' className={styles.cellIcon} />
-                              <strong>{getRepoName(project.repoUrl)}</strong>
+                              <strong className={styles.repoName}>{getRepoName(project.repoUrl)}</strong>
                             </div>
                             <code className={styles.repoCode}>{project.repoUrl}</code>
+                            {(project.commitMessage || project.commitHash || project.commitAuthor)
+                              ? (
+                                <div className={styles.commitMeta}>
+                                  {project.commitMessage ? <span>{project.commitMessage}</span> : null}
+                                  {project.commitHash ? <span className={styles.commitHash}>{shortHash(project.commitHash)}</span> : null}
+                                  {project.commitAuthor ? <span>by {project.commitAuthor}</span> : null}
+                                </div>
+                              )
+                              : null}
                           </div>
                         </td>
 
                         <td className={styles.colBranch}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                            <div>
-                              <Icon icon='mdi:git-branch' className={styles.cellIcon} />
-                              {project.branch}
-                            </div>
-                            {(project.commitMessage || project.commitHash || project.commitAuthor)
-                              ? (
-                                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)' }}>
-                                  {project.commitMessage ? <span>{project.commitMessage}</span> : null}
-                                  {project.commitHash
-                                    ? (
-                                      <span style={{ marginLeft: 8, fontFamily: 'monospace' }}>
-                                        {shortHash(project.commitHash)}
-                                      </span>
-                                    )
-                                    : null}
-                                  {project.commitAuthor ? <span style={{ marginLeft: 8 }}>by {project.commitAuthor}</span> : null}
-                                </div>
-                              )
-                              : (
-                                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>
-                                  Commit info will appear after first deploy run.
-                                </div>
-                              )}
-                          </div>
+                          <span className={styles.inlineInfo}>
+                            <Icon icon='mdi:git-branch' className={styles.cellIcon} />
+                            {project.branch}
+                          </span>
                         </td>
 
-                        <td className={styles.colDate}>
-                          <Icon icon='mdi:calendar' className={styles.cellIcon} />
-                          {project.updatedAt
-                            ? new Date(project.updatedAt).toLocaleString()
-                            : new Date(project.createdAt).toLocaleString()}
-                        </td>
                         <td className={styles.colStatus}>
                           {(() => {
                             const meta = statusMeta(project.status);
                             return (
-                          <span
-                            className={`${styles.statusBadge} ${
-                              styles[`status-${project.status.toLowerCase()}`]
-                            }`}
-                          >
-                            <Icon icon={meta.icon} className={styles.cellIcon} />
-                            <span className={styles.statusDot} />
-                            {meta.label}
-                          </span>
+                              <span
+                                className={`${styles.statusBadge} ${
+                                  styles[`status-${project.status.toLowerCase()}`]
+                                }`}
+                              >
+                                <Icon icon={meta.icon} className={styles.cellIcon} />
+                                <span className={styles.statusDot} />
+                                {meta.label}
+                              </span>
                             );
                           })()}
                         </td>
 
-                        <td className={styles.colType}>
-                          <span className={styles.langBadge}>{project.type}</span>
-                          {project.subdirectory ? (
-                            <span className={styles.langBadge} style={{ marginLeft: 8 }}>
-                              {project.subdirectory}
-                            </span>
-                          ) : null}
+                        <td className={styles.colDate}>
+                          <span className={styles.inlineInfo}>
+                            <Icon icon='mdi:calendar' className={styles.cellIcon} />
+                            {project.updatedAt
+                              ? new Date(project.updatedAt).toLocaleString()
+                              : new Date(project.createdAt).toLocaleString()}
+                          </span>
                         </td>
 
                         <td className={styles.colUrl}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            <div>
-                              {project.url
-                                ? (
-                                  <a
-                                    href={project.url}
-                                    target='_blank'
-                                    rel='noopener noreferrer'
-                                    className={styles.urlLink}
-                                  >
-                                    <Icon icon='mdi:open-in-new' className={styles.linkIcon} />
-                                    {project.url.replace(/^https?:\/\//, '')}
-                                  </a>
-                                )
-                                : <span className={styles.urlEmpty}>—</span>}
-                            </div>
-
+                          <div className={styles.urlBlock}>
+                            {project.url
+                              ? (
+                                <a
+                                  href={project.url}
+                                  target='_blank'
+                                  rel='noopener noreferrer'
+                                  className={styles.urlLink}
+                                >
+                                  <Icon icon='mdi:open-in-new' className={styles.linkIcon} />
+                                  {project.url.replace(/^https?:\/\//, '')}
+                                </a>
+                              )
+                              : <span className={styles.urlEmpty}>—</span>}
                             {project.deployLogPreview
                               ? (
                                 <button
                                   type='button'
-                                  className={styles.detailBtn}
-                                  onClick={() => {
-                                    setExpandedLogs((prev) => {
-                                      const next = new Set(prev);
-                                      if (next.has(project.id)) next.delete(project.id);
-                                      else next.add(project.id);
-                                      return next;
-                                    });
-                                  }}
-                                  title='Toggle logs preview'
-                                  style={{ width: 'fit-content' }}
+                                  className={styles.logToggle}
+                                  onClick={() => toggleLogs(project.id)}
                                 >
                                   <Icon icon={expandedLogs.has(project.id) ? 'mdi:chevron-up' : 'mdi:chevron-down'} />
+                                  Logs
                                 </button>
-                              )
-                              : null}
-
-                            {expandedLogs.has(project.id) && project.deployLogPreview
-                              ? (
-                                <pre
-                                  style={{
-                                    margin: 0,
-                                    padding: 10,
-                                    borderRadius: 10,
-                                    border: '1px solid rgba(255,255,255,0.08)',
-                                    background: 'rgba(0,0,0,0.25)',
-                                    fontFamily: 'monospace',
-                                    fontSize: 12,
-                                    lineHeight: 1.35,
-                                    whiteSpace: 'pre-wrap',
-                                    maxWidth: 520,
-                                  }}
-                                >
-                                  {lastLogLines(project.deployLogPreview, 8).join('\n')}
-                                </pre>
                               )
                               : null}
                           </div>
@@ -374,7 +327,6 @@ export const DeploymentsPage = observer(() => {
                             className={styles.deleteBtn}
                             onClick={() => {
                               setConfirmId(project.id);
-                              navigate(`/servers/${server?.id}/deployments`);
                             }}
                             title='Stop deployment'
                           >
@@ -405,6 +357,16 @@ export const DeploymentsPage = observer(() => {
                   )}
               </tbody>
             </table>
+            {DeploymentProjects?.map((project) => (
+              expandedLogs.has(project.id) && project.deployLogPreview
+                ? (
+                  <div key={`logs-${project.id}`} className={styles.logPreview}>
+                    <div className={styles.logPreviewTitle}>Deployment #{project.id} logs</div>
+                    <pre>{lastLogLines(project.deployLogPreview, 8).join('\n')}</pre>
+                  </div>
+                )
+                : null
+            ))}
           </div>
         </div>
       </section>

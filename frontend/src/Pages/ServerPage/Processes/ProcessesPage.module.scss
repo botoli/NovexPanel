@@ -64,6 +64,14 @@
 
 .toolbar {
   display: flex;
+  align-items: stretch;
+  flex-direction: column;
+  gap: $space-2;
+}
+
+.controlsPrimary,
+.controlsSecondary {
+  display: flex;
   align-items: center;
   gap: $space-2;
   flex-wrap: wrap;
@@ -541,6 +549,11 @@
 
 @media (max-width: 760px) {
   .toolbar {
+    width: 100%;
+  }
+
+  .controlsPrimary,
+  .controlsSecondary {
     width: 100%;
   }
 

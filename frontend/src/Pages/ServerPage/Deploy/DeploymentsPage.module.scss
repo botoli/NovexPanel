@@ -94,7 +94,7 @@
   .tableCard {
     background: $card-bg;
     border: $border-default;
-    border-radius: $card-radius;
+    border-radius: $radius-sm;
     overflow: hidden;
   }
 
@@ -332,6 +332,87 @@
 }
 }
 
+.repoBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.repoMain {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.repoName {
+  font-weight: $font-weight-semibold;
+}
+
+.commitMeta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  color: rgba($color-text-secondary, 0.9);
+}
+
+.commitHash {
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  color: rgba($color-text-primary, 0.8);
+}
+
+.inlineInfo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.urlBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.logToggle {
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid rgba($color-border, 0.8);
+  background: rgba($color-surface-2, 0.7);
+  color: $color-text-secondary;
+  border-radius: $radius-sm;
+  padding: 0 $space-2;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.logPreview {
+  border-top: 1px solid rgba($color-border, 0.7);
+  padding: $space-3 $card-padding;
+  background: rgba($color-bg, 0.32);
+
+  .logPreviewTitle {
+    font-size: 12px;
+    color: $color-text-secondary;
+    margin-bottom: $space-2;
+  }
+
+  pre {
+    margin: 0;
+    padding: $space-2;
+    border-radius: $radius-sm;
+    border: 1px solid rgba($color-border, 0.8);
+    background: rgba($color-bg, 0.36);
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+    font-size: 12px;
+    line-height: 1.35;
+    white-space: pre-wrap;
+    color: rgba($color-text-primary, 0.88);
+  }
+}
+
 // 🔘 STOP BUTTON
 // ========================================
 
@@ -473,7 +554,7 @@
 
 @media (max-width: 1024px) {
   .table {
-    th:nth-child(4), // repo
+    th:nth-child(4),
     td:nth-child(4) {
       display: none;
     }
@@ -505,10 +586,10 @@
       padding: $space-3;
     }
 
-    th:nth-child(2), // branch
+    th:nth-child(2),
     td:nth-child(2),
-    th:nth-child(6), // url
-    td:nth-child(6) {
+    th:nth-child(5),
+    td:nth-child(5) {
       display: none;
     }
   }
