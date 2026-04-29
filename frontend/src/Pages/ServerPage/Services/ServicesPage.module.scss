@@ -1,9 +1,10 @@
+@use "../../../Styles/Variables.scss" as *;
 :root {
-  --svc-bg: var(--color-bg, #0f1115);
-  --svc-surface: var(--color-bg-secondary, #151922);
-  --svc-border: var(--color-border, #252b36);
-  --svc-text: var(--color-text-primary, #d8dee9);
-  --svc-muted: var(--color-text-secondary, #9ba4b4);
+  --svc-bg:$color-bg;
+  --svc-surface: $color-surface;
+  --svc-border: $color-border;
+  --svc-text: $color-text-primary;
+  --svc-muted: $color-text-secondary;
 }
 
 .page { padding: 16px; color: var(--svc-text); display: grid; gap: 12px; }
