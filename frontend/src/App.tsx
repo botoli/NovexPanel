@@ -16,15 +16,19 @@ import { DeploymentsPage } from './Pages/ServerPage/Deploy/DeploymentsPage';
 import { DeployPage } from './Pages/ServerPage/Deploy/DeploymentsPage/Deploy';
 import { TerminalPage } from './Pages/ServerPage/Terminal/Terminal';
 import { ToastHost } from './common/Toast/ToastHost';
+import { settingsStore } from './Store/SettingsStore';
+import SettingsPage from './Pages/Settings/SettingsPage';
 
 const App = observer(() => {
   useLoadServers();
+  settingsStore.hydrate();
 
   return (
     <>
       <ToastHost />
       <Routes>
         <Route path='/' element={<HomePage />} />
+        <Route path='/settings' element={<SettingsPage />} />
 
         <Route path='/servers/:id' element={<ServerPage />}>
           <Route path='metrics' element={<MetricsPage />} />

@@ -40,6 +40,15 @@ func runMigrations(db *gorm.DB) error {
 	if err := ensureDeployColumn(db, "env_vars", "EnvVars"); err != nil {
 		return err
 	}
+	if err := ensureDeployColumn(db, "commit_hash", "CommitHash"); err != nil {
+		return err
+	}
+	if err := ensureDeployColumn(db, "commit_author", "CommitAuthor"); err != nil {
+		return err
+	}
+	if err := ensureDeployColumn(db, "commit_msg", "CommitMsg"); err != nil {
+		return err
+	}
 
 	return nil
 }

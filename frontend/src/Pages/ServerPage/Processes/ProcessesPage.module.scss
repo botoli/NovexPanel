@@ -122,17 +122,11 @@
   transition:
     border-color $transition-base,
     background-color $transition-base,
-    color $transition-base,
-    transform $transition-base;
+    color $transition-base;
 
   &:hover {
     border-color: rgba($color-text-primary, 0.22);
     background: $color-hover;
-    transform: translateY(-1px);
-  }
-
-  &:active {
-    transform: translateY(0);
   }
 
   &:focus-visible {
@@ -221,7 +215,6 @@
     &:hover .killBtn,
     &:focus-within .killBtn {
       opacity: 1;
-      transform: translateX(0);
     }
   }
 }
@@ -257,6 +250,83 @@
 .processName {
   color: $color-text-primary;
   font-weight: $font-weight-medium;
+}
+
+.nameTreeCell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.treeIndent {
+  display: inline-block;
+  height: 1px;
+  flex: 0 0 auto;
+}
+
+.expander {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: $radius-md;
+  border: 1px solid rgba($color-text-primary, 0.08);
+  background: rgba($color-text-primary, 0.02);
+  color: $color-text-secondary;
+  cursor: pointer;
+  transition: background-color $transition-base, border-color $transition-base, color $transition-base;
+
+  &:hover:not(:disabled) {
+    border-color: rgba($color-text-primary, 0.2);
+    background: rgba($color-text-primary, 0.05);
+    color: $color-text-primary;
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+}
+
+.typeBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: $radius-full;
+  border: 1px solid rgba($color-text-primary, 0.12);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: $color-text-secondary;
+  background: rgba($color-text-primary, 0.03);
+}
+
+.typeSystem {
+  border-color: rgba($color-status-offline, 0.28);
+  background: rgba($color-status-offline, 0.06);
+  color: rgba($color-status-offline, 0.86);
+}
+
+.typeUser {
+  border-color: rgba($color-status-online, 0.28);
+  background: rgba($color-status-online, 0.06);
+  color: rgba($color-status-online, 0.86);
+}
+
+.childBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: $radius-full;
+  border: 1px solid rgba($color-text-primary, 0.12);
+  font-size: 11px;
+  color: $color-text-secondary;
+  background: rgba($color-text-primary, 0.02);
+}
+
+.hotNum {
+  color: rgba($color-status-offline, 0.92);
 }
 
 .numCell {
@@ -327,11 +397,9 @@
   font-weight: $font-weight-medium;
   transition:
     opacity 180ms ease,
-    transform 180ms ease,
     border-color $transition-base,
     background-color $transition-base;
   opacity: 0;
-  transform: translateX(6px);
 
   svg {
     width: 12px;
@@ -345,7 +413,6 @@
 
   &:focus-visible {
     opacity: 1;
-    transform: translateX(0);
     outline: 2px solid rgba($color-status-offline, 0.42);
     outline-offset: 2px;
   }

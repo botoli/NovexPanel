@@ -253,6 +253,9 @@ func (a *App) handleAgentMessage(client *AgentClient, serverID uint, payload []b
 			Port          int    `json:"port"`
 			Log           string `json:"log"`
 			Error         string `json:"error"`
+			CommitHash    string `json:"commit_hash"`
+			CommitAuthor  string `json:"commit_author"`
+			CommitMsg     string `json:"commit_message"`
 		}
 		if err := json.Unmarshal(payload, &msg); err != nil {
 			return
@@ -260,7 +263,7 @@ func (a *App) handleAgentMessage(client *AgentClient, serverID uint, payload []b
 		if msg.DeployID == 0 {
 			msg.DeployID = msg.DeployIDSnake
 		}
-		a.applyDeployResult(msg.DeployID, msg.Status, msg.URL, msg.Port, msg.Log, msg.Error)
+		a.applyDeployResult(msg.DeployID, msg.Status, msg.URL, msg.Port, msg.Log, msg.Error, msg.CommitHash, msg.CommitAuthor, msg.CommitMsg)
 	case "deploy_complete":
 		var msg struct {
 			DeployID uint   `json:"deploy_id"`
@@ -275,11 +278,11 @@ func (a *App) handleAgentMessage(client *AgentClient, serverID uint, payload []b
 		if msg.Success {
 			status = "success"
 		}
-		a.applyDeployResult(msg.DeployID, status, msg.URL, 0, "", msg.Error)
+		a.applyDeployResult(msg.DeployID, status, msg.URL, 0, "", msg.Error, "", "", "")
 	}
 }
 
-func (a *App) applyDeployResult(deployID uint, agentStatus, url string, port int, deployLog, errText string) {
+func (a *App) applyDeployResult(deployID uint, agentStatus, url string, port int, deployLog, errText string, commitHash, commitAuthor, commitMsg string) {
 	if deployID == 0 {
 		return
 	}
@@ -314,6 +317,15 @@ func (a *App) applyDeployResult(deployID uint, agentStatus, url string, port int
 		"error_message": errText,
 		"deploy_log":    currentLog,
 		"finished_at":   &now,
+	}
+	if strings.TrimSpace(commitHash) != "" {
+		updates["commit_hash"] = strings.TrimSpace(commitHash)
+	}
+	if strings.TrimSpace(commitAuthor) != "" {
+		updates["commit_author"] = strings.TrimSpace(commitAuthor)
+	}
+	if strings.TrimSpace(commitMsg) != "" {
+		updates["commit_msg"] = strings.TrimSpace(commitMsg)
 	}
 	if port > 0 {
 		updates["port"] = port

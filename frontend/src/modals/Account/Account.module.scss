@@ -80,13 +80,11 @@
     letter-spacing: -0.01em;
     transition:
         border-color $transition-base,
-        background-color $transition-base,
-        transform $transition-base;
+        background-color $transition-base;
 
     &:hover {
         border-color: $color-border-hover;
         background: rgba(255, 255, 255, 0.04);
-        transform: translateY(-1px);
     }
 
     &:focus-visible {

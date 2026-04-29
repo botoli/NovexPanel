@@ -1,0 +1,176 @@
+@use "../../Styles/Variables.scss" as *;
+
+.page {
+  display: flex;
+  min-height: 100vh;
+  background: $color-bg;
+}
+
+.main {
+  margin-left: $sidebar-width;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.wrap {
+  width: 100%;
+  max-width: 90%;
+  margin: 0 auto;
+  padding: $space-5 $space-4;
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+}
+
+.header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: $space-4;
+  padding-bottom: $space-4;
+  border-bottom: 1px solid rgba($color-text-primary, 0.08);
+}
+
+.title {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  margin: 0;
+  font-size: $font-size-h2;
+  font-weight: $font-weight-semibold;
+}
+
+.subtitle {
+  margin-top: $space-1;
+  color: $color-text-secondary;
+  font-size: $font-size-small;
+}
+
+.tabs {
+  display: flex;
+  gap: $space-2;
+  flex-wrap: wrap;
+}
+
+.tab {
+  height: $btn-height;
+  padding: 0 $btn-padding-x;
+  border-radius: $btn-radius;
+  border: $border-default;
+  background: $btn-secondary-bg;
+  color: $color-text-primary;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  transition: background-color $transition-base, border-color $transition-base;
+
+  &:hover {
+    border-color: $color-border-hover;
+    background: $color-hover;
+  }
+}
+
+.tabActive {
+  border-color: rgba($color-status-online, 0.7);
+  box-shadow: 0 0 0 1px rgba($color-status-online, 0.25) inset;
+}
+
+.card {
+  border: 1px solid rgba($color-text-primary, 0.09);
+  background:
+    radial-gradient(115% 110% at 95% 0%, rgba($color-text-primary, 0.04), transparent 52%),
+    linear-gradient(180deg, rgba($color-surface, 0.92), rgba($color-bg, 0.96));
+  border-radius: $card-radius;
+  padding: $space-4;
+}
+
+.cardTitle {
+  margin: 0 0 $space-3;
+  font-size: $font-size-h3;
+  font-weight: $font-weight-semibold;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $space-3;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-3;
+  padding: $space-3;
+  border-radius: $radius-md;
+  border: 1px solid rgba($color-text-primary, 0.08);
+  background: rgba($color-text-primary, 0.02);
+}
+
+.rowText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.label {
+  font-weight: $font-weight-medium;
+}
+
+.hint {
+  color: $color-text-muted;
+  font-size: $font-size-small;
+}
+
+.select,
+.input {
+  height: $btn-height;
+  border-radius: $radius-md;
+  border: 1px solid rgba($color-text-primary, 0.12);
+  background: rgba($color-surface-2, 0.9);
+  color: $color-text-primary;
+  padding: 0 $space-3;
+}
+
+.toggle {
+  width: 44px;
+  height: 26px;
+  border-radius: 999px;
+  border: 1px solid rgba($color-text-primary, 0.12);
+  background: rgba($color-text-primary, 0.04);
+  position: relative;
+  cursor: pointer;
+}
+
+.toggleOn {
+  background: rgba($color-status-online, 0.18);
+  border-color: rgba($color-status-online, 0.4);
+}
+
+.toggleKnob {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: rgba($color-text-primary, 0.9);
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: left $transition-base;
+}
+
+.toggleKnobOn {
+  left: 22px;
+}
+
+@media (max-width: 980px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+

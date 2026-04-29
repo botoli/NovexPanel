@@ -71,6 +71,10 @@
 
   &:hover {
     opacity: 0.92;
+    background-image: $hover-url;
+    background-size: 44px;
+    background-repeat: repeat;
+    background-blend-mode: soft-light;
   }
 
   &:active {
@@ -171,7 +175,7 @@
       }
 
       td::before {
-        opacity: 0.14;
+        opacity: 0.09;
       }
     }
 
@@ -200,7 +204,7 @@
         transition: opacity 0.3s ease;
 
         background-image: $hover-url;
-        background-size: 120px;
+        background-size: 42px;
         background-repeat: repeat;
 
         mix-blend-mode: soft-light;
@@ -353,6 +357,10 @@
 
   &:hover {
     background: rgba($color-status-offline, 0.08);
+    background-image: $hover-url;
+    background-size: 40px;
+    background-repeat: repeat;
+    background-blend-mode: soft-light;
   }
 
   &:active {
@@ -392,6 +400,10 @@
 
   &:hover {
     background: rgba($color-status-online, 0.08);
+    background-image: $hover-url;
+    background-size: 40px;
+    background-repeat: repeat;
+    background-blend-mode: soft-light;
   }
 
   &:active {

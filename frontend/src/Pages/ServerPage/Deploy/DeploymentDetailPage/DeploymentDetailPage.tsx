@@ -46,6 +46,7 @@ export const DeploymentDetailPage = observer(() => {
   const [env, setEnv] = useState<{ key: string; value: string; }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState<boolean>(false);
+  const [actionConfirm, setActionConfirm] = useState<'stop' | 'redeploy' | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const { server } = useCurrentServer();
   const fetchDeployData = async (opts?: { silent?: boolean; }) => {
@@ -181,6 +182,13 @@ export const DeploymentDetailPage = observer(() => {
     void fetchDeployData();
     void fetchDeployLogs({ replace: true });
   }, [refreshStore.refreshKey]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      void fetchDeployData({ silent: true });
+    }, 2500);
+    return () => clearInterval(interval);
+  }, []);
   useEffect(() => {
     console.log({ loading, error });
   }, [error]);
@@ -198,6 +206,20 @@ export const DeploymentDetailPage = observer(() => {
       logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
     }
   }, [deployLogs, autoScroll]);
+
+  const clearLogs = () => {
+    setDeployLogs([]);
+    setAppLogs([]);
+  };
+
+  const parseLogLevel = (line: string) => {
+    const t = line.toLowerCase();
+    if (t.includes(' error ') || t.includes('[error]') || t.startsWith('error')) return 'error';
+    if (t.includes(' warn ') || t.includes('[warn]') || t.startsWith('warn')) return 'warn';
+    if (t.includes(' info ') || t.includes('[info]') || t.startsWith('info')) return 'info';
+    if (t.includes(' debug ') || t.includes('[debug]') || t.startsWith('debug')) return 'debug';
+    return 'plain';
+  };
 
   return (
     <div className={styles.root}>
@@ -232,17 +254,21 @@ export const DeploymentDetailPage = observer(() => {
             )}
           </div>
           <div className={styles.headerActions}>
-            <button type='button' className={`${styles.btn} ${styles.btnSecondary}`}>
+            <button
+              type='button'
+              className={`${styles.btn} ${styles.btnSecondary}`}
+              onClick={() => setActionConfirm('redeploy')}
+            >
               <Icon icon='mdi:restart' />
-              Restart
+              Redeploy
             </button>
-            <button type='button' className={`${styles.btn} ${styles.btnSecondary}`}>
+            <button
+              type='button'
+              className={`${styles.btn} ${styles.btnSecondary}`}
+              onClick={() => setActionConfirm('stop')}
+            >
               <Icon icon='mdi:stop' />
               Stop
-            </button>
-            <button type='button' className={`${styles.btn} ${styles.btnSecondary}`}>
-              <Icon icon='mdi:text-box-outline' />
-              Logs
             </button>
             <button
               type='button'
@@ -446,6 +472,25 @@ export const DeploymentDetailPage = observer(() => {
           Логи сборки
         </h2>
 
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
+          <button
+            type='button'
+            className={`${styles.btn} ${styles.btnSecondary}`}
+            onClick={() => setAutoScroll(v => !v)}
+          >
+            <Icon icon={autoScroll ? 'mdi:pause' : 'mdi:play'} />
+            {autoScroll ? 'Pause auto-scroll' : 'Resume auto-scroll'}
+          </button>
+          <button
+            type='button'
+            className={`${styles.btn} ${styles.btnSecondary}`}
+            onClick={clearLogs}
+          >
+            <Icon icon='mdi:broom' />
+            Clear logs
+          </button>
+        </div>
+
         <div className={styles.logArea} ref={logContainerRef} onScroll={handleScroll}>
           {deployLogs.map((log, idx) => (
             <pre
@@ -464,14 +509,74 @@ export const DeploymentDetailPage = observer(() => {
         <h2 className={styles.sectionTitle}>
           Логи работы приложения
         </h2>
-        <textarea
-          className={styles.logArea}
-          readOnly
-          spellCheck={false}
-          value={appLogs.map(line => line.line).join('\n')}
-          aria-label='Логи работы приложения'
-        />
+        <div className={styles.logArea} style={{ padding: 0 }}>
+          {appLogs.length === 0
+            ? (
+              <div style={{ padding: 12, color: 'rgba(255,255,255,0.6)' }}>No runtime logs yet.</div>
+            )
+            : appLogs.map((l, idx) => {
+              const level = parseLogLevel(l.line);
+              const color =
+                level === 'error'
+                  ? '#ef4444'
+                  : level === 'warn'
+                  ? '#f59e0b'
+                  : level === 'info'
+                  ? '#60a5fa'
+                  : level === 'debug'
+                  ? 'rgba(255,255,255,0.6)'
+                  : 'rgba(255,255,255,0.85)';
+              return (
+                <pre
+                  key={idx}
+                  style={{
+                    margin: 0,
+                    padding: '2px 12px',
+                    fontFamily: 'monospace',
+                    color,
+                    whiteSpace: 'pre-wrap',
+                  }}
+                >
+                  {l.line}
+                </pre>
+              );
+            })}
+        </div>
       </section>
+
+      <Confirm
+        isOpen={actionConfirm != null}
+        title={actionConfirm === 'stop' ? 'Stop deployment' : 'Redeploy'}
+        description={
+          actionConfirm === 'stop'
+            ? 'Stop runtime for this deployment without deleting it.'
+            : 'Start a new deploy run using the same repository/branch settings.'
+        }
+        confirmText={actionConfirm === 'stop' ? 'Stop' : 'Redeploy'}
+        danger={actionConfirm === 'stop'}
+        onCancel={() => setActionConfirm(null)}
+        onConfirm={async () => {
+          const action = actionConfirm;
+          setActionConfirm(null);
+          if (!action) return;
+          try {
+            const deployId = DeployStore.getDeployId();
+            const url = action === 'stop'
+              ? `${API_BASE}/deploys/${deployId}/stop`
+              : `${API_BASE}/deploys/${deployId}/redeploy`;
+            const resp = await fetch(url, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${tokenStore.getToken()}` },
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            toastStore.push('success', action === 'stop' ? 'Stop requested.' : 'Redeploy requested.', 'Deployment');
+            void fetchDeployData();
+            void fetchDeployLogs({ replace: true });
+          } catch (e) {
+            toastStore.push('error', e instanceof Error ? e.message : 'Action failed', 'Deployment');
+          }
+        }}
+      />
     </div>
   );
 });

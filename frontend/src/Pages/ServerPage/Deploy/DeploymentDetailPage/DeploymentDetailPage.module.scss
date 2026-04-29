@@ -29,6 +29,10 @@ $color-status-stopped: #8a8a8a;
   &:hover {
     color: $color-text-primary;
     border-bottom-color: $color-border-hover;
+    background-image: $hover-url;
+    background-size: 40px;
+    background-repeat: repeat;
+    background-blend-mode: soft-light;
   }
 
   &:focus-visible {
@@ -154,6 +158,10 @@ $color-status-stopped: #8a8a8a;
 
   &:hover {
     border-bottom-style: solid;
+    background-image: $hover-url;
+    background-size: 40px;
+    background-repeat: repeat;
+    background-blend-mode: soft-light;
   }
 
   &:focus-visible {
@@ -189,6 +197,13 @@ $color-status-stopped: #8a8a8a;
   &:disabled {
     opacity: 0.45;
     cursor: not-allowed;
+  }
+
+  &:hover:not(:disabled) {
+    background-image: $hover-url;
+    background-size: 40px;
+    background-repeat: repeat;
+    background-blend-mode: soft-light;
   }
 
   &:focus-visible {
@@ -236,6 +251,25 @@ $color-status-stopped: #8a8a8a;
   border: $border-default;
   border-radius: $card-radius;
   padding: $card-padding;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity $transition-base;
+    background-image: $hover-url;
+    background-size: 42px;
+    background-repeat: repeat;
+    mix-blend-mode: soft-light;
+  }
+
+  &:hover::before {
+    opacity: 0.06;
+  }
 }
 
 .sectionTitle {

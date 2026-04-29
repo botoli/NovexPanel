@@ -39,6 +39,35 @@ body {
   min-height: 100vh;
   height: 100%;
 }
+
+// Theme switching without rewriting SCSS palette:
+// - Dark: default styles.
+// - Light: invert the whole app (keeps existing dark palette usable).
+body.theme-light #root {
+  filter: invert(1) hue-rotate(180deg);
+  background: #ffffff;
+}
+
+body.ui-no-animations * {
+  transition: none !important;
+  animation: none !important;
+}
+
+// Global hover polish:
+// - subtle fine-grain texture on interactive elements
+// - no hover movement (no scale/translate/transform jumps)
+:where(button, [role="button"], a, .tab, .tabactive, .actionBtn, .headerBtn, .detailBtn, .deleteBtn, .btn):hover {
+  background-image: $hover-url !important;
+  background-size: 40px !important;
+  background-repeat: repeat !important;
+  background-blend-mode: soft-light !important;
+  transform: none !important;
+}
+
+:where(button, [role="button"], a, .tab, .tabactive, .actionBtn, .headerBtn, .detailBtn, .deleteBtn, .btn):active,
+:where(button, [role="button"], a, .tab, .tabactive, .actionBtn, .headerBtn, .detailBtn, .deleteBtn, .btn):focus-visible {
+  transform: none !important;
+}
 h1 {
   font-size: $font-size-h1;
  

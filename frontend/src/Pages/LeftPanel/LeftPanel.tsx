@@ -6,6 +6,7 @@ import { Link, useLocation } from 'react-router-dom';
 
 import styles from './LeftPanel.module.scss';
 import { type Tab, Tabs } from './tabs.ts';
+import { settingsStore } from '../../Store/SettingsStore';
 const LeftPanel = observer(() => {
   const location = useLocation();
   const currentPath = location.pathname;
@@ -59,7 +60,9 @@ const LeftPanel = observer(() => {
   return (
     <>
       <div
-        className={`${styles.allheader} ${isMenuOpen ? styles.menuOpen : ''}`}
+        className={`${styles.allheader} ${isMenuOpen ? styles.menuOpen : ''} ${
+          settingsStore.state.sidebarCollapsed ? styles.collapsed : ''
+        }`}
       >
         <div className={styles.logo_Container}>
           <svg
@@ -91,7 +94,7 @@ const LeftPanel = observer(() => {
                   onClick={() => toogleActive(tab.name)}
                 >
                   {getIcon(tab.name)}
-                  <p>{tab.name}</p>
+                  <p className={styles.tabLabel}>{tab.name}</p>
                 </div>
               </Link>
             );

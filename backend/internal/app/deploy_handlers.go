@@ -239,6 +239,9 @@ func (a *App) handleListDeploys(c *gin.Context) {
 			"id":               deploy.ID,
 			"serverId":         deploy.ServerID,
 			"repoUrl":          deploy.RepoURL,
+			"commitHash":       deploy.CommitHash,
+			"commitAuthor":     deploy.CommitAuthor,
+			"commitMessage":    deploy.CommitMsg,
 			"branch":           deploy.Branch,
 			"type":             deploy.ProjectType,
 			"subdirectory":     deploy.Subdirectory,
@@ -359,6 +362,9 @@ func (a *App) handleGetDeploy(c *gin.Context) {
 		"id":            deploy.ID,
 		"serverId":      deploy.ServerID,
 		"repoUrl":       deploy.RepoURL,
+		"commitHash":    deploy.CommitHash,
+		"commitAuthor":  deploy.CommitAuthor,
+		"commitMessage": deploy.CommitMsg,
 		"branch":        deploy.Branch,
 		"type":          deploy.ProjectType,
 		"subdirectory":  deploy.Subdirectory,
@@ -434,6 +440,99 @@ func (a *App) handleDeleteDeploy(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"deployId": deploy.ID,
 		"status":   "deleted",
+	})
+}
+
+func (a *App) handleStopDeploy(c *gin.Context) {
+	userID, ok := userIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	deployID, err := parseUintParam(c, "id")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid deploy id"})
+		return
+	}
+
+	var deploy models.Deploy
+	if err := a.db.Where("id = ?", deployID).First(&deploy).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "deploy not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load deploy"})
+		return
+	}
+
+	if deploy.UserID != userID {
+		c.JSON(http.StatusNotFound, gin.H{"error": "deploy not found"})
+		return
+	}
+
+	if err := a.sendStopDeployCommandToAgent(deploy.ServerID, deploy.ID); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		return
+	}
+
+	_ = a.db.Model(&models.Deploy{}).Where("id = ?", deploy.ID).Updates(map[string]any{
+		"status": "stopped",
+	}).Error
+
+	c.JSON(http.StatusOK, gin.H{
+		"deployId": deploy.ID,
+		"status":   "stopped",
+	})
+}
+
+func (a *App) handleRedeploy(c *gin.Context) {
+	userID, ok := userIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	deployID, err := parseUintParam(c, "id")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid deploy id"})
+		return
+	}
+
+	var deploy models.Deploy
+	if err := a.db.Where("id = ?", deployID).First(&deploy).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "deploy not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to load deploy"})
+		return
+	}
+
+	if deploy.UserID != userID {
+		c.JSON(http.StatusNotFound, gin.H{"error": "deploy not found"})
+		return
+	}
+
+	// Reset state for a new run (keep id).
+	now := time.Now()
+	_ = a.db.Model(&models.Deploy{}).Where("id = ?", deploy.ID).Updates(map[string]any{
+		"status":        "pending",
+		"started_at":    now,
+		"finished_at":   nil,
+		"error_message": "",
+		"deploy_log":    "",
+	}).Error
+
+	envVars := parseDeployEnvVars(deploy.EnvVars)
+	if err := a.sendDeployCommandToAgent(deploy.ServerID, deploy.ID, deploy.RepoURL, deploy.Branch, deploy.ProjectType, deploy.Subdirectory, deploy.BuildCommand, deploy.OutputDir, envVars); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusAccepted, gin.H{
+		"deployId": deploy.ID,
+		"status":   "pending",
 	})
 }
 

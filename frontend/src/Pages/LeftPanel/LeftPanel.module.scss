@@ -9,6 +9,26 @@
   color: $btn-primary-bg;
   border-right: 1px solid $color-border;
 }
+
+.collapsed {
+  width: 72px;
+
+  .logo_Container h1 {
+    display: none;
+  }
+
+  .Tabs {
+    padding: 0 $space-2;
+  }
+
+  .tabLabel {
+    display: none;
+  }
+}
+
+.tabLabel {
+  margin: 0;
+}
 .tab {
   width: 100%;
   font-weight: $font-weight-semibold;

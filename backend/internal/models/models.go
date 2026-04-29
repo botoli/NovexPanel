@@ -72,6 +72,9 @@ type Deploy struct {
 	Status       string         `gorm:"size:20;index;not null" json:"status"`
 	ProjectType  string         `gorm:"size:20" json:"project_type"`
 	RepoURL      string         `gorm:"size:512" json:"repo_url"`
+	CommitHash   string         `gorm:"size:64" json:"commit_hash"`
+	CommitAuthor string         `gorm:"size:255" json:"commit_author"`
+	CommitMsg    string         `gorm:"size:512" json:"commit_message"`
 	URL          string         `gorm:"size:512" json:"url"`
 	DeployLog    string         `gorm:"type:text" json:"deploy_log"`
 	ResultURL    string         `gorm:"size:512" json:"result_url"`

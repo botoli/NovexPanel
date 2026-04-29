@@ -1017,18 +1017,16 @@
   font-size: $font-size-body;
   font-weight: $font-weight-medium;
   cursor: pointer;
-  transition: transform $transition-fast, border-color $transition-base, background-color $transition-base;
+  transition: border-color $transition-base, background-color $transition-base;
 
   &:disabled {
     opacity: 0.7;
     cursor: not-allowed;
-    transform: none;
   }
 
   &:hover:not(:disabled) {
     border-color: rgba($btn-primary-bg, 0.35);
     background: rgba($btn-primary-bg, 0.92);
-    transform: translateY(-1px);
   }
 }
 

@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import { tokenStore } from '../../../Store/TokenStore';
+import { settingsStore } from '../../../Store/SettingsStore';
 const WS_BASE = import.meta.env.VITE_WS_URL || 'ws://localhost:8380';
 
 export const TerminalPage = () => {
@@ -44,14 +45,18 @@ export const TerminalPage = () => {
     fitAddonRef.current = null;
 
     // 1. Создать терминал
+    const themeMode = settingsStore.state.terminalTheme;
+    const terminalTheme = themeMode === 'classic'
+      ? { background: '#000000', foreground: '#ffffff', cursor: '#ffffff' }
+      : { background: '#000000', foreground: '#f0f0f0', cursor: '#2DD4BF' };
     const term = new Terminal({
       cursorBlink: true,
-      fontSize: 14,
+      fontSize: settingsStore.state.terminalFontSize || 14,
+      cursorStyle: settingsStore.state.terminalCursorStyle,
+      scrollback: settingsStore.state.terminalScrollback || 5000,
       disableStdin: false,
       theme: {
-        background: '#000000',
-        foreground: '#f0f0f0',
-        cursor: '#2DD4BF',
+        ...terminalTheme,
       },
     });
     const fitAddon = new FitAddon();

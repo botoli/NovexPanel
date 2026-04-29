@@ -1399,6 +1399,9 @@ func (a *Agent) runDeploy(payload deployPayload) {
 
 	assignedPort := 0
 	var deployLogBuilder strings.Builder
+	commitHash := ""
+	commitAuthor := ""
+	commitMessage := ""
 
 	branch := strings.TrimSpace(payload.Branch)
 	if branch == "" {
@@ -1447,6 +1450,9 @@ func (a *Agent) runDeploy(payload deployPayload) {
 			"port":     assignedPort,
 			"log":      deployLogBuilder.String(),
 			"error":    errText,
+			"commit_hash":    commitHash,
+			"commit_author":  commitAuthor,
+			"commit_message": commitMessage,
 		})
 		_ = a.sendJSON(map[string]any{
 			"type":      "deploy_complete",
@@ -1506,6 +1512,20 @@ func (a *Agent) runDeploy(payload deployPayload) {
 	}
 
 	repoDir := normalizeSourceRoot(sourceDir)
+
+	// Capture latest commit info (best-effort).
+	if strings.EqualFold(strings.TrimSpace(payload.Source), "github") {
+		if out, runErr := runDeployCommand(ctx, 2*time.Minute, repoDir, logf, "git", "-C", repoDir, "rev-parse", "--short", "HEAD"); runErr == nil {
+			commitHash = strings.TrimSpace(out)
+		}
+		if out, runErr := runDeployCommand(ctx, 2*time.Minute, repoDir, logf, "git", "-C", repoDir, "log", "-1", "--pretty=%an"); runErr == nil {
+			commitAuthor = strings.TrimSpace(out)
+		}
+		if out, runErr := runDeployCommand(ctx, 2*time.Minute, repoDir, logf, "git", "-C", repoDir, "log", "-1", "--pretty=%s"); runErr == nil {
+			commitMessage = strings.TrimSpace(out)
+		}
+	}
+
 	effectiveDir := repoDir
 	if subdirectory != "" {
 		resolvedDir, resolveErr := resolveDeployWorkDir(repoDir, subdirectory)

@@ -68,8 +68,7 @@
 	cursor: pointer;
 	transition:
 		background-color $transition-base,
-		border-color $transition-base,
-		transform $transition-base;
+		border-color $transition-base;
 
 	svg {
 		font-size: 16px;
@@ -78,11 +77,6 @@
 	&:hover {
 		border-color: $color-border-hover;
 		background: $color-hover;
-		transform: translateY(-1px);
-	}
-
-	&:active {
-		transform: translateY(0);
 	}
 
 	&:focus-visible {
@@ -241,16 +235,11 @@
 	text-align: left;
 	transition:
 		border-color $transition-base,
-		background-color $transition-base,
-		transform $transition-base;
+		background-color $transition-base;
 
 	&:hover {
 		border-color: rgba($color-text-primary, 0.16);
 		background: rgba($color-bg, 0.12);
-	}
-
-	&:active {
-		transform: translateY(0);
 	}
 
 	&:focus-visible {
