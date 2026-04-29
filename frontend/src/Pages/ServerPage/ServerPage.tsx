@@ -137,6 +137,9 @@ const ServerPage = observer(() => {
                 <NavLink to={`/servers/${server?.id}/deployments`} end className={tabClassName}>
                   Deployments
                 </NavLink>
+                <NavLink to={`/servers/${server?.id}/jobs`} end className={tabClassName}>
+                  Jobs
+                </NavLink>
               </div>
 
               <Outlet />

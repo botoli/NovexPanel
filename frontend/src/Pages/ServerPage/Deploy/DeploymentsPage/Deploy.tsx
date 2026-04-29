@@ -6,6 +6,7 @@ import { API_BASE } from '../../../../Api/api';
 import { DeployLoader } from '../../../../common/DeployLoader/DeployLoader';
 import { useCurrentServer } from '../../../../Store/ServerStore';
 import { tokenStore } from '../../../../Store/TokenStore';
+import { githubStore } from '../../../../Store/GitHubStore';
 import styles from './Deploy.module.scss';
 
 interface DeployData {
@@ -108,6 +109,14 @@ export const DeployPage = observer(() => {
     console.log(envVarList);
   }, [envVarList]);
   useEffect(() => {
+    void githubStore.loadConnection();
+  }, []);
+  useEffect(() => {
+    if (githubStore.connection.connected) {
+      void githubStore.loadRepos();
+    }
+  }, [githubStore.connection.connected]);
+  useEffect(() => {
     console.log({ loading, error });
   }, [error]);
   return (
@@ -150,6 +159,25 @@ export const DeployPage = observer(() => {
                   />
                   <Icon icon='mdi:check-circle' className={styles.inputCheck} />
                 </div>
+                {githubStore.repos.length > 0
+                  ? (
+                    <select
+                      className={styles.input}
+                      value=''
+                      onChange={(e) => {
+                        if (!e.target.value) return;
+                        setGithubUrl(e.target.value);
+                      }}
+                    >
+                      <option value=''>Import from connected GitHub</option>
+                      {githubStore.repos.map(repo => (
+                        <option key={repo.id} value={repo.clone_url}>
+                          {repo.full_name} ({repo.default_branch})
+                        </option>
+                      ))}
+                    </select>
+                  )
+                  : null}
                 <input
                   type='text'
                   placeholder='Папка проекта (например, bot/)'

@@ -101,3 +101,81 @@ type CommandLog struct {
 	Command   string    `gorm:"size:255;not null" json:"command"`
 	CreatedAt time.Time `gorm:"index" json:"created_at"`
 }
+
+type GitHubConnection struct {
+	ID              uint       `gorm:"primaryKey" json:"id"`
+	UserID          uint       `gorm:"uniqueIndex;not null" json:"user_id"`
+	GitHubUserID    int64      `gorm:"index;not null" json:"github_user_id"`
+	Login           string     `gorm:"size:120;not null" json:"login"`
+	AvatarURL       string     `gorm:"size:512" json:"avatar_url"`
+	AccessTokenEnc  string     `gorm:"type:text;not null" json:"-"`
+	Scope           string     `gorm:"size:512" json:"scope"`
+	ConnectedAt     time.Time  `json:"connected_at"`
+	LastSyncedAt    *time.Time `json:"last_synced_at"`
+	TokenUpdatedAt  time.Time  `json:"token_updated_at"`
+	InstallationIDs string     `gorm:"size:512" json:"installation_ids"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
+}
+
+type ProjectAccess struct {
+	ID          uint      `gorm:"primaryKey" json:"id"`
+	UserID      uint      `gorm:"index;not null" json:"user_id"`
+	Email       string    `gorm:"size:190;not null" json:"email"`
+	Role        string    `gorm:"size:32;index;not null" json:"role"`
+	InvitedByID uint      `gorm:"index;not null" json:"invited_by_id"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+type APIToken struct {
+	ID          uint       `gorm:"primaryKey" json:"id"`
+	UserID      uint       `gorm:"index;not null" json:"user_id"`
+	Name        string     `gorm:"size:120;not null" json:"name"`
+	TokenHash   string     `gorm:"size:64;uniqueIndex;not null" json:"-"`
+	TokenPrefix string     `gorm:"size:24;not null" json:"token_prefix"`
+	Revoked     bool       `gorm:"index;default:false" json:"revoked"`
+	LastUsedAt  *time.Time `json:"last_used_at"`
+	ExpiresAt   *time.Time `gorm:"index" json:"expires_at"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+}
+
+type Job struct {
+	ID            uint           `gorm:"primaryKey" json:"id"`
+	UserID        uint           `gorm:"index;not null" json:"user_id"`
+	ServerID      uint           `gorm:"index;not null" json:"server_id"`
+	Name          string         `gorm:"size:140;not null" json:"name"`
+	Type          string         `gorm:"size:40;index;not null" json:"type"`
+	Command       string         `gorm:"size:2048;not null" json:"command"`
+	CronExpr      string         `gorm:"size:100" json:"cron_expr"`
+	Status        string         `gorm:"size:24;index;not null" json:"status"`
+	LastExitCode  *int           `json:"last_exit_code"`
+	LastError     string         `gorm:"size:1024" json:"last_error"`
+	Meta          datatypes.JSON `gorm:"type:jsonb;default:'{}'" json:"meta"`
+	LastStartedAt *time.Time     `json:"last_started_at"`
+	LastEndedAt   *time.Time     `json:"last_ended_at"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+}
+
+type JobRun struct {
+	ID          uint       `gorm:"primaryKey" json:"id"`
+	JobID       uint       `gorm:"index;not null" json:"job_id"`
+	TriggeredBy string     `gorm:"size:24;not null" json:"triggered_by"`
+	Status      string     `gorm:"size:24;index;not null" json:"status"`
+	ExitCode    *int       `json:"exit_code"`
+	Error       string     `gorm:"size:1024" json:"error"`
+	StartedAt   time.Time  `gorm:"index" json:"started_at"`
+	FinishedAt  *time.Time `gorm:"index" json:"finished_at"`
+	CreatedAt   time.Time  `json:"created_at"`
+}
+
+type JobLog struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	JobID     uint      `gorm:"index;not null" json:"job_id"`
+	JobRunID  *uint     `gorm:"index" json:"job_run_id"`
+	Line      string    `gorm:"type:text;not null" json:"line"`
+	Stream    string    `gorm:"size:16;not null" json:"stream"`
+	CreatedAt time.Time `gorm:"index" json:"created_at"`
+}

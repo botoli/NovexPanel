@@ -15,11 +15,17 @@ func runMigrations(db *gorm.DB) error {
 	if err := db.AutoMigrate(
 		&models.User{},
 		&models.AgentToken{},
+		&models.APIToken{},
+		&models.ProjectAccess{},
+		&models.GitHubConnection{},
 		&models.Server{},
 		&models.MetricPoint{},
 		&models.Deploy{},
 		&models.DeployLog{},
 		&models.CommandLog{},
+		&models.Job{},
+		&models.JobRun{},
+		&models.JobLog{},
 	); err != nil {
 		return fmt.Errorf("automigrate schema: %w", err)
 	}

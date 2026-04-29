@@ -69,11 +69,13 @@ func (a *App) Router() *gin.Engine {
 
 	r.POST("/auth/register", a.authRateLimitMiddleware("register"), a.handleRegister)
 	r.POST("/auth/login", a.authRateLimitMiddleware("login"), a.handleLogin)
+	r.GET("/integrations/github/callback", a.handleGitHubOAuthCallback)
 
 	authGroup := r.Group("/")
 	authGroup.Use(a.userAuthMiddleware())
 	{
 		authGroup.GET("/auth/me", a.handleMe)
+		authGroup.PATCH("/auth/me", a.handleUpdateMe)
 		authGroup.POST("/auth/tokens", a.handleCreateAgentToken)
 		authGroup.GET("/auth/tokens", a.handleListAgentTokens)
 		authGroup.PATCH("/auth/tokens/:id", a.handleUpdateAgentTokenName)
@@ -98,6 +100,26 @@ func (a *App) Router() *gin.Engine {
 		authGroup.POST("/deploys/:id/redeploy", a.handleRedeploy)
 		authGroup.DELETE("/deploys/:id", a.handleDeleteDeploy)
 		authGroup.GET("/deploys/:id/logs", a.handleDeployLogs)
+
+		authGroup.GET("/integrations/github/start", a.handleGitHubOAuthStart)
+		authGroup.GET("/integrations/github", a.handleGetGitHubConnection)
+		authGroup.GET("/integrations/github/repos", a.handleListGitHubRepos)
+		authGroup.POST("/integrations/github/disconnect", a.handleDisconnectGitHub)
+
+		authGroup.POST("/servers/:id/jobs", a.handleCreateJob)
+		authGroup.GET("/servers/:id/jobs", a.handleListServerJobs)
+		authGroup.GET("/jobs/:id", a.handleGetJob)
+		authGroup.GET("/jobs/:id/runs", a.handleListJobRuns)
+		authGroup.GET("/jobs/:id/logs", a.handleJobLogs)
+		authGroup.POST("/jobs/:id/run", a.handleRunJobNow)
+		authGroup.POST("/jobs/:id/cancel", a.handleCancelJob)
+
+		authGroup.GET("/settings/members", a.handleListMembers)
+		authGroup.POST("/settings/members", a.handleCreateMember)
+		authGroup.DELETE("/settings/members/:id", a.handleDeleteMember)
+		authGroup.POST("/settings/api-tokens", a.handleCreateAPIToken)
+		authGroup.GET("/settings/api-tokens", a.handleListAPITokens)
+		authGroup.DELETE("/settings/api-tokens/:id", a.handleRevokeAPIToken)
 	}
 
 	r.GET("/agent/ws", a.handleAgentWS)

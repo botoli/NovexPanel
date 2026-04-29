@@ -1,11 +1,14 @@
 import { Icon } from '@iconify/react';
 import { observer } from 'mobx-react-lite';
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import LeftPanel from '../LeftPanel/LeftPanel';
 import { settingsStore, type ThemeMode } from '../../Store/SettingsStore';
+import { workspaceSettingsStore } from '../../Store/WorkspaceSettingsStore';
+import { githubStore } from '../../Store/GitHubStore';
+import { apiRequest } from '../../Api/client';
 import styles from './SettingsPage.module.scss';
 
-type TabKey = 'appearance' | 'ui' | 'terminal' | 'notifications';
+type TabKey = 'workspace' | 'github' | 'tokens' | 'preferences';
 
 const Toggle = ({ value, onChange, label }: { value: boolean; onChange: (v: boolean) => void; label: string }) => (
   <button
@@ -19,15 +22,19 @@ const Toggle = ({ value, onChange, label }: { value: boolean; onChange: (v: bool
 );
 
 const SettingsPage = observer(() => {
-  const [tab, setTab] = useState<TabKey>('appearance');
+  const [tab, setTab] = useState<TabKey>('workspace');
   const s = settingsStore.state;
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [memberEmail, setMemberEmail] = useState('');
+  const [memberRole, setMemberRole] = useState('developer');
+  const [tokenName, setTokenName] = useState('');
 
-  const tabTitle = useMemo(() => {
-    if (tab === 'appearance') return 'Appearance';
-    if (tab === 'ui') return 'UI';
-    if (tab === 'terminal') return 'Terminal';
-    return 'Notifications';
-  }, [tab]);
+  useEffect(() => {
+    void workspaceSettingsStore.loadMembers();
+    void workspaceSettingsStore.loadApiTokens();
+    void githubStore.loadConnection();
+  }, []);
 
   return (
     <div className={styles.page}>
@@ -43,234 +50,131 @@ const SettingsPage = observer(() => {
               <p className={styles.subtitle}>Personalize NovexPanel. Changes apply immediately.</p>
             </div>
             <div className={styles.tabs} aria-label='Settings sections'>
-              <button
-                type='button'
-                className={`${styles.tab} ${tab === 'appearance' ? styles.tabActive : ''}`}
-                onClick={() => setTab('appearance')}
-              >
-                <Icon icon='mdi:palette-outline' />
-                Appearance
+              <button type='button' className={`${styles.tab} ${tab === 'workspace' ? styles.tabActive : ''}`} onClick={() => setTab('workspace')}>
+                <Icon icon='mdi:account-group-outline' /> Workspace
               </button>
               <button
                 type='button'
-                className={`${styles.tab} ${tab === 'ui' ? styles.tabActive : ''}`}
-                onClick={() => setTab('ui')}
+                className={`${styles.tab} ${tab === 'github' ? styles.tabActive : ''}`}
+                onClick={() => setTab('github')}
               >
-                <Icon icon='mdi:view-dashboard-outline' />
-                UI
+                <Icon icon='mdi:github' />
+                GitHub
               </button>
               <button
                 type='button'
-                className={`${styles.tab} ${tab === 'terminal' ? styles.tabActive : ''}`}
-                onClick={() => setTab('terminal')}
+                className={`${styles.tab} ${tab === 'tokens' ? styles.tabActive : ''}`}
+                onClick={() => setTab('tokens')}
               >
-                <Icon icon='mdi:terminal' />
-                Terminal
+                <Icon icon='mdi:key-outline' />
+                API Tokens
               </button>
               <button
                 type='button'
-                className={`${styles.tab} ${tab === 'notifications' ? styles.tabActive : ''}`}
-                onClick={() => setTab('notifications')}
+                className={`${styles.tab} ${tab === 'preferences' ? styles.tabActive : ''}`}
+                onClick={() => setTab('preferences')}
               >
-                <Icon icon='mdi:bell-outline' />
-                Notifications
+                <Icon icon='mdi:tune' />
+                Preferences
               </button>
             </div>
           </header>
 
-          <section className={styles.card} aria-label={tabTitle}>
-            {tab === 'appearance'
+          <section className={styles.card}>
+            {tab === 'workspace'
               ? (
                 <>
-                  <h2 className={styles.cardTitle}>Theme</h2>
+                  <h2 className={styles.cardTitle}>Workspace & Access</h2>
                   <div className={styles.grid}>
                     <div className={styles.row}>
-                      <div className={styles.rowText}>
-                        <div className={styles.label}>Theme mode</div>
-                        <div className={styles.hint}>Dark, Light (inverted), or follow system.</div>
+                      <input className={styles.input} value={email} onChange={(e) => setEmail(e.target.value)} placeholder='New email' />
+                      <input className={styles.input} value={password} onChange={(e) => setPassword(e.target.value)} placeholder='New password' />
+                      <button type='button' onClick={() => apiRequest('/auth/me', { method: 'PATCH', body: JSON.stringify({ email: email || undefined, new_password: password || undefined }) })}>Update profile</button>
+                    </div>
+                    <div className={styles.row}>
+                      <input className={styles.input} value={memberEmail} onChange={(e) => setMemberEmail(e.target.value)} placeholder='Member email' />
+                      <select className={styles.select} value={memberRole} onChange={(e) => setMemberRole(e.target.value)}>
+                        <option value='viewer'>Viewer</option>
+                        <option value='developer'>Developer</option>
+                        <option value='admin'>Admin</option>
+                      </select>
+                      <button type='button' onClick={() => workspaceSettingsStore.addMember(memberEmail, memberRole)}>Invite</button>
+                    </div>
+                    {workspaceSettingsStore.members.map((m) => <div className={styles.row} key={m.id}><div>{m.email}</div><div>{m.role}</div><button type='button' onClick={() => workspaceSettingsStore.removeMember(m.id)}>Remove</button></div>)}
+                  </div>
+                </>
+              )
+              : null}
+
+            {tab === 'github'
+              ? (
+                <>
+                  <h2 className={styles.cardTitle}>GitHub</h2>
+                  <div className={styles.grid}>
+                    <div className={styles.row}>
+                      {githubStore.connection.connected ? <div>Connected as @{githubStore.connection.login}</div> : <div>Not connected</div>}
+                      <button type='button' onClick={() => githubStore.connect()}>Connect</button>
+                      <button type='button' onClick={() => githubStore.loadRepos()}>Sync repos</button>
+                    </div>
+                    {githubStore.repos.map((repo) => (
+                      <div className={styles.row} key={repo.id}>
+                        <div>{repo.full_name}</div>
+                        <div>{repo.default_branch}</div>
+                        <a href={repo.html_url} target='_blank' rel='noreferrer'>Open</a>
                       </div>
-                      <select
-                        className={styles.select}
-                        value={s.themeMode}
-                        onChange={(e) => settingsStore.setThemeMode(e.target.value as ThemeMode)}
-                      >
+                    ))}
+                    {githubStore.connection.connected ? (
+                      <div className={styles.row}>
+                        <button type='button' onClick={() => githubStore.disconnect()}>Disconnect GitHub</button>
+                      </div>
+                    ) : null}
+                  </div>
+                </>
+              )
+              : null}
+
+            {tab === 'tokens'
+              ? (
+                <>
+                  <h2 className={styles.cardTitle}>CI/CD Tokens</h2>
+                  <div className={styles.grid}>
+                    <div className={styles.row}>
+                      <input className={styles.input} value={tokenName} onChange={(e) => setTokenName(e.target.value)} placeholder='Token name' />
+                      <button type='button' onClick={() => workspaceSettingsStore.createApiToken(tokenName)}>Create token</button>
+                      {workspaceSettingsStore.revealToken ? <code>{workspaceSettingsStore.revealToken}</code> : null}
+                    </div>
+                    {workspaceSettingsStore.apiTokens.map((token) => (
+                      <div className={styles.row} key={token.id}>
+                        <div>{token.name}</div>
+                        <div>{token.token_prefix}</div>
+                        <div>{token.revoked ? 'revoked' : 'active'}</div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )
+              : null}
+
+            {tab === 'preferences'
+              ? (
+                <>
+                  <h2 className={styles.cardTitle}>Preferences</h2>
+                  <div className={styles.grid}>
+                    <div className={styles.row}>
+                      <div className={styles.label}>Theme mode</div>
+                      <select className={styles.select} value={s.themeMode} onChange={(e) => settingsStore.setThemeMode(e.target.value as ThemeMode)}>
                         <option value='system'>System</option>
                         <option value='dark'>Dark</option>
                         <option value='light'>Light</option>
                       </select>
                     </div>
-                  </div>
-                </>
-              )
-              : null}
-
-            {tab === 'ui'
-              ? (
-                <>
-                  <h2 className={styles.cardTitle}>UI preferences</h2>
-                  <div className={styles.grid}>
                     <div className={styles.row}>
-                      <div className={styles.rowText}>
-                        <div className={styles.label}>Compact mode</div>
-                        <div className={styles.hint}>Reduces whitespace in dense screens.</div>
-                      </div>
-                      <Toggle
-                        label='Toggle compact mode'
-                        value={s.compactMode}
-                        onChange={settingsStore.setCompactMode.bind(settingsStore)}
-                      />
-                    </div>
-
-                    <div className={styles.row}>
-                      <div className={styles.rowText}>
-                        <div className={styles.label}>Animations</div>
-                        <div className={styles.hint}>Disable to reduce motion.</div>
-                      </div>
-                      <Toggle
-                        label='Toggle animations'
-                        value={s.animations}
-                        onChange={settingsStore.setAnimations.bind(settingsStore)}
-                      />
-                    </div>
-
-                    <div className={styles.row}>
-                      <div className={styles.rowText}>
-                        <div className={styles.label}>Table density</div>
-                        <div className={styles.hint}>Controls row padding for tables.</div>
-                      </div>
-                      <select
-                        className={styles.select}
-                        value={s.tableDensity}
-                        onChange={(e) => settingsStore.setTableDensity(e.target.value as any)}
-                      >
-                        <option value='comfortable'>Comfortable</option>
-                        <option value='compact'>Compact</option>
-                      </select>
-                    </div>
-
-                    <div className={styles.row}>
-                      <div className={styles.rowText}>
-                        <div className={styles.label}>Sidebar collapsed</div>
-                        <div className={styles.hint}>Collapse left navigation.</div>
-                      </div>
-                      <Toggle
-                        label='Toggle sidebar collapsed'
-                        value={s.sidebarCollapsed}
-                        onChange={settingsStore.setSidebarCollapsed.bind(settingsStore)}
-                      />
-                    </div>
-                  </div>
-                </>
-              )
-              : null}
-
-            {tab === 'terminal'
-              ? (
-                <>
-                  <h2 className={styles.cardTitle}>Terminal</h2>
-                  <div className={styles.grid}>
-                    <div className={styles.row}>
-                      <div className={styles.rowText}>
-                        <div className={styles.label}>Font size</div>
-                        <div className={styles.hint}>10–22 px.</div>
-                      </div>
-                      <input
-                        className={styles.input}
-                        type='number'
-                        min={10}
-                        max={22}
-                        value={s.terminalFontSize}
-                        onChange={(e) => settingsStore.setTerminalFontSize(Number(e.target.value))}
-                      />
-                    </div>
-
-                    <div className={styles.row}>
-                      <div className={styles.rowText}>
-                        <div className={styles.label}>Cursor style</div>
-                        <div className={styles.hint}>Block / underline / bar.</div>
-                      </div>
-                      <select
-                        className={styles.select}
-                        value={s.terminalCursorStyle}
-                        onChange={(e) => settingsStore.setTerminalCursorStyle(e.target.value as any)}
-                      >
-                        <option value='bar'>Bar</option>
-                        <option value='block'>Block</option>
-                        <option value='underline'>Underline</option>
-                      </select>
-                    </div>
-
-                    <div className={styles.row}>
-                      <div className={styles.rowText}>
-                        <div className={styles.label}>Theme</div>
-                        <div className={styles.hint}>Applies to terminal only.</div>
-                      </div>
-                      <select
-                        className={styles.select}
-                        value={s.terminalTheme}
-                        onChange={(e) => settingsStore.setTerminalTheme(e.target.value as any)}
-                      >
-                        <option value='novex'>Novex</option>
-                        <option value='classic'>Classic</option>
-                      </select>
-                    </div>
-
-                    <div className={styles.row}>
-                      <div className={styles.rowText}>
-                        <div className={styles.label}>Scrollback</div>
-                        <div className={styles.hint}>How many lines to keep in memory.</div>
-                      </div>
-                      <input
-                        className={styles.input}
-                        type='number'
-                        min={500}
-                        max={50000}
-                        value={s.terminalScrollback}
-                        onChange={(e) => settingsStore.setTerminalScrollback(Number(e.target.value))}
-                      />
-                    </div>
-                  </div>
-                </>
-              )
-              : null}
-
-            {tab === 'notifications'
-              ? (
-                <>
-                  <h2 className={styles.cardTitle}>Notifications</h2>
-                  <div className={styles.grid}>
-                    <div className={styles.row}>
-                      <div className={styles.rowText}>
-                        <div className={styles.label}>Enable notifications</div>
-                        <div className={styles.hint}>Controls all notifications in the UI.</div>
-                      </div>
-                      <Toggle
-                        label='Toggle notifications'
-                        value={s.notificationsEnabled}
-                        onChange={settingsStore.setNotificationsEnabled.bind(settingsStore)}
-                      />
+                      <div className={styles.label}>Compact mode</div>
+                      <Toggle label='toggle compact' value={s.compactMode} onChange={settingsStore.setCompactMode.bind(settingsStore)} />
                     </div>
                     <div className={styles.row}>
-                      <div className={styles.rowText}>
-                        <div className={styles.label}>Deployment notifications</div>
-                        <div className={styles.hint}>Show deploy success/failure notifications.</div>
-                      </div>
-                      <Toggle
-                        label='Toggle deployment notifications'
-                        value={s.deploymentNotifications}
-                        onChange={settingsStore.setDeploymentNotifications.bind(settingsStore)}
-                      />
-                    </div>
-                    <div className={styles.row}>
-                      <div className={styles.rowText}>
-                        <div className={styles.label}>Error notifications</div>
-                        <div className={styles.hint}>Show error toasts.</div>
-                      </div>
-                      <Toggle
-                        label='Toggle error notifications'
-                        value={s.errorNotifications}
-                        onChange={settingsStore.setErrorNotifications.bind(settingsStore)}
-                      />
+                      <div className={styles.label}>Notifications</div>
+                      <Toggle label='toggle notifications' value={s.notificationsEnabled} onChange={settingsStore.setNotificationsEnabled.bind(settingsStore)} />
                     </div>
                   </div>
                 </>
