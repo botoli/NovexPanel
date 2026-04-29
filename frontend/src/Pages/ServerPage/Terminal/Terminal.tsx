@@ -14,6 +14,7 @@ export const TerminalPage = () => {
   const sessionIdRef = useRef<string | null>(null);
   const pendingInputRef = useRef<string>('');
   const onDataDisposableRef = useRef<{ dispose: () => void } | null>(null);
+  const lastInputRef = useRef<{ data: string; at: number; }>({ data: '', at: 0 });
 
   useEffect(() => {
     if (!id) return;
@@ -191,6 +192,21 @@ export const TerminalPage = () => {
     onDataDisposableRef.current = term.onData((data) => {
       if (disposed) return;
       if (wsRef.current !== ws) return;
+
+      // Guard against duplicated onData events (common in some environments).
+      // We only dedupe single-character inputs within a very small time window
+      // to avoid breaking paste/multi-char inputs.
+      const now = performance.now();
+      if (data.length === 1) {
+        const last = lastInputRef.current;
+        if (last.data === data && now-last.at < 8) {
+          return;
+        }
+        lastInputRef.current = { data, at: now };
+      } else {
+        lastInputRef.current = { data: '', at: now };
+      }
+
       if (ws.readyState === WebSocket.OPEN) {
         const sessionId = sessionIdRef.current;
         if (!sessionId) {
