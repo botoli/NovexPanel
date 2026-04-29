@@ -52,7 +52,9 @@
 }
 
 .titleIcon {
-  font-size: 20px;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
   color: $color-text-secondary;
 }
 
@@ -90,8 +92,9 @@
   transition: border-color $transition-base, background-color $transition-base;
 
   svg {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
   }
 
   input {
@@ -143,8 +146,9 @@
   }
 
   svg {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
   }
 }
 
@@ -168,7 +172,9 @@
   padding: 4px 10px;
 
   svg {
-    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    flex: 0 0 14px;
   }
 }
 
@@ -412,6 +418,7 @@
   svg {
     width: 12px;
     height: 12px;
+    flex: 0 0 12px;
   }
 
   &:hover {
@@ -440,7 +447,9 @@
   font-size: $font-size-body;
 
   svg {
-    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
     color: $color-text-muted;
   }
 }

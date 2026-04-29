@@ -30,7 +30,9 @@
 
   .headerIcon {
     color: $color-text-secondary;
-    font-size: 20px;
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
   }
 
   .deployCount {
@@ -146,8 +148,10 @@
         white-space: nowrap;
 
         .thIcon {
+          width: 14px;
+          height: 14px;
           margin-right: $space-2;
-          vertical-align: -2px;
+          vertical-align: middle;
           opacity: 0.8;
         }
 
@@ -225,10 +229,11 @@
 
       // 🔹 Иконки в ячейках
       .cellIcon {
+        width: 14px;
+        height: 14px;
         margin-right: $space-2;
         color: $color-text-muted;
-        font-size: 14px;
-        vertical-align: -2px;
+        vertical-align: middle;
         opacity: 0.7;
       }
 
@@ -386,6 +391,12 @@
   padding: 0 $space-2;
   cursor: pointer;
   font-size: 11px;
+
+  svg {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 14px;
+  }
 }
 
 .logPreview {
@@ -431,9 +442,10 @@
   background: transparent;
   color: $color-status-offline;
 
-  .icon {
-    font-size: 16px;
-    line-height: 1;
+  svg {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
   }
 
   &:hover {
@@ -474,9 +486,10 @@
   background: transparent;
   color: $color-status-online;
 
-  .icon {
-    font-size: 16px;
-    line-height: 1;
+  svg {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
   }
 
   &:hover {

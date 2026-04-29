@@ -59,6 +59,12 @@
     background-color $transition-base,
     color $transition-base;
 
+  svg {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+  }
+
   &:hover {
     border-color: $color-border-hover;
     background: $color-hover;
@@ -116,6 +122,12 @@
     border-color $transition-base,
     background-color $transition-base,
     color $transition-base;
+
+  svg {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+  }
 
   &:hover {
     border-color: $color-border-hover;

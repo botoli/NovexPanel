@@ -37,6 +37,12 @@
   gap: $space-3;
   padding: $space-3;
   cursor: pointer;
+  svg {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+  }
+
   &.active {
     background-color: $color-active;
     color: $color-text-primary;
@@ -54,6 +60,12 @@
   gap: $space-3;
   padding: $space-3;
   cursor: pointer;
+ 
+  svg {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+  }
  
 }
 .logo_Container {
@@ -93,6 +105,12 @@
   color: $color-text-primary;
   cursor: pointer;
   transition: border-color $transition-base, background-color $transition-base;
+
+  svg {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+  }
 
   &:hover {
     border: $border-hover;
