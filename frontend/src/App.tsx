@@ -18,7 +18,9 @@ import { TerminalPage } from './Pages/ServerPage/Terminal/Terminal';
 import { ToastHost } from './common/Toast/ToastHost';
 import { settingsStore } from './Store/SettingsStore';
 import SettingsPage from './Pages/Settings/SettingsPage';
-import JobsPage from './Pages/ServerPage/Jobs/JobsPage';
+import RunbooksPage from './Pages/ServerPage/Runbooks/RunbooksPage';
+import RunbookDetailPage from './Pages/ServerPage/Runbooks/RunbookDetailPage';
+import ServicesPage from './Pages/ServerPage/Services/ServicesPage';
 
 const App = observer(() => {
   useLoadServers();
@@ -38,7 +40,9 @@ const App = observer(() => {
           <Route path='deployments' element={<DeploymentsPage />} />
           <Route path='deployments/:deployId' element={<DeploymentDetailPage />} />
           <Route path='deploy' element={<DeployPage />} />
-          <Route path='jobs' element={<JobsPage />} />
+          <Route path='runbooks' element={<RunbooksPage />} />
+          <Route path='runbooks/:runbookId' element={<RunbookDetailPage />} />
+          <Route path='services' element={<ServicesPage />} />
         </Route>
 
         <Route path='/account' element={<Account />} />

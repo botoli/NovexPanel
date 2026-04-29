@@ -1,0 +1,55 @@
+:root {
+  --rb-bg: var(--color-bg, #0f1115);
+  --rb-surface: var(--color-bg-secondary, #151922);
+  --rb-border: var(--color-border, #252b36);
+  --rb-text: var(--color-text-primary, #d8dee9);
+  --rb-muted: var(--color-text-secondary, #9ba4b4);
+}
+
+.page {
+  padding: 16px;
+  color: var(--rb-text);
+}
+
+.topRow, .filters {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.btn, .input, .select {
+  background: var(--rb-surface);
+  color: var(--rb-text);
+  border: 1px solid var(--rb-border);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.tableWrap {
+  border: 1px solid var(--rb-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th, .table td {
+  text-align: left;
+  padding: 10px;
+  border-bottom: 1px solid var(--rb-border);
+}
+
+.link {
+  color: var(--rb-text);
+}
+
+.badge {
+  border: 1px solid var(--rb-border);
+  border-radius: 999px;
+  padding: 2px 8px;
+  color: var(--rb-muted);
+}

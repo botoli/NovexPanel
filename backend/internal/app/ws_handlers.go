@@ -279,47 +279,69 @@ func (a *App) handleAgentMessage(client *AgentClient, serverID uint, payload []b
 			status = "success"
 		}
 		a.applyDeployResult(msg.DeployID, status, msg.URL, 0, "", msg.Error, "", "", "")
-	case "job_log":
+	case "runbook_log":
 		var msg struct {
-			JobID  uint   `json:"job_id"`
-			RunID  uint   `json:"run_id"`
-			Line   string `json:"line"`
-			Stream string `json:"stream"`
+			ExecutionID uint   `json:"execution_id"`
+			StepIndex   int    `json:"step_index"`
+			StepName    string `json:"step_name"`
+			Status      string `json:"status"`
+			Line        string `json:"line"`
+			Stream      string `json:"stream"`
+			Attempt     int    `json:"attempt"`
 		}
-		if err := json.Unmarshal(payload, &msg); err != nil {
+		if err := json.Unmarshal(payload, &msg); err != nil || msg.ExecutionID == 0 {
 			return
 		}
-		if msg.JobID == 0 || strings.TrimSpace(msg.Line) == "" {
-			return
-		}
-		stream := strings.ToLower(strings.TrimSpace(msg.Stream))
-		if stream != "stderr" {
-			stream = "stdout"
-		}
-		logLine := models.JobLog{
-			JobID:     msg.JobID,
-			JobRunID:  &msg.RunID,
-			Line:      msg.Line,
-			Stream:    stream,
-			CreatedAt: time.Now().UTC(),
-		}
-		_ = a.db.Create(&logLine).Error
-		a.hub.BroadcastJobLog(msg.JobID, msg.RunID, msg.Line, stream, logLine.CreatedAt)
-	case "job_result":
+		a.appendRunbookExecutionLog(msg.ExecutionID, msg.StepIndex, msg.StepName, msg.Status, msg.Line, msg.Stream, msg.Attempt)
+		a.hub.BroadcastRunbookExecutionLog(msg.ExecutionID, map[string]any{
+			"type":         "runbook_execution_log",
+			"execution_id": msg.ExecutionID,
+			"step_index":   msg.StepIndex,
+			"step_name":    msg.StepName,
+			"status":       msg.Status,
+			"line":         msg.Line,
+			"stream":       msg.Stream,
+			"attempt":      msg.Attempt,
+			"timestamp":    time.Now().UTC().Format(time.RFC3339),
+		})
+	case "runbook_step_status":
 		var msg struct {
-			JobID    uint            `json:"job_id"`
-			RunID    uint            `json:"run_id"`
-			Status   string          `json:"status"`
-			Error    string          `json:"error"`
-			ExitCode json.RawMessage `json:"exit_code"`
-			Logs     json.RawMessage `json:"logs"`
+			ExecutionID uint   `json:"execution_id"`
+			StepIndex   int    `json:"step_index"`
+			StepName    string `json:"step_name"`
+			Status      string `json:"status"`
+			Line        string `json:"line"`
 		}
-		if err := json.Unmarshal(payload, &msg); err != nil {
+		if err := json.Unmarshal(payload, &msg); err != nil || msg.ExecutionID == 0 {
 			return
 		}
-		exitCode := parseIntFromJSONRaw(msg.ExitCode)
-		logs := parseStringList(msg.Logs)
-		a.applyJobRunResult(msg.JobID, msg.RunID, strings.TrimSpace(strings.ToLower(msg.Status)), exitCode, msg.Error, logs)
+		a.appendRunbookExecutionLog(msg.ExecutionID, msg.StepIndex, msg.StepName, msg.Status, msg.Line, "stdout", 1)
+		a.hub.BroadcastRunbookExecutionLog(msg.ExecutionID, map[string]any{
+			"type":         "runbook_execution_status",
+			"execution_id": msg.ExecutionID,
+			"step_index":   msg.StepIndex,
+			"step_name":    msg.StepName,
+			"status":       msg.Status,
+			"line":         msg.Line,
+			"timestamp":    time.Now().UTC().Format(time.RFC3339),
+		})
+	case "runbook_result":
+		var msg struct {
+			ExecutionID uint   `json:"execution_id"`
+			Status      string `json:"status"`
+			Summary     string `json:"summary"`
+		}
+		if err := json.Unmarshal(payload, &msg); err != nil || msg.ExecutionID == 0 {
+			return
+		}
+		a.applyRunbookResult(msg.ExecutionID, msg.Status, msg.Summary)
+		a.hub.BroadcastRunbookExecutionLog(msg.ExecutionID, map[string]any{
+			"type":         "runbook_execution_status",
+			"execution_id": msg.ExecutionID,
+			"status":       strings.TrimSpace(strings.ToLower(msg.Status)),
+			"summary":      msg.Summary,
+			"timestamp":    time.Now().UTC().Format(time.RFC3339),
+		})
 	}
 }
 
@@ -609,31 +631,36 @@ func (a *App) handleSiteMessage(site *SiteClient, payload []byte) {
 		}
 		a.hub.UnsubscribeDeploy(site, msg.DeployID)
 		_ = site.sendJSON(map[string]any{"type": "unsubscribed_deploy_logs", "deploy_id": msg.DeployID})
-	case "subscribe_job_logs", "job_logs":
+	case "subscribe_runbook_execution_logs":
 		var msg struct {
-			JobID uint `json:"job_id"`
+			ExecutionID uint `json:"execution_id"`
 		}
-		if err := json.Unmarshal(payload, &msg); err != nil || msg.JobID == 0 {
-			a.sendSiteError(site, "invalid subscribe_job_logs payload")
+		if err := json.Unmarshal(payload, &msg); err != nil || msg.ExecutionID == 0 {
+			a.sendSiteError(site, "invalid subscribe_runbook_execution_logs payload")
 			return
 		}
-		var job models.Job
-		if err := a.db.Where("id = ? AND user_id = ?", msg.JobID, site.userID).First(&job).Error; err != nil {
-			a.sendSiteError(site, "job not found")
+		var execution models.RunbookExecution
+		if err := a.db.Where("id = ?", msg.ExecutionID).First(&execution).Error; err != nil {
+			a.sendSiteError(site, "execution not found")
 			return
 		}
-		a.hub.SubscribeJob(site, msg.JobID)
-		_ = site.sendJSON(map[string]any{"type": "subscribed_job_logs", "job_id": msg.JobID})
-	case "unsubscribe_job_logs":
+		var runbook models.Runbook
+		if err := a.db.Where("id = ? AND user_id = ?", execution.RunbookID, site.userID).First(&runbook).Error; err != nil {
+			a.sendSiteError(site, "runbook not found")
+			return
+		}
+		a.hub.SubscribeRunbookExecution(site, msg.ExecutionID)
+		_ = site.sendJSON(map[string]any{"type": "subscribed_runbook_execution_logs", "execution_id": msg.ExecutionID})
+	case "unsubscribe_runbook_execution_logs":
 		var msg struct {
-			JobID uint `json:"job_id"`
+			ExecutionID uint `json:"execution_id"`
 		}
-		if err := json.Unmarshal(payload, &msg); err != nil || msg.JobID == 0 {
-			a.sendSiteError(site, "invalid unsubscribe_job_logs payload")
+		if err := json.Unmarshal(payload, &msg); err != nil || msg.ExecutionID == 0 {
+			a.sendSiteError(site, "invalid unsubscribe_runbook_execution_logs payload")
 			return
 		}
-		a.hub.UnsubscribeJob(site, msg.JobID)
-		_ = site.sendJSON(map[string]any{"type": "unsubscribed_job_logs", "job_id": msg.JobID})
+		a.hub.UnsubscribeRunbookExecution(site, msg.ExecutionID)
+		_ = site.sendJSON(map[string]any{"type": "unsubscribed_runbook_execution_logs", "execution_id": msg.ExecutionID})
 	case "ping":
 		_ = site.sendJSON(map[string]any{"type": "pong"})
 	default:

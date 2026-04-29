@@ -18,12 +18,12 @@ import (
 type Hub struct {
 	db *gorm.DB
 
-	mu                sync.RWMutex
-	agents            map[uint]*AgentClient
-	metricSubscribers map[uint]map[*SiteClient]struct{}
-	deploySubscribers map[uint]map[*SiteClient]struct{}
-	jobSubscribers    map[uint]map[*SiteClient]struct{}
-	terminals         map[string]*TerminalSession
+	mu                 sync.RWMutex
+	agents             map[uint]*AgentClient
+	metricSubscribers  map[uint]map[*SiteClient]struct{}
+	deploySubscribers  map[uint]map[*SiteClient]struct{}
+	runbookSubscribers map[uint]map[*SiteClient]struct{}
+	terminals          map[string]*TerminalSession
 }
 
 type AgentClient struct {
@@ -43,7 +43,7 @@ type SiteClient struct {
 	sendMu          sync.Mutex
 	metricSubs      map[uint]struct{}
 	deploySubs      map[uint]struct{}
-	jobSubs         map[uint]struct{}
+	runbookSubs     map[uint]struct{}
 	activeTerminals map[uint]string
 }
 
@@ -60,12 +60,12 @@ type commandResult struct {
 
 func NewHub(db *gorm.DB) *Hub {
 	return &Hub{
-		db:                db,
-		agents:            make(map[uint]*AgentClient),
-		metricSubscribers: make(map[uint]map[*SiteClient]struct{}),
-		deploySubscribers: make(map[uint]map[*SiteClient]struct{}),
-		jobSubscribers:    make(map[uint]map[*SiteClient]struct{}),
-		terminals:         make(map[string]*TerminalSession),
+		db:                 db,
+		agents:             make(map[uint]*AgentClient),
+		metricSubscribers:  make(map[uint]map[*SiteClient]struct{}),
+		deploySubscribers:  make(map[uint]map[*SiteClient]struct{}),
+		runbookSubscribers: make(map[uint]map[*SiteClient]struct{}),
+		terminals:          make(map[string]*TerminalSession),
 	}
 }
 
@@ -75,7 +75,7 @@ func (h *Hub) NewSiteClient(userID uint, conn *websocket.Conn) *SiteClient {
 		conn:            conn,
 		metricSubs:      make(map[uint]struct{}),
 		deploySubs:      make(map[uint]struct{}),
-		jobSubs:         make(map[uint]struct{}),
+		runbookSubs:     make(map[uint]struct{}),
 		activeTerminals: make(map[uint]string),
 	}
 }
@@ -457,68 +457,38 @@ func (h *Hub) BroadcastDeployComplete(deployID uint, success bool, url, errText 
 	}
 }
 
-func (h *Hub) SubscribeJob(site *SiteClient, jobID uint) {
+func (h *Hub) SubscribeRunbookExecution(site *SiteClient, executionID uint) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	if h.jobSubscribers[jobID] == nil {
-		h.jobSubscribers[jobID] = make(map[*SiteClient]struct{})
+	if h.runbookSubscribers[executionID] == nil {
+		h.runbookSubscribers[executionID] = make(map[*SiteClient]struct{})
 	}
-	h.jobSubscribers[jobID][site] = struct{}{}
-	site.jobSubs[jobID] = struct{}{}
+	h.runbookSubscribers[executionID][site] = struct{}{}
+	site.runbookSubs[executionID] = struct{}{}
 }
 
-func (h *Hub) UnsubscribeJob(site *SiteClient, jobID uint) {
+func (h *Hub) UnsubscribeRunbookExecution(site *SiteClient, executionID uint) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	if subs, ok := h.jobSubscribers[jobID]; ok {
+	if subs, ok := h.runbookSubscribers[executionID]; ok {
 		delete(subs, site)
 		if len(subs) == 0 {
-			delete(h.jobSubscribers, jobID)
+			delete(h.runbookSubscribers, executionID)
 		}
 	}
-	delete(site.jobSubs, jobID)
+	delete(site.runbookSubs, executionID)
 }
 
-func (h *Hub) BroadcastJobLog(jobID, runID uint, line, stream string, timestamp time.Time) {
+func (h *Hub) BroadcastRunbookExecutionLog(executionID uint, payload map[string]any) {
 	h.mu.RLock()
-	subMap := h.jobSubscribers[jobID]
+	subMap := h.runbookSubscribers[executionID]
 	sites := make([]*SiteClient, 0, len(subMap))
 	for site := range subMap {
 		sites = append(sites, site)
 	}
 	h.mu.RUnlock()
-	if timestamp.IsZero() {
-		timestamp = time.Now().UTC()
-	}
 	for _, site := range sites {
-		_ = site.sendJSON(map[string]any{
-			"type":      "job_log_line",
-			"job_id":    jobID,
-			"run_id":    runID,
-			"line":      line,
-			"stream":    stream,
-			"timestamp": timestamp.Format(time.RFC3339),
-		})
-	}
-}
-
-func (h *Hub) BroadcastJobComplete(jobID, runID uint, status, errText string, exitCode *int) {
-	h.mu.RLock()
-	subMap := h.jobSubscribers[jobID]
-	sites := make([]*SiteClient, 0, len(subMap))
-	for site := range subMap {
-		sites = append(sites, site)
-	}
-	h.mu.RUnlock()
-	msg := map[string]any{"type": "job_complete", "job_id": jobID, "run_id": runID, "status": status}
-	if strings.TrimSpace(errText) != "" {
-		msg["error"] = strings.TrimSpace(errText)
-	}
-	if exitCode != nil {
-		msg["exit_code"] = *exitCode
-	}
-	for _, site := range sites {
-		_ = site.sendJSON(msg)
+		_ = site.sendJSON(payload)
 	}
 }
 
@@ -677,11 +647,11 @@ func (h *Hub) RemoveSite(site *SiteClient) {
 			}
 		}
 	}
-	for jobID := range site.jobSubs {
-		if subs := h.jobSubscribers[jobID]; subs != nil {
+	for executionID := range site.runbookSubs {
+		if subs := h.runbookSubscribers[executionID]; subs != nil {
 			delete(subs, site)
 			if len(subs) == 0 {
-				delete(h.jobSubscribers, jobID)
+				delete(h.runbookSubscribers, executionID)
 			}
 		}
 	}
@@ -691,7 +661,7 @@ func (h *Hub) RemoveSite(site *SiteClient) {
 	}
 	site.metricSubs = make(map[uint]struct{})
 	site.deploySubs = make(map[uint]struct{})
-	site.jobSubs = make(map[uint]struct{})
+	site.runbookSubs = make(map[uint]struct{})
 	site.activeTerminals = make(map[uint]string)
 	h.mu.Unlock()
 

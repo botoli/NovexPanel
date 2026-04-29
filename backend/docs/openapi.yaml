@@ -1144,3 +1144,75 @@ paths:
           description: Switching Protocols.
         '401':
           description: Invalid or expired token.
+
+  /servers/{id}/runbooks:
+    get:
+      tags: [Servers]
+      summary: List runbooks for server
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ServerIdPath'
+      responses:
+        '200':
+          description: Runbook list.
+    post:
+      tags: [Servers]
+      summary: Create runbook
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ServerIdPath'
+      responses:
+        '201':
+          description: Runbook created.
+
+  /servers/{id}/runbooks/{runbookId}:
+    get:
+      tags: [Servers]
+      summary: Get runbook details
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ServerIdPath'
+        - in: path
+          name: runbookId
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Runbook details.
+    patch:
+      tags: [Servers]
+      summary: Update runbook metadata
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ServerIdPath'
+        - in: path
+          name: runbookId
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Updated.
+    delete:
+      tags: [Servers]
+      summary: Delete runbook
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ServerIdPath'
+        - in: path
+          name: runbookId
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Deleted.

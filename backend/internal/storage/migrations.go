@@ -23,9 +23,12 @@ func runMigrations(db *gorm.DB) error {
 		&models.Deploy{},
 		&models.DeployLog{},
 		&models.CommandLog{},
-		&models.Job{},
-		&models.JobRun{},
-		&models.JobLog{},
+		&models.Runbook{},
+		&models.RunbookVersion{},
+		&models.RunbookExecution{},
+		&models.RunbookExecutionLog{},
+		&models.RunbookAuditEvent{},
+		&models.ServiceActionLog{},
 	); err != nil {
 		return fmt.Errorf("automigrate schema: %w", err)
 	}
@@ -53,6 +56,9 @@ func runMigrations(db *gorm.DB) error {
 		return err
 	}
 	if err := ensureDeployColumn(db, "commit_msg", "CommitMsg"); err != nil {
+		return err
+	}
+	if err := seedStarterRunbooks(db); err != nil {
 		return err
 	}
 

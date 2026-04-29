@@ -141,41 +141,80 @@ type APIToken struct {
 	UpdatedAt   time.Time  `json:"updated_at"`
 }
 
-type Job struct {
-	ID            uint           `gorm:"primaryKey" json:"id"`
-	UserID        uint           `gorm:"index;not null" json:"user_id"`
-	ServerID      uint           `gorm:"index;not null" json:"server_id"`
-	Name          string         `gorm:"size:140;not null" json:"name"`
-	Type          string         `gorm:"size:40;index;not null" json:"type"`
-	Command       string         `gorm:"size:2048;not null" json:"command"`
-	CronExpr      string         `gorm:"size:100" json:"cron_expr"`
-	Status        string         `gorm:"size:24;index;not null" json:"status"`
-	LastExitCode  *int           `json:"last_exit_code"`
-	LastError     string         `gorm:"size:1024" json:"last_error"`
-	Meta          datatypes.JSON `gorm:"type:jsonb;default:'{}'" json:"meta"`
-	LastStartedAt *time.Time     `json:"last_started_at"`
-	LastEndedAt   *time.Time     `json:"last_ended_at"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
+type Runbook struct {
+	ID            uint       `gorm:"primaryKey" json:"id"`
+	UserID        uint       `gorm:"index;not null" json:"user_id"`
+	ServerID      uint       `gorm:"index:idx_runbook_server_slug,unique;not null" json:"server_id"`
+	Title         string     `gorm:"size:180;not null" json:"title"`
+	Slug          string     `gorm:"size:120;not null;index:idx_runbook_server_slug,unique" json:"slug"`
+	Description   string     `gorm:"type:text" json:"description"`
+	Tags          string     `gorm:"size:512" json:"tags"`
+	TargetType    string     `gorm:"size:32;not null" json:"target_type"`
+	LatestVersion int        `gorm:"not null;default:1" json:"latest_version"`
+	LastRunAt     *time.Time `json:"last_run_at"`
+	LastRunStatus string     `gorm:"size:24" json:"last_run_status"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
 }
 
-type JobRun struct {
-	ID          uint       `gorm:"primaryKey" json:"id"`
-	JobID       uint       `gorm:"index;not null" json:"job_id"`
-	TriggeredBy string     `gorm:"size:24;not null" json:"triggered_by"`
-	Status      string     `gorm:"size:24;index;not null" json:"status"`
-	ExitCode    *int       `json:"exit_code"`
-	Error       string     `gorm:"size:1024" json:"error"`
-	StartedAt   time.Time  `gorm:"index" json:"started_at"`
-	FinishedAt  *time.Time `gorm:"index" json:"finished_at"`
-	CreatedAt   time.Time  `json:"created_at"`
+type RunbookVersion struct {
+	ID              uint           `gorm:"primaryKey" json:"id"`
+	RunbookID       uint           `gorm:"index;not null" json:"runbook_id"`
+	Version         int            `gorm:"not null" json:"version"`
+	DefinitionJSON  datatypes.JSON `gorm:"type:jsonb;not null" json:"definition_json"`
+	CreatedBy       uint           `gorm:"index;not null" json:"created_by"`
+	ChangeNote      string         `gorm:"size:255" json:"change_note"`
+	IsRollbackPoint bool           `gorm:"default:false" json:"is_rollback_point"`
+	CreatedAt       time.Time      `json:"created_at"`
 }
 
-type JobLog struct {
-	ID        uint      `gorm:"primaryKey" json:"id"`
-	JobID     uint      `gorm:"index;not null" json:"job_id"`
-	JobRunID  *uint     `gorm:"index" json:"job_run_id"`
-	Line      string    `gorm:"type:text;not null" json:"line"`
-	Stream    string    `gorm:"size:16;not null" json:"stream"`
-	CreatedAt time.Time `gorm:"index" json:"created_at"`
+type RunbookExecution struct {
+	ID                        uint       `gorm:"primaryKey" json:"id"`
+	RunbookID                 uint       `gorm:"index;not null" json:"runbook_id"`
+	RunbookVersionID          uint       `gorm:"index;not null" json:"runbook_version_id"`
+	DryRun                    bool       `gorm:"default:false" json:"dry_run"`
+	Status                    string     `gorm:"size:24;index;not null" json:"status"`
+	StartedAt                 *time.Time `json:"started_at"`
+	FinishedAt                *time.Time `json:"finished_at"`
+	TriggeredBy               uint       `gorm:"index;not null" json:"triggered_by"`
+	RolledBackFromExecutionID *uint      `gorm:"index" json:"rolled_back_from_execution_id"`
+	Summary                   string     `gorm:"type:text" json:"summary"`
+	CreatedAt                 time.Time  `json:"created_at"`
+	UpdatedAt                 time.Time  `json:"updated_at"`
+}
+
+type RunbookExecutionLog struct {
+	ID          uint      `gorm:"primaryKey" json:"id"`
+	ExecutionID uint      `gorm:"index;not null" json:"execution_id"`
+	StepIndex   int       `gorm:"index;not null;default:0" json:"step_index"`
+	StepName    string    `gorm:"size:180" json:"step_name"`
+	Status      string    `gorm:"size:24;index;not null" json:"status"`
+	Line        string    `gorm:"type:text;not null" json:"line"`
+	Stream      string    `gorm:"size:16;not null" json:"stream"`
+	Attempt     int       `gorm:"not null;default:1" json:"attempt"`
+	CreatedAt   time.Time `gorm:"index" json:"created_at"`
+}
+
+type RunbookAuditEvent struct {
+	ID          uint           `gorm:"primaryKey" json:"id"`
+	UserID      uint           `gorm:"index;not null" json:"user_id"`
+	ServerID    uint           `gorm:"index;not null" json:"server_id"`
+	RunbookID   *uint          `gorm:"index" json:"runbook_id"`
+	ExecutionID *uint          `gorm:"index" json:"execution_id"`
+	Action      string         `gorm:"size:80;index;not null" json:"action"`
+	PayloadJSON datatypes.JSON `gorm:"type:jsonb;default:'{}'" json:"payload_json"`
+	CreatedAt   time.Time      `gorm:"index" json:"created_at"`
+}
+
+type ServiceActionLog struct {
+	ID           uint      `gorm:"primaryKey" json:"id"`
+	UserID       uint      `gorm:"index;not null" json:"user_id"`
+	ServerID     uint      `gorm:"index;not null" json:"server_id"`
+	Provider     string    `gorm:"size:32;index;not null" json:"provider"`
+	ServiceName  string    `gorm:"size:180;index;not null" json:"service_name"`
+	Action       string    `gorm:"size:32;index;not null" json:"action"`
+	Graceful     bool      `gorm:"default:false" json:"graceful"`
+	Success      bool      `gorm:"default:false" json:"success"`
+	ErrorMessage string    `gorm:"size:512" json:"error_message"`
+	CreatedAt    time.Time `gorm:"index" json:"created_at"`
 }

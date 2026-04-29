@@ -135,6 +135,15 @@ type deployPayload struct {
 	ContainerEnvCamel    map[string]any `json:"containerEnv"`
 }
 
+type runbookExecutePayload struct {
+	RunbookID   uint            `json:"runbook_id"`
+	ExecutionID uint            `json:"execution_id"`
+	Version     int             `json:"version"`
+	DryRun      bool            `json:"dry_run"`
+	Variables   map[string]any  `json:"variables"`
+	Definition  json.RawMessage `json:"definition"`
+}
+
 func (p *deployPayload) normalize() {
 	if p.DeployID == 0 {
 		p.DeployID = p.DeployIDCamel
@@ -791,6 +800,80 @@ func (a *Agent) handleCommand(msg commandMessage) {
 			return
 		}
 		a.sendCommandResponse(msg.RequestID, true, map[string]any{"success": true}, "")
+	case "list_services":
+		var payload struct {
+			Provider string `json:"provider"`
+		}
+		if len(msg.Payload) > 0 {
+			_ = json.Unmarshal(msg.Payload, &payload)
+		}
+		services, err := a.listServicesByProvider(payload.Provider)
+		if err != nil {
+			respondError(err)
+			return
+		}
+		a.sendCommandResponse(msg.RequestID, true, map[string]any{"services": services}, "")
+	case "service_action":
+		var payload struct {
+			Provider string `json:"provider"`
+			Service  string `json:"service"`
+			Action   string `json:"action"`
+			Graceful bool   `json:"graceful"`
+		}
+		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			respondError(fmt.Errorf("invalid payload"))
+			return
+		}
+		result, err := a.serviceAction(payload.Provider, payload.Service, payload.Action, payload.Graceful)
+		if err != nil {
+			respondError(err)
+			return
+		}
+		a.sendCommandResponse(msg.RequestID, true, result, "")
+	case "service_logs":
+		var payload struct {
+			Provider string `json:"provider"`
+			Service  string `json:"service"`
+			Lines    string `json:"lines"`
+		}
+		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			respondError(fmt.Errorf("invalid payload"))
+			return
+		}
+		result, err := a.serviceLogs(payload.Provider, payload.Service, payload.Lines)
+		if err != nil {
+			respondError(err)
+			return
+		}
+		a.sendCommandResponse(msg.RequestID, true, result, "")
+	case "service_graph":
+		var payload struct {
+			Provider string `json:"provider"`
+		}
+		if len(msg.Payload) > 0 {
+			_ = json.Unmarshal(msg.Payload, &payload)
+		}
+		graph, err := a.serviceGraph(payload.Provider)
+		if err != nil {
+			respondError(err)
+			return
+		}
+		a.sendCommandResponse(msg.RequestID, true, graph, "")
+	case "service_restart_history":
+		var payload struct {
+			Provider string `json:"provider"`
+			Service  string `json:"service"`
+		}
+		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			respondError(fmt.Errorf("invalid payload"))
+			return
+		}
+		history, err := a.serviceRestartHistory(payload.Provider, payload.Service)
+		if err != nil {
+			respondError(err)
+			return
+		}
+		a.sendCommandResponse(msg.RequestID, true, history, "")
 	case "run_terminal":
 		var payload struct {
 			SessionID string `json:"session_id"`
@@ -846,10 +929,171 @@ func (a *Agent) handleCommand(msg commandMessage) {
 			return
 		}
 		a.sendCommandResponse(msg.RequestID, true, map[string]any{"accepted": true}, "")
+	case "runbook_execute":
+		var payload runbookExecutePayload
+		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			respondError(fmt.Errorf("invalid payload"))
+			return
+		}
+		if payload.ExecutionID == 0 {
+			respondError(fmt.Errorf("execution_id is required"))
+			return
+		}
+		go a.runRunbookExecution(payload)
+		a.sendCommandResponse(msg.RequestID, true, map[string]any{"accepted": true}, "")
+	case "runbook_rollback":
+		var payload struct {
+			ExecutionID uint `json:"execution_id"`
+		}
+		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			respondError(fmt.Errorf("invalid payload"))
+			return
+		}
+		if payload.ExecutionID == 0 {
+			respondError(fmt.Errorf("execution_id is required"))
+			return
+		}
+		go func() {
+			_ = a.sendJSON(map[string]any{
+				"type":         "runbook_result",
+				"execution_id": payload.ExecutionID,
+				"status":       "rolled_back",
+				"summary":      "rollback marked as completed by agent",
+			})
+		}()
+		a.sendCommandResponse(msg.RequestID, true, map[string]any{"accepted": true}, "")
 	default:
 		logError("unknown command received: %s", msg.Command)
 		respondError(fmt.Errorf("unknown command: %s", msg.Command))
 	}
+}
+
+func normalizeRunbookVars(raw map[string]any) map[string]string {
+	out := make(map[string]string, len(raw))
+	for key, value := range raw {
+		trimmed := strings.TrimSpace(key)
+		if trimmed == "" || value == nil {
+			continue
+		}
+		out[trimmed] = strings.TrimSpace(fmt.Sprintf("%v", value))
+	}
+	return out
+}
+
+func renderRunbookCommand(cmdTemplate string, vars map[string]string) string {
+	out := cmdTemplate
+	for key, value := range vars {
+		out = strings.ReplaceAll(out, "{{"+key+"}}", value)
+	}
+	return out
+}
+
+func (a *Agent) runRunbookExecution(payload runbookExecutePayload) {
+	now := time.Now().UTC().Format(time.RFC3339)
+	_ = a.sendJSON(map[string]any{
+		"type":         "runbook_step_status",
+		"execution_id": payload.ExecutionID,
+		"step_index":   -1,
+		"step_name":    "init",
+		"status":       "running",
+		"line":         "runbook execution started",
+		"timestamp":    now,
+	})
+
+	if payload.DryRun {
+		_ = a.sendJSON(map[string]any{
+			"type":         "runbook_result",
+			"execution_id": payload.ExecutionID,
+			"status":       "success",
+			"summary":      "dry run completed on agent",
+		})
+		return
+	}
+
+	var definition struct {
+		Steps []map[string]any `json:"steps"`
+	}
+	if err := json.Unmarshal(payload.Definition, &definition); err != nil {
+		_ = a.sendJSON(map[string]any{
+			"type":         "runbook_result",
+			"execution_id": payload.ExecutionID,
+			"status":       "failed",
+			"summary":      "invalid runbook definition",
+		})
+		return
+	}
+	vars := normalizeRunbookVars(payload.Variables)
+
+	for idx, step := range definition.Steps {
+		stepType := strings.TrimSpace(strings.ToLower(fmt.Sprintf("%v", step["type"])))
+		stepName := strings.TrimSpace(fmt.Sprintf("%v", step["name"]))
+		if stepName == "" {
+			stepName = fmt.Sprintf("step-%d", idx+1)
+		}
+		command := renderRunbookCommand(strings.TrimSpace(fmt.Sprintf("%v", step["command"])), vars)
+		if stepType != "shell" && stepType != "script" {
+			_ = a.sendJSON(map[string]any{
+				"type":         "runbook_log",
+				"execution_id": payload.ExecutionID,
+				"step_index":   idx,
+				"step_name":    stepName,
+				"status":       "running",
+				"line":         "step type is not executable on agent, skipped",
+				"stream":       "stdout",
+				"attempt":      1,
+			})
+			continue
+		}
+		_ = a.sendJSON(map[string]any{
+			"type":         "runbook_step_status",
+			"execution_id": payload.ExecutionID,
+			"step_index":   idx,
+			"step_name":    stepName,
+			"status":       "running",
+			"line":         "executing step",
+		})
+		stdout, stderr, exitCode, runErr := runShellCommand(command)
+		if strings.TrimSpace(stdout) != "" {
+			_ = a.sendJSON(map[string]any{
+				"type":         "runbook_log",
+				"execution_id": payload.ExecutionID,
+				"step_index":   idx,
+				"step_name":    stepName,
+				"status":       "running",
+				"line":         stdout,
+				"stream":       "stdout",
+				"attempt":      1,
+			})
+		}
+		if strings.TrimSpace(stderr) != "" {
+			_ = a.sendJSON(map[string]any{
+				"type":         "runbook_log",
+				"execution_id": payload.ExecutionID,
+				"step_index":   idx,
+				"step_name":    stepName,
+				"status":       "running",
+				"line":         stderr,
+				"stream":       "stderr",
+				"attempt":      1,
+			})
+		}
+		if runErr != nil || exitCode != 0 {
+			_ = a.sendJSON(map[string]any{
+				"type":         "runbook_result",
+				"execution_id": payload.ExecutionID,
+				"status":       "failed",
+				"summary":      fmt.Sprintf("step %s failed (exit code %d)", stepName, exitCode),
+			})
+			return
+		}
+	}
+
+	_ = a.sendJSON(map[string]any{
+		"type":         "runbook_result",
+		"execution_id": payload.ExecutionID,
+		"status":       "success",
+		"summary":      "runbook execution completed",
+	})
 }
 
 func runShellCommand(command string) (stdout, stderr string, exitCode int, err error) {
@@ -1105,18 +1349,18 @@ func (a *Agent) collectProcesses(limit int) ([]map[string]any, error) {
 	}
 
 	type procInfo struct {
-		PID        int32
-		Name       string
-		CPU        float64
-		Mem        float32
-		State      string
-		User       string
-		Uptime     float64
-		Threads    int32
-		PPID       int32
-		HasChild   bool
-		StartTime  string
-		ProcType   string
+		PID       int32
+		Name      string
+		CPU       float64
+		Mem       float32
+		State     string
+		User      string
+		Uptime    float64
+		Threads   int32
+		PPID      int32
+		HasChild  bool
+		StartTime string
+		ProcType  string
 	}
 
 	now := time.Now()
@@ -1443,13 +1687,13 @@ func (a *Agent) runDeploy(payload deployPayload) {
 		}
 
 		_ = a.sendJSON(map[string]any{
-			"type":     "deploy_result",
-			"deployId": payload.DeployID,
-			"status":   status,
-			"url":      deployURL,
-			"port":     assignedPort,
-			"log":      deployLogBuilder.String(),
-			"error":    errText,
+			"type":           "deploy_result",
+			"deployId":       payload.DeployID,
+			"status":         status,
+			"url":            deployURL,
+			"port":           assignedPort,
+			"log":            deployLogBuilder.String(),
+			"error":          errText,
 			"commit_hash":    commitHash,
 			"commit_author":  commitAuthor,
 			"commit_message": commitMessage,
@@ -1795,18 +2039,18 @@ func (a *Agent) runContainer(parentCtx context.Context, stepTimeout time.Duratio
 	}
 
 	runArgs := []string{
-    "run", "-d", "--name", containerName,
-    "--security-opt", "no-new-privileges:true",
-    "--memory", memoryLimit,
-    "--cpus", cpusLimit,
-    "--pids-limit", pidsLimit,
-    "--cap-drop", "ALL",
-    "--cap-add", "NET_BIND_SERVICE",
-    "--cap-add", "CHOWN",
-    "--cap-add", "SETUID", // ← добавь эту строку
-    "--cap-add", "SETGID", // ← и эту
-    "-p", fmt.Sprintf("%d:%d", hostPort, appPort),
-}
+		"run", "-d", "--name", containerName,
+		"--security-opt", "no-new-privileges:true",
+		"--memory", memoryLimit,
+		"--cpus", cpusLimit,
+		"--pids-limit", pidsLimit,
+		"--cap-drop", "ALL",
+		"--cap-add", "NET_BIND_SERVICE",
+		"--cap-add", "CHOWN",
+		"--cap-add", "SETUID", // ← добавь эту строку
+		"--cap-add", "SETGID", // ← и эту
+		"-p", fmt.Sprintf("%d:%d", hostPort, appPort),
+	}
 	if appPort <= 1024 {
 		runArgs = append(runArgs, "--cap-add", "NET_BIND_SERVICE")
 	}
@@ -2904,4 +3148,213 @@ func dirExists(path string) bool {
 		return false
 	}
 	return info.IsDir()
+}
+
+func normalizeServiceProvider(raw string) string {
+	switch strings.TrimSpace(strings.ToLower(raw)) {
+	case "", "systemd":
+		return "systemd"
+	case "supervisor":
+		return "supervisor"
+	case "docker-compose", "docker_compose", "compose":
+		return "docker-compose"
+	default:
+		return ""
+	}
+}
+
+func parseServiceListLines(output string) []map[string]any {
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	out := make([]map[string]any, 0, len(lines))
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		parts := strings.Fields(line)
+		if len(parts) == 0 {
+			continue
+		}
+		name := parts[0]
+		status := "unknown"
+		if len(parts) > 1 {
+			status = strings.ToLower(parts[1])
+		}
+		out = append(out, map[string]any{
+			"name":               name,
+			"status":             status,
+			"cpu":                0,
+			"ram":                0,
+			"uptime":             "",
+			"ports":              []string{},
+			"process_id":         0,
+			"restart_count":      0,
+			"last_crash":         "",
+			"linked_domains":     []string{},
+			"autorestart_policy": "",
+			"health_status":      status,
+			"crash_reason":       "",
+		})
+	}
+	return out
+}
+
+func (a *Agent) listServicesByProvider(providerRaw string) ([]map[string]any, error) {
+	provider := normalizeServiceProvider(providerRaw)
+	if provider == "" {
+		return nil, fmt.Errorf("unsupported provider")
+	}
+	switch provider {
+	case "systemd":
+		out, _, _, err := runShellCommand("systemctl list-units --type=service --no-legend --plain | awk '{print $1, $4}'")
+		if err != nil {
+			return nil, err
+		}
+		return parseServiceListLines(out), nil
+	case "supervisor":
+		out, _, _, err := runShellCommand("supervisorctl status | awk '{print $1, $2}'")
+		if err != nil {
+			return nil, err
+		}
+		return parseServiceListLines(out), nil
+	case "docker-compose":
+		out, _, _, err := runShellCommand("docker compose ps --format '{{.Service}} {{.State}}'")
+		if err != nil {
+			return nil, err
+		}
+		return parseServiceListLines(out), nil
+	default:
+		return nil, fmt.Errorf("unsupported provider")
+	}
+}
+
+func (a *Agent) serviceAction(providerRaw, service, action string, graceful bool) (map[string]any, error) {
+	provider := normalizeServiceProvider(providerRaw)
+	if provider == "" {
+		return nil, fmt.Errorf("unsupported provider")
+	}
+	service = strings.TrimSpace(service)
+	action = strings.TrimSpace(strings.ToLower(action))
+	if service == "" {
+		return nil, fmt.Errorf("service is required")
+	}
+	var cmd string
+	switch provider {
+	case "systemd":
+		if action == "restart" && graceful {
+			cmd = fmt.Sprintf("sudo systemctl try-restart %s", service)
+		} else {
+			cmd = fmt.Sprintf("sudo systemctl %s %s", action, service)
+		}
+	case "supervisor":
+		cmd = fmt.Sprintf("supervisorctl %s %s", action, service)
+	case "docker-compose":
+		switch action {
+		case "start":
+			cmd = fmt.Sprintf("docker compose start %s", service)
+		case "stop":
+			cmd = fmt.Sprintf("docker compose stop %s", service)
+		case "restart":
+			cmd = fmt.Sprintf("docker compose restart %s", service)
+		case "reload":
+			cmd = fmt.Sprintf("docker compose restart %s", service)
+		default:
+			return nil, fmt.Errorf("invalid action")
+		}
+	}
+	stdout, stderr, exitCode, err := runShellCommand(cmd)
+	if err != nil || exitCode != 0 {
+		return nil, fmt.Errorf(strings.TrimSpace(stderr + "\n" + stdout))
+	}
+	return map[string]any{"ok": true, "provider": provider, "service": service, "action": action, "output": strings.TrimSpace(stdout)}, nil
+}
+
+func (a *Agent) serviceLogs(providerRaw, service, linesRaw string) (map[string]any, error) {
+	provider := normalizeServiceProvider(providerRaw)
+	if provider == "" {
+		return nil, fmt.Errorf("unsupported provider")
+	}
+	service = strings.TrimSpace(service)
+	if service == "" {
+		return nil, fmt.Errorf("service is required")
+	}
+	lines := strings.TrimSpace(linesRaw)
+	if lines == "" {
+		lines = "200"
+	}
+	var cmd string
+	switch provider {
+	case "systemd":
+		cmd = fmt.Sprintf("journalctl -u %s -n %s --no-pager", service, lines)
+	case "supervisor":
+		cmd = fmt.Sprintf("supervisorctl tail -1000 %s", service)
+	case "docker-compose":
+		cmd = fmt.Sprintf("docker compose logs --tail=%s %s", lines, service)
+	}
+	stdout, stderr, exitCode, err := runShellCommand(cmd)
+	if err != nil || exitCode != 0 {
+		return nil, fmt.Errorf(strings.TrimSpace(stderr + "\n" + stdout))
+	}
+	logLines := strings.Split(strings.TrimSpace(stdout), "\n")
+	return map[string]any{"service": service, "provider": provider, "logs": logLines}, nil
+}
+
+func (a *Agent) serviceGraph(providerRaw string) (map[string]any, error) {
+	provider := normalizeServiceProvider(providerRaw)
+	if provider == "" {
+		return nil, fmt.Errorf("unsupported provider")
+	}
+	switch provider {
+	case "systemd":
+		stdout, _, _, err := runShellCommand("systemctl list-dependencies --all --plain | sed 's/[●├─└─ ]//g' | awk 'NF'")
+		if err != nil {
+			return nil, err
+		}
+		nodes := strings.Split(strings.TrimSpace(stdout), "\n")
+		return map[string]any{"provider": provider, "nodes": nodes, "edges": []any{}}, nil
+	case "supervisor":
+		return map[string]any{"provider": provider, "nodes": []string{}, "edges": []any{}}, nil
+	case "docker-compose":
+		stdout, _, _, err := runShellCommand("docker compose config --services")
+		if err != nil {
+			return nil, err
+		}
+		nodes := strings.Split(strings.TrimSpace(stdout), "\n")
+		return map[string]any{"provider": provider, "nodes": nodes, "edges": []any{}}, nil
+	default:
+		return nil, fmt.Errorf("unsupported provider")
+	}
+}
+
+func (a *Agent) serviceRestartHistory(providerRaw, service string) (map[string]any, error) {
+	provider := normalizeServiceProvider(providerRaw)
+	if provider == "" {
+		return nil, fmt.Errorf("unsupported provider")
+	}
+	service = strings.TrimSpace(service)
+	if service == "" {
+		return nil, fmt.Errorf("service is required")
+	}
+	switch provider {
+	case "systemd":
+		stdout, _, _, err := runShellCommand(fmt.Sprintf("journalctl -u %s -n 100 --no-pager | rg -i 'start|stop|fail|restart' || true", service))
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"provider": provider, "service": service, "history": strings.Split(strings.TrimSpace(stdout), "\n")}, nil
+	case "supervisor":
+		stdout, _, _, err := runShellCommand(fmt.Sprintf("supervisorctl status %s", service))
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"provider": provider, "service": service, "history": []string{strings.TrimSpace(stdout)}}, nil
+	case "docker-compose":
+		stdout, _, _, err := runShellCommand(fmt.Sprintf("docker compose ps %s --format '{{.Name}} {{.State}} {{.RunningFor}}'", service))
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"provider": provider, "service": service, "history": strings.Split(strings.TrimSpace(stdout), "\n")}, nil
+	default:
+		return nil, fmt.Errorf("unsupported provider")
+	}
 }

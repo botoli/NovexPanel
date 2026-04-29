@@ -591,3 +591,69 @@ Optional fields:
 
 - `data` (object)
 - `error` (string)
+
+## 5. Runbooks Realtime Extension
+
+### 5.1 Site -> Backend
+
+#### `subscribe_runbook_execution_logs`
+
+```json
+{
+  "type": "subscribe_runbook_execution_logs",
+  "execution_id": 901
+}
+```
+
+#### `unsubscribe_runbook_execution_logs`
+
+```json
+{
+  "type": "unsubscribe_runbook_execution_logs",
+  "execution_id": 901
+}
+```
+
+### 5.2 Backend -> Site
+
+#### `runbook_execution_log`
+
+```json
+{
+  "type": "runbook_execution_log",
+  "execution_id": 901,
+  "step_index": 1,
+  "step_name": "restart-nginx",
+  "status": "running",
+  "line": "systemctl restart nginx",
+  "stream": "stdout",
+  "attempt": 1,
+  "timestamp": "2026-04-30T00:00:00Z"
+}
+```
+
+#### `runbook_execution_status`
+
+```json
+{
+  "type": "runbook_execution_status",
+  "execution_id": 901,
+  "status": "success",
+  "summary": "runbook execution completed",
+  "timestamp": "2026-04-30T00:00:03Z"
+}
+```
+
+### 5.3 Agent -> Backend
+
+#### `runbook_log`
+
+Step line event used for live logs.
+
+#### `runbook_step_status`
+
+Step state transition event.
+
+#### `runbook_result`
+
+Terminal status event for execution (`success`, `failed`, `rolled_back`).
