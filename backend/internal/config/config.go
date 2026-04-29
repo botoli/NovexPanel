@@ -22,16 +22,24 @@ type Config struct {
 	WSReadLimitBytes    int64
 	CORSAllowAll        bool
 	// CommandAllowlist: comma-separated allowed command prefixes (see app package). Empty uses built-in defaults. "*" disables filtering.
-	CommandAllowlist string
+	CommandAllowlist   string
+	GitHubClientID     string
+	GitHubClientSecret string
+	GitHubRedirectURL  string
+	TokenEncSecret     string
 }
 
 func Load() (Config, error) {
 	_ = godotenv.Load()
 
 	cfg := Config{
-		HTTPAddr:    getEnv("HTTP_ADDR", ":8380"),
-		DatabaseURL: getEnv("DATABASE_URL", "novex.db"),
-		JWTSecret:   getEnv("JWT_SECRET", ""),
+		HTTPAddr:           getEnv("HTTP_ADDR", ":8380"),
+		DatabaseURL:        getEnv("DATABASE_URL", "novex.db"),
+		JWTSecret:          getEnv("JWT_SECRET", ""),
+		GitHubClientID:     getEnv("GITHUB_CLIENT_ID", ""),
+		GitHubClientSecret: getEnv("GITHUB_CLIENT_SECRET", ""),
+		GitHubRedirectURL:  getEnv("GITHUB_REDIRECT_URL", ""),
+		TokenEncSecret:     getEnv("TOKEN_ENC_SECRET", ""),
 	}
 
 	if cfg.JWTSecret == "" {
@@ -100,6 +108,9 @@ func Load() (Config, error) {
 	}
 
 	cfg.CommandAllowlist = strings.TrimSpace(getEnv("COMMAND_ALLOWLIST", ""))
+	if strings.TrimSpace(cfg.TokenEncSecret) == "" {
+		cfg.TokenEncSecret = cfg.JWTSecret
+	}
 
 	cfg.CORSAllowAll = strings.EqualFold(strings.TrimSpace(getEnv("CORS_ALLOW_ALL", "false")), "true")
 
