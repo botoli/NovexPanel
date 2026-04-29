@@ -132,6 +132,9 @@ export const TerminalPage = () => {
         case 'connected':
           return;
         case 'terminal_opened': {
+          if (msg.server_id !== undefined && typeof msg.server_id === 'number' && msg.server_id !== serverId) {
+            return;
+          }
           const sessionId = typeof msg.session_id === 'string' ? msg.session_id : null;
           if (!sessionId) return;
           sessionIdRef.current = sessionId;
@@ -151,6 +154,14 @@ export const TerminalPage = () => {
           return;
         }
         case 'terminal_output': {
+          const activeSessionId = sessionIdRef.current;
+          const msgSessionId = typeof msg.session_id === 'string' ? msg.session_id : null;
+          if (activeSessionId && msgSessionId && msgSessionId !== activeSessionId) {
+            return;
+          }
+          if (typeof msg.server_id === 'number' && msg.server_id !== serverId) {
+            return;
+          }
           if (typeof msg.data === 'string') {
             term.write(msg.data);
           }
