@@ -41,6 +41,8 @@ func runMigrations(db *gorm.DB) error {
 		&models.TLSCertificateHistory{},
 		&models.TLSRenewalLog{},
 		&models.DomainAuditLog{},
+		&models.AutoHealRule{},
+		&models.AutoHealEvent{},
 	); err != nil {
 		return fmt.Errorf("automigrate schema: %w", err)
 	}

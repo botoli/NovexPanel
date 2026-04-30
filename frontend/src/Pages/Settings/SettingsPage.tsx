@@ -29,6 +29,7 @@ const SettingsPage = observer(() => {
   const [memberEmail, setMemberEmail] = useState('');
   const [memberRole, setMemberRole] = useState('developer');
   const [tokenName, setTokenName] = useState('');
+  const [githubError, setGithubError] = useState('');
 
   const githubScopes = useMemo(() => ([
     { scope: 'repo', reason: 'Read repositories and configure deployments.' },
@@ -121,7 +122,24 @@ const SettingsPage = observer(() => {
                   <div className={styles.grid}>
                     <div className={styles.row}>
                       {githubStore.connection.connected ? <div>Connected as @{githubStore.connection.login}</div> : <div>Not connected</div>}
-                      <button type='button' onClick={() => githubStore.connect()}>Connect via OAuth</button>
+                      <button
+                        type='button'
+                        onClick={async () => {
+                          setGithubError('');
+                          try {
+                            await githubStore.connect();
+                          } catch (error) {
+                            const message = (error as Error).message;
+                            if (message.includes('github oauth is not configured')) {
+                              setGithubError('GitHub OAuth не настроен на сервере. Добавьте GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET и GITHUB_REDIRECT_URL в backend env.');
+                            } else {
+                              setGithubError(message);
+                            }
+                          }
+                        }}
+                      >
+                        Connect via OAuth
+                      </button>
                       <button type='button' onClick={async () => { setSyncState('syncing'); try { await githubStore.loadRepos(); setLastSyncAt(new Date().toISOString()); setSyncState('success'); } catch { setSyncState('error'); } }}>Sync repos</button>
                     </div>
                     <div className={styles.row}><strong>Permissions preview</strong></div>
@@ -130,6 +148,7 @@ const SettingsPage = observer(() => {
                     <div className={styles.row}><div>Requested scopes</div><div>{githubStore.connection.scope || 'repo, read:org, admin:repo_hook'}</div></div>
                     <div className={styles.row}><div>Last sync</div><div>{lastSyncAt ? new Date(lastSyncAt).toLocaleString() : 'never'}</div></div>
                     <div className={styles.row}><div>Sync state</div><div>{syncState}</div></div>
+                    {(githubError || githubStore.error) ? <div className={styles.row}><div style={{ color: 'var(--color-status-offline)' }}>{githubError || githubStore.error}</div></div> : null}
                     <div className={styles.row}><strong>Connected repositories</strong></div>
                     {githubStore.repos.length === 0 ? <div className={styles.row}><div>No repositories connected yet.</div></div> : null}
                     {githubStore.repos.map((repo) => (

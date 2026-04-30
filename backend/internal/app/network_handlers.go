@@ -56,7 +56,27 @@ func (a *App) handleNetworkOpenPorts(c *gin.Context) {
     c.JSON(http.StatusBadGateway, gin.H{"error": "invalid response from agent"})
     return
   }
-  c.JSON(http.StatusOK, decoded)
+  payload, ok := decoded.(map[string]any)
+  if !ok {
+    c.JSON(http.StatusBadGateway, gin.H{"error": "invalid response from agent"})
+    return
+  }
+  rawPorts, _ := payload["ports"].([]any)
+  normalized := make([]gin.H, 0, len(rawPorts))
+  for _, item := range rawPorts {
+    m, ok := item.(map[string]any)
+    if !ok {
+      continue
+    }
+    normalized = append(normalized, gin.H{
+      "port":    valueToString(m["port"]),
+      "proto":   valueToString(m["protocol"]),
+      "process": valueToString(m["process"]),
+      "state":   valueToString(m["state"]),
+      "address": valueToString(m["local_addr"]),
+    })
+  }
+  c.JSON(http.StatusOK, gin.H{"ports": normalized})
 }
 
 func (a *App) handleNetworkConnections(c *gin.Context) {
@@ -246,6 +266,9 @@ func (a *App) handleNetworkAlerts(c *gin.Context) {
 type networkConn struct {
   RemoteIP   string `json:"remote_ip"`
   RemotePort string `json:"remote_port"`
+  Domain     string `json:"domain"`
+  Process    string `json:"process"`
+  LocalAddr  string `json:"local_addr"`
   LocalPort  string `json:"local_port"`
   State      string `json:"state"`
   Protocol   string `json:"protocol"`
@@ -269,6 +292,9 @@ func parseConnectionList(decoded any) []networkConn {
     conn := networkConn{
       RemoteIP:   strings.TrimSpace(valueToString(m["remote_ip"])),
       RemotePort: strings.TrimSpace(valueToString(m["remote_port"])),
+      Domain:     strings.TrimSpace(valueToString(m["domain"])),
+      Process:    strings.TrimSpace(valueToString(m["process"])),
+      LocalAddr:  strings.TrimSpace(valueToString(m["local_addr"])),
       LocalPort:  strings.TrimSpace(valueToString(m["local_port"])),
       State:      strings.TrimSpace(valueToString(m["state"])),
       Protocol:   strings.TrimSpace(valueToString(m["protocol"])),

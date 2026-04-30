@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strings"
+	"time"
 )
 
 func (a *Agent) listOpenPorts() ([]map[string]any, error) {
@@ -45,12 +47,13 @@ func (a *Agent) listOpenPorts() ([]map[string]any, error) {
 }
 
 func (a *Agent) listNetworkConnections(limit int) ([]map[string]any, error) {
-  stdout, _, _, err := runShellCommand("ss -tn state established")
+  stdout, _, _, err := runShellCommand("ss -tnp state established")
   if err != nil {
     return nil, err
   }
   lines := strings.Split(strings.TrimSpace(stdout), "\n")
   out := make([]map[string]any, 0, len(lines))
+  domainCache := make(map[string]string)
   for _, line := range lines {
     line = strings.TrimSpace(line)
     if line == "" || strings.HasPrefix(line, "State") {
@@ -65,6 +68,15 @@ func (a *Agent) listNetworkConnections(limit int) ([]map[string]any, error) {
     remote := fields[4]
     localAddr, localPort := splitAddressPort(local)
     remoteAddr, remotePort := splitAddressPort(remote)
+    processName, processPID := parseProcessInfo(line)
+    processValue := ""
+    if processName != "" {
+      processValue = fmt.Sprintf("%s (%s)", processName, processPID)
+    }
+    domainValue := ""
+    if remoteAddr != "" {
+      domainValue = reverseLookup(remoteAddr, domainCache)
+    }
     out = append(out, map[string]any{
       "protocol":    "tcp",
       "state":       state,
@@ -72,12 +84,38 @@ func (a *Agent) listNetworkConnections(limit int) ([]map[string]any, error) {
       "local_port":  localPort,
       "remote_ip":   remoteAddr,
       "remote_port": remotePort,
+      "process":     processValue,
+      "domain":      domainValue,
     })
     if limit > 0 && len(out) >= limit {
       break
     }
   }
   return out, nil
+}
+
+func reverseLookup(ip string, cache map[string]string) string {
+  if ip == "" {
+    return ""
+  }
+  if value, ok := cache[ip]; ok {
+    return value
+  }
+  parsed := net.ParseIP(ip)
+  if parsed == nil || parsed.IsPrivate() || parsed.IsLoopback() {
+    cache[ip] = ""
+    return ""
+  }
+  ctx, cancel := context.WithTimeout(context.Background(), 180*time.Millisecond)
+  defer cancel()
+  names, err := net.DefaultResolver.LookupAddr(ctx, ip)
+  if err != nil || len(names) == 0 {
+    cache[ip] = ""
+    return ""
+  }
+  host := strings.TrimSuffix(strings.TrimSpace(names[0]), ".")
+  cache[ip] = host
+  return host
 }
 
 func splitAddressPort(raw string) (string, string) {

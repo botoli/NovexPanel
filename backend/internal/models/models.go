@@ -394,3 +394,31 @@ type DomainAuditLog struct {
 	PayloadJSON datatypes.JSON `gorm:"type:jsonb;default:'{}'" json:"payload_json"`
 	CreatedAt   time.Time      `gorm:"index" json:"created_at"`
 }
+
+type AutoHealRule struct {
+	ID              uint      `gorm:"primaryKey" json:"id"`
+	UserID          uint      `gorm:"index;not null" json:"user_id"`
+	ServerID        uint      `gorm:"index;not null" json:"server_id"`
+	Name            string    `gorm:"size:180;not null" json:"name"`
+	Metric          string    `gorm:"size:64;index;not null" json:"metric"`
+	Condition       string    `gorm:"size:8;not null" json:"condition"`
+	Threshold       float64   `gorm:"not null" json:"threshold"`
+	DurationSeconds int       `gorm:"not null;default:30" json:"duration_seconds"`
+	Action          string    `gorm:"size:32;index;not null" json:"action"`
+	RetryLimit      int       `gorm:"not null;default:1" json:"retry_limit"`
+	CooldownSeconds int       `gorm:"not null;default:300" json:"cooldown_seconds"`
+	Enabled         bool      `gorm:"default:true" json:"enabled"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+type AutoHealEvent struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	UserID    uint      `gorm:"index;not null" json:"user_id"`
+	ServerID  uint      `gorm:"index;not null" json:"server_id"`
+	RuleID    *uint     `gorm:"index" json:"rule_id"`
+	RuleName  string    `gorm:"size:180;index;not null" json:"rule_name"`
+	Status    string    `gorm:"size:24;index;not null" json:"status"`
+	Message   string    `gorm:"size:1024" json:"message"`
+	CreatedAt time.Time `gorm:"index" json:"created_at"`
+}
