@@ -1,0 +1,146 @@
+"filename", "language", "Markdown", "JSON", "YAML", "Go Checksum File", "Go", "JavaScript", "HTML", "Go Module File", "TypeScript", "TypeScript JSX", "SCSS", "Ignore", "JSON with Comments", "Properties", "XML", "comment", "blank", "total"
+"/home/server/NovexPanel/.vite/deps/_metadata.json", "JSON", 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8
+"/home/server/NovexPanel/.vite/deps/package.json", "JSON", 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 4
+"/home/server/NovexPanel/README.md", "Markdown", 106, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 130
+"/home/server/NovexPanel/Review-NovexPanel.md", "Markdown", 489, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 119, 608
+"/home/server/NovexPanel/backend/README.md", "Markdown", 130, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 194
+"/home/server/NovexPanel/backend/cmd/agent/certs.go", "Go", 0, 0, 0, 0, 223, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 21, 244
+"/home/server/NovexPanel/backend/cmd/agent/firewall.go", "Go", 0, 0, 0, 0, 573, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 605
+"/home/server/NovexPanel/backend/cmd/agent/main.go", "Go", 0, 0, 0, 0, 3471, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 329, 3811
+"/home/server/NovexPanel/backend/cmd/agent/network.go", "Go", 0, 0, 0, 0, 169, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 7, 177
+"/home/server/NovexPanel/backend/docker-compose.yml", "YAML", 0, 0, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 19
+"/home/server/NovexPanel/backend/docs/openapi.yaml", "YAML", 0, 0, 1164, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 55, 1219
+"/home/server/NovexPanel/backend/docs/ws-protocol.md", "Markdown", 453, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 207, 660
+"/home/server/NovexPanel/backend/go.mod", "Go Module File", 0, 0, 0, 0, 0, 0, 0, 71, 0, 0, 0, 0, 0, 0, 0, 0, 4, 75
+"/home/server/NovexPanel/backend/go.sum", "Go Checksum File", 0, 0, 0, 194, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 195
+"/home/server/NovexPanel/backend/internal/app/ai_guard_handlers.go", "Go", 0, 0, 0, 0, 239, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 17, 256
+"/home/server/NovexPanel/backend/internal/app/app.go", "Go", 0, 0, 0, 0, 265, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 297
+"/home/server/NovexPanel/backend/internal/app/auth_handlers.go", "Go", 0, 0, 0, 0, 300, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 55, 355
+"/home/server/NovexPanel/backend/internal/app/auto_heal_handlers.go", "Go", 0, 0, 0, 0, 151, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 19, 170
+"/home/server/NovexPanel/backend/internal/app/deploy_handlers.go", "Go", 0, 0, 0, 0, 841, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 103, 949
+"/home/server/NovexPanel/backend/internal/app/dns_utils.go", "Go", 0, 0, 0, 0, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 127
+"/home/server/NovexPanel/backend/internal/app/domains_handlers.go", "Go", 0, 0, 0, 0, 995, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 98, 1093
+"/home/server/NovexPanel/backend/internal/app/domains_utils.go", "Go", 0, 0, 0, 0, 175, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 190
+"/home/server/NovexPanel/backend/internal/app/file_ops_handlers.go", "Go", 0, 0, 0, 0, 348, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 17, 365
+"/home/server/NovexPanel/backend/internal/app/firewall_utils.go", "Go", 0, 0, 0, 0, 226, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 19, 245
+"/home/server/NovexPanel/backend/internal/app/github_handlers.go", "Go", 0, 0, 0, 0, 339, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 29, 368
+"/home/server/NovexPanel/backend/internal/app/hub.go", "Go", 0, 0, 0, 0, 588, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 89, 677
+"/home/server/NovexPanel/backend/internal/app/network_handlers.go", "Go", 0, 0, 0, 0, 794, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 87, 881
+"/home/server/NovexPanel/backend/internal/app/runbook_handlers.go", "Go", 0, 0, 0, 0, 677, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 30, 709
+"/home/server/NovexPanel/backend/internal/app/runbook_validation.go", "Go", 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 108
+"/home/server/NovexPanel/backend/internal/app/secrets_crypto.go", "Go", 0, 0, 0, 0, 87, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 95
+"/home/server/NovexPanel/backend/internal/app/secrets_handlers.go", "Go", 0, 0, 0, 0, 369, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 19, 389
+"/home/server/NovexPanel/backend/internal/app/security_middleware.go", "Go", 0, 0, 0, 0, 143, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 26, 169
+"/home/server/NovexPanel/backend/internal/app/server_handlers.go", "Go", 0, 0, 0, 0, 808, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 109, 919
+"/home/server/NovexPanel/backend/internal/app/service_providers.go", "Go", 0, 0, 0, 0, 26, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 36
+"/home/server/NovexPanel/backend/internal/app/services_handlers.go", "Go", 0, 0, 0, 0, 251, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 262
+"/home/server/NovexPanel/backend/internal/app/settings_handlers.go", "Go", 0, 0, 0, 0, 189, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 204
+"/home/server/NovexPanel/backend/internal/app/terminal_ws_handler.go", "Go", 0, 0, 0, 0, 317, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 39, 359
+"/home/server/NovexPanel/backend/internal/app/tls_workers.go", "Go", 0, 0, 0, 0, 83, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 95
+"/home/server/NovexPanel/backend/internal/app/utils.go", "Go", 0, 0, 0, 0, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 20
+"/home/server/NovexPanel/backend/internal/app/ws_handlers.go", "Go", 0, 0, 0, 0, 637, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 40, 677
+"/home/server/NovexPanel/backend/internal/app/ws_security.go", "Go", 0, 0, 0, 0, 92, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 107
+"/home/server/NovexPanel/backend/internal/auth/agent_token.go", "Go", 0, 0, 0, 0, 25, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 31
+"/home/server/NovexPanel/backend/internal/auth/jwt.go", "Go", 0, 0, 0, 0, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 57
+"/home/server/NovexPanel/backend/internal/auth/password.go", "Go", 0, 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 16
+"/home/server/NovexPanel/backend/internal/config/config.go", "Go", 0, 0, 0, 0, 131, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 19, 151
+"/home/server/NovexPanel/backend/internal/models/models.go", "Go", 0, 0, 0, 0, 391, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 33, 425
+"/home/server/NovexPanel/backend/internal/storage/db.go", "Go", 0, 0, 0, 0, 31, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 40
+"/home/server/NovexPanel/backend/internal/storage/migrations.go", "Go", 0, 0, 0, 0, 81, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 91
+"/home/server/NovexPanel/backend/internal/storage/runbook_seed.go", "Go", 0, 0, 0, 0, 153, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 166
+"/home/server/NovexPanel/frontend/.dockerignore", "Ignore", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 5
+"/home/server/NovexPanel/frontend/.env", "Properties", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 2
+"/home/server/NovexPanel/frontend/README.md", "Markdown", 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 74
+"/home/server/NovexPanel/frontend/dprint.json", "JSON", 0, 19, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 20
+"/home/server/NovexPanel/frontend/eslint.config.js", "JavaScript", 0, 0, 0, 0, 0, 22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 24
+"/home/server/NovexPanel/frontend/index.html", "HTML", 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 15
+"/home/server/NovexPanel/frontend/nginx.conf", "Properties", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 0, 1, 2, 16
+"/home/server/NovexPanel/frontend/package-lock.json", "JSON", 0, 5160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 5161
+"/home/server/NovexPanel/frontend/package.json", "JSON", 0, 43, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 44
+"/home/server/NovexPanel/frontend/public/Logo.svg", "XML", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 1, 7
+"/home/server/NovexPanel/frontend/src/Api/api.ts", "TypeScript", 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 2
+"/home/server/NovexPanel/frontend/src/Api/client.ts", "TypeScript", 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 1, 3, 24
+"/home/server/NovexPanel/frontend/src/Api/features/aiGuard.ts", "TypeScript", 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0, 0, 0, 0, 0, 0, 3, 13
+"/home/server/NovexPanel/frontend/src/Api/features/autoHeal.ts", "TypeScript", 0, 0, 0, 0, 0, 0, 0, 0, 16, 0, 0, 0, 0, 0, 0, 0, 3, 19
+"/home/server/NovexPanel/frontend/src/Api/runbooks.ts", "TypeScript", 0, 0, 0, 0, 0, 0, 0, 0, 99, 0, 0, 0, 0, 0, 0, 0, 18, 117
+"/home/server/NovexPanel/frontend/src/App.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 65, 0, 0, 0, 0, 0, 0, 8, 73
+"/home/server/NovexPanel/frontend/src/Hooks/useLoadServers.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 29, 0, 0, 0, 0, 0, 0, 5, 34
+"/home/server/NovexPanel/frontend/src/Icons/Icon.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 864, 0, 0, 0, 0, 0, 0, 17, 881
+"/home/server/NovexPanel/frontend/src/Icons/index.ts", "TypeScript", 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 1, 33
+"/home/server/NovexPanel/frontend/src/Pages/AIGuard/AIGuardPage.module.scss", "SCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 51, 0, 0, 0, 0, 0, 1, 52
+"/home/server/NovexPanel/frontend/src/Pages/AIGuard/AIGuardPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 232, 0, 0, 0, 0, 0, 0, 7, 239
+"/home/server/NovexPanel/frontend/src/Pages/AutoHeal/AutoHealPage.module.scss", "SCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 80, 0, 0, 0, 0, 0, 1, 81
+"/home/server/NovexPanel/frontend/src/Pages/AutoHeal/AutoHealPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 70, 0, 0, 0, 0, 0, 0, 11, 81
+"/home/server/NovexPanel/frontend/src/Pages/Domains/DomainsPage.module.scss", "SCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 75, 0, 0, 0, 0, 0, 1, 76
+"/home/server/NovexPanel/frontend/src/Pages/Domains/DomainsPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 76, 0, 0, 0, 0, 0, 0, 9, 85
+"/home/server/NovexPanel/frontend/src/Pages/Home/Data.ts", "TypeScript", 0, 0, 0, 0, 0, 0, 0, 0, 116, 0, 0, 0, 0, 0, 0, 0, 6, 122
+"/home/server/NovexPanel/frontend/src/Pages/Home/Home.module.scss", "SCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1155, 0, 0, 0, 0, 2, 224, 1381
+"/home/server/NovexPanel/frontend/src/Pages/Home/HomePage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 517, 0, 0, 0, 0, 0, 1, 36, 554
+"/home/server/NovexPanel/frontend/src/Pages/LeftPanel/LeftPanel.module.scss", "SCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 112, 0, 0, 0, 0, 0, 16, 128
+"/home/server/NovexPanel/frontend/src/Pages/LeftPanel/LeftPanel.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 125, 0, 0, 0, 0, 0, 0, 12, 137
+"/home/server/NovexPanel/frontend/src/Pages/LeftPanel/tabs.ts", "TypeScript", 0, 0, 0, 0, 0, 0, 0, 0, 37, 0, 0, 0, 0, 0, 0, 0, 3, 40
+"/home/server/NovexPanel/frontend/src/Pages/Network/NetworkPage.module.scss", "SCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 76, 0, 0, 0, 0, 0, 1, 77
+"/home/server/NovexPanel/frontend/src/Pages/Network/NetworkPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 108, 0, 0, 0, 0, 0, 0, 13, 121
+"/home/server/NovexPanel/frontend/src/Pages/ServerPage/Deploy/DeploymentDetailPage/DeploymentDetailPage.module.scss", "SCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 344, 0, 0, 0, 0, 0, 60, 404
+"/home/server/NovexPanel/frontend/src/Pages/ServerPage/Deploy/DeploymentDetailPage/DeploymentDetailPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 508, 0, 0, 0, 0, 0, 40, 21, 569
+"/home/server/NovexPanel/frontend/src/Pages/ServerPage/Deploy/DeploymentsPage.module.scss", "SCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 508, 0, 0, 0, 0, 24, 94, 626
+"/home/server/NovexPanel/frontend/src/Pages/ServerPage/Deploy/DeploymentsPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 341, 0, 0, 0, 0, 0, 19, 16, 376
+"/home/server/NovexPanel/frontend/src/Pages/ServerPage/Deploy/DeploymentsPage/Deploy.module.scss", "SCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 444, 0, 0, 0, 0, 0, 75, 519
+"/home/server/NovexPanel/frontend/src/Pages/ServerPage/Deploy/DeploymentsPage/Deploy.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 294, 0, 0, 0, 0, 0, 2, 12, 308
+"/home/server/NovexPanel/frontend/src/Pages/ServerPage/Files/FilesPage.module.scss", "SCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 226, 0, 0, 0, 0, 0, 33, 259
+"/home/server/NovexPanel/frontend/src/Pages/ServerPage/Files/FilesPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 398, 0, 0, 0, 0, 0, 0, 27, 425
+"/home/server/NovexPanel/frontend/src/Pages/ServerPage/Metrics/MetricsPage.module.scss", "SCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 405, 0, 0, 0, 0, 0, 72, 477
+"/home/server/NovexPanel/frontend/src/Pages/ServerPage/Metrics/MetricsPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 579, 0, 0, 0, 0, 0, 0, 53, 632
+"/home/server/NovexPanel/frontend/src/Pages/ServerPage/Processes/ProcessesPage.module.scss", "SCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 520, 0, 0, 0, 0, 0, 92, 612
+"/home/server/NovexPanel/frontend/src/Pages/ServerPage/Processes/ProcessesPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 539, 0, 0, 0, 0, 0, 2, 48, 589
+"/home/server/NovexPanel/frontend/src/Pages/ServerPage/Runbooks/RunbookDetailPage.module.scss", "SCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 36, 0, 0, 0, 0, 0, 3, 39
+"/home/server/NovexPanel/frontend/src/Pages/ServerPage/Runbooks/RunbookDetailPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 195, 0, 0, 0, 0, 0, 0, 18, 213
+"/home/server/NovexPanel/frontend/src/Pages/ServerPage/Runbooks/RunbooksPage.module.scss", "SCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 187, 0, 0, 0, 0, 0, 29, 216
+"/home/server/NovexPanel/frontend/src/Pages/ServerPage/Runbooks/RunbooksPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 147, 0, 0, 0, 0, 0, 0, 11, 158
+"/home/server/NovexPanel/frontend/src/Pages/ServerPage/Secrets/SecretsPage.module.scss", "SCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 183, 0, 0, 0, 0, 0, 28, 211
+"/home/server/NovexPanel/frontend/src/Pages/ServerPage/Secrets/SecretsPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 317, 0, 0, 0, 0, 0, 0, 20, 337
+"/home/server/NovexPanel/frontend/src/Pages/ServerPage/ServerPage.module.scss", "SCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 318, 0, 0, 0, 0, 0, 47, 365
+"/home/server/NovexPanel/frontend/src/Pages/ServerPage/ServerPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 237, 0, 0, 0, 0, 0, 1, 17, 255
+"/home/server/NovexPanel/frontend/src/Pages/ServerPage/Services/ServicesPage.module.scss", "SCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 193, 0, 0, 0, 0, 0, 32, 225
+"/home/server/NovexPanel/frontend/src/Pages/ServerPage/Services/ServicesPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 378, 0, 0, 0, 0, 0, 0, 21, 399
+"/home/server/NovexPanel/frontend/src/Pages/ServerPage/Terminal/Terminal.module.scss", "SCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1
+"/home/server/NovexPanel/frontend/src/Pages/ServerPage/Terminal/Terminal.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 262, 0, 0, 0, 0, 0, 18, 27, 307
+"/home/server/NovexPanel/frontend/src/Pages/Settings/SettingsPage.module.scss", "SCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 152, 0, 0, 0, 0, 0, 25, 177
+"/home/server/NovexPanel/frontend/src/Pages/Settings/SettingsPage.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 215, 0, 0, 0, 0, 0, 0, 13, 228
+"/home/server/NovexPanel/frontend/src/Store/AgentTokenStore.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0, 0, 0, 0, 1, 15
+"/home/server/NovexPanel/frontend/src/Store/DeployStore.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 2, 14
+"/home/server/NovexPanel/frontend/src/Store/GitHubStore.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 51, 0, 0, 0, 0, 0, 0, 7, 58
+"/home/server/NovexPanel/frontend/src/Store/GlobalStore.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 2, 14
+"/home/server/NovexPanel/frontend/src/Store/RefreshStore.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 26, 0, 0, 0, 0, 0, 0, 6, 32
+"/home/server/NovexPanel/frontend/src/Store/RunbooksStore.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 138, 0, 0, 0, 0, 0, 0, 16, 154
+"/home/server/NovexPanel/frontend/src/Store/ServerMetricsStore.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 54, 0, 0, 0, 0, 0, 0, 8, 62
+"/home/server/NovexPanel/frontend/src/Store/ServerStore.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 0, 0, 0, 0, 0, 1, 3, 13
+"/home/server/NovexPanel/frontend/src/Store/SettingsStore.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 132, 0, 0, 0, 0, 0, 2, 27, 161
+"/home/server/NovexPanel/frontend/src/Store/ToastStore.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 26, 0, 0, 0, 0, 0, 0, 10, 36
+"/home/server/NovexPanel/frontend/src/Store/TokenStore.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 19, 0, 0, 0, 0, 0, 0, 1, 20
+"/home/server/NovexPanel/frontend/src/Store/WorkspaceSettingsStore.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 36, 0, 0, 0, 0, 0, 0, 4, 40
+"/home/server/NovexPanel/frontend/src/Styles/Variables.scss", "SCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 67, 0, 0, 0, 0, 32, 39, 138
+"/home/server/NovexPanel/frontend/src/Styles/app.scss", "SCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 134, 0, 0, 0, 0, 5, 23, 162
+"/home/server/NovexPanel/frontend/src/assets/react.svg", "XML", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1
+"/home/server/NovexPanel/frontend/src/assets/vite.svg", "XML", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 2
+"/home/server/NovexPanel/frontend/src/common/AuthBtns/AuthBtns.module.scss", "SCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 59, 0, 0, 0, 0, 0, 8, 67
+"/home/server/NovexPanel/frontend/src/common/AuthBtns/AuthBtns.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 26, 0, 0, 0, 0, 0, 0, 2, 28
+"/home/server/NovexPanel/frontend/src/common/DeployLoader/DeployLoader.module.scss", "SCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 208, 0, 0, 0, 0, 17, 38, 263
+"/home/server/NovexPanel/frontend/src/common/DeployLoader/DeployLoader.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 31, 0, 0, 0, 0, 0, 4, 5, 40
+"/home/server/NovexPanel/frontend/src/common/Toast/ToastHost.module.scss", "SCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 68, 0, 0, 0, 0, 0, 11, 79
+"/home/server/NovexPanel/frontend/src/common/Toast/ToastHost.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 38, 0, 0, 0, 0, 0, 0, 6, 44
+"/home/server/NovexPanel/frontend/src/main.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 0, 0, 0, 0, 0, 0, 1, 10
+"/home/server/NovexPanel/frontend/src/modals/Account/Account.module.scss", "SCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 288, 0, 0, 0, 0, 0, 46, 334
+"/home/server/NovexPanel/frontend/src/modals/Account/Account.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 176, 0, 0, 0, 0, 0, 0, 3, 179
+"/home/server/NovexPanel/frontend/src/modals/Confirm/Confirm.module.scss", "SCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 89, 0, 0, 0, 0, 0, 14, 103
+"/home/server/NovexPanel/frontend/src/modals/Confirm/Confirm.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 44, 0, 0, 0, 0, 0, 0, 4, 48
+"/home/server/NovexPanel/frontend/src/modals/Login/Login.module.scss", "SCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 125, 0, 0, 0, 0, 0, 19, 144
+"/home/server/NovexPanel/frontend/src/modals/Login/Login.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 129, 0, 0, 0, 0, 0, 4, 13, 146
+"/home/server/NovexPanel/frontend/src/modals/Registration/Registration.module.scss", "SCSS", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 125, 0, 0, 0, 0, 0, 19, 144
+"/home/server/NovexPanel/frontend/src/modals/Registration/Registration.tsx", "TypeScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 0, 152, 0, 0, 0, 0, 0, 6, 21, 179
+"/home/server/NovexPanel/frontend/tsconfig.app.json", "JSON", 0, 21, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 26
+"/home/server/NovexPanel/frontend/tsconfig.json", "JSON with Comments", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 1, 8
+"/home/server/NovexPanel/frontend/tsconfig.node.json", "JSON", 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 25
+"/home/server/NovexPanel/frontend/vite.config.ts", "TypeScript", 0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 1, 3, 12
+"/home/server/NovexPanel/package-lock.json", "JSON", 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 7
+"Total", "-", 1238, 5280, 1180, 194, 14478, 22, 13, 71, 339, 7630, 6228, 5, 7, 15, 8, 214, 3599, 40521

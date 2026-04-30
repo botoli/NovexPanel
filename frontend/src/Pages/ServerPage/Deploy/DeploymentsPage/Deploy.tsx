@@ -1,13 +1,13 @@
-import { Icon } from '@iconify/react';
-import { observer } from 'mobx-react-lite';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import { API_BASE } from '../../../../Api/api';
-import { DeployLoader } from '../../../../common/DeployLoader/DeployLoader';
-import { useCurrentServer } from '../../../../Store/ServerStore';
-import { tokenStore } from '../../../../Store/TokenStore';
-import { githubStore } from '../../../../Store/GitHubStore';
-import styles from './Deploy.module.scss';
+import { Icon } from "@iconify/react";
+import { observer } from "mobx-react-lite";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { NavLink, useNavigate } from "react-router-dom";
+import { API_BASE } from "../../../../Api/api";
+import { DeployLoader } from "../../../../common/DeployLoader/DeployLoader";
+import { useCurrentServer } from "../../../../Store/ServerStore";
+import { tokenStore } from "../../../../Store/TokenStore";
+import { githubStore } from "../../../../Store/GitHubStore";
+import styles from "./Deploy.module.scss";
 
 interface DeployData {
   serverId: number | undefined;
@@ -27,51 +27,59 @@ export const DeployPage = observer(() => {
   const navigate = useNavigate();
   const langs = [
     {
-      'name': 'Node.js',
-      'type': 'node',
-      'icon': 'logos:nodejs-icon',
-      description: 'JavaScript runtime',
-    },
-    { 'name': 'Go', 'type': 'go', 'icon': 'logos:go', description: 'Go programming language' },
-    {
-      'name': 'Python',
-      'type': 'python',
-      'icon': 'logos:python',
-      description: 'Python programming language',
+      name: "Node.js",
+      type: "node",
+      icon: "logos:nodejs-icon",
+      description: "JavaScript runtime",
     },
     {
-      'name': 'Vite',
-      'type': 'vite',
-      'icon': 'logos:vite-icon',
-      description: 'Vite development server',
+      name: "Go",
+      type: "go",
+      icon: "logos:go",
+      description: "Go programming language",
+    },
+    {
+      name: "Python",
+      type: "python",
+      icon: "logos:python",
+      description: "Python programming language",
+    },
+    {
+      name: "Vite",
+      type: "vite",
+      icon: "logos:vite-icon",
+      description: "Vite development server",
     },
   ];
 
-  const [GithubUrl, setGithubUrl] = useState<string>('');
-  const [choosedLanguage, setChoosedLanguage] = useState('node');
+  const [GithubUrl, setGithubUrl] = useState<string>("");
+  const [choosedLanguage, setChoosedLanguage] = useState("node");
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [subdirectory, setSubdirectory] = useState<string>('');
-  const [envKey, setEnvKey] = useState<string>('');
-  const [envValue, setEnvValue] = useState<string>('');
+  const [subdirectory, setSubdirectory] = useState<string>("");
+  const [envKey, setEnvKey] = useState<string>("");
+  const [envValue, setEnvValue] = useState<string>("");
   const [envVarList, setEnvVarList] = useState<EnvVar[]>([]);
 
   const addEnvVar = () => {
     if (envKey.trim() && envValue.trim()) {
       setEnvVarList([...envVarList, { envKey, envValue }]);
-      setEnvKey('');
-      setEnvValue('');
+      setEnvKey("");
+      setEnvValue("");
     }
   };
-  const envVars = envVarList.reduce((acc, { envKey, envValue }) => {
-    if (envKey && envValue) acc[envKey] = envValue;
-    return acc;
-  }, {} as Record<string, string>);
+  const envVars = envVarList.reduce(
+    (acc, { envKey, envValue }) => {
+      if (envKey && envValue) acc[envKey] = envValue;
+      return acc;
+    },
+    {} as Record<string, string>,
+  );
   const deployData: DeployData = useMemo(() => {
     return {
       serverId: server?.id,
       repoUrl: GithubUrl,
-      branch: 'master',
+      branch: "master",
       type: choosedLanguage,
       subdirectory: subdirectory,
       buildCommand: null,
@@ -86,19 +94,20 @@ export const DeployPage = observer(() => {
       setError(null);
 
       const response = await fetch(`${API_BASE}/deploy`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           Authorization: `Bearer ${tokenStore.getToken()}`,
         },
         body: JSON.stringify(deployData),
       });
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok)
+        throw new Error(`HTTP error! status: ${response.status}`);
       const data = await response.json();
       navigate(`/servers/${server?.id}/deployments`);
       return data;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Произошла ошибка');
+      setError(err instanceof Error ? err.message : "Произошла ошибка");
       throw err;
     } finally {
       setLoading(false);
@@ -127,65 +136,68 @@ export const DeployPage = observer(() => {
           <p className={styles.subtitle}>Deploy your application in minutes</p>
         </div>
         <NavLink to={`/servers/${server?.id}/deployments`}>
-          <button type='button' className={styles.headerBtn}>
-            <Icon icon='mdi:arrow-left' />
+          <button type="button" className={styles.headerBtn}>
+            <Icon icon="mdi:arrow-left" />
             Back
           </button>
         </NavLink>
       </div>
-      {loading ? <DeployLoader label='Loading deployments' /> : (
+      {loading ? (
+        <DeployLoader label="Loading deployments" />
+      ) : (
         <div className={styles.centerStage}>
-          <section className={styles.deployCard} aria-label='Deploy your project'>
+          <section
+            className={styles.deployCard}
+            aria-label="Deploy your project"
+          >
             <div className={styles.form}>
               <div className={styles.field}>
                 <div className={styles.fieldLabelRow}>
                   <p className={styles.label}>
                     GitHub Repository
-                    <span className={styles.labelHint} aria-hidden='true'>
-                      <Icon icon='mdi:help-circle-outline' />
+                    <span className={styles.labelHint} aria-hidden="true">
+                      <Icon icon="mdi:help-circle-outline" />
                     </span>
                   </p>
                 </div>
 
                 <div className={styles.inputShell}>
-                  <Icon icon='mdi:github' className={styles.inputIcon} />
+                  <Icon icon="mdi:github" className={styles.inputIcon} />
                   <input
                     className={styles.input}
-                    type='url'
-                    inputMode='url'
-                    placeholder='https://github.com/username/repository'
-                    value={GithubUrl || 'https://github.com/botoli/NovexPanel.git'}
+                    type="url"
+                    inputMode="url"
+                    placeholder="https://github.com/username/repository"
+                    value={GithubUrl}
                     onChange={(e) => setGithubUrl(e.target.value)}
                   />
-                  <Icon icon='mdi:check-circle' className={styles.inputCheck} />
+                  <Icon icon="mdi:check-circle" className={styles.inputCheck} />
                 </div>
-                {githubStore.repos.length > 0
-                  ? (
-                    <select
-                      className={styles.input}
-                      value=''
-                      onChange={(e) => {
-                        if (!e.target.value) return;
-                        setGithubUrl(e.target.value);
-                      }}
-                    >
-                      <option value=''>Import from connected GitHub</option>
-                      {githubStore.repos.map(repo => (
-                        <option key={repo.id} value={repo.clone_url}>
-                          {repo.full_name} ({repo.default_branch})
-                        </option>
-                      ))}
-                    </select>
-                  )
-                  : null}
+                {githubStore.repos.length > 0 ? (
+                  <select
+                    className={styles.input}
+                    value=""
+                    onChange={(e) => {
+                      if (!e.target.value) return;
+                      setGithubUrl(e.target.value);
+                    }}
+                  >
+                    <option value="">Import from connected GitHub</option>
+                    {githubStore.repos.map((repo) => (
+                      <option key={repo.id} value={repo.clone_url}>
+                        {repo.full_name} ({repo.default_branch})
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
                 <input
-                  type='text'
-                  placeholder='Папка проекта (например, bot/)'
-                  value={subdirectory || 'frontend'}
+                  type="text"
+                  placeholder="Папка проекта (например, bot/)"
+                  value={subdirectory}
                   onChange={(e) => setSubdirectory(e.target.value)}
                 />
                 <p className={styles.helperText}>
-                  <Icon icon='mdi:lock-outline' className={styles.helperIcon} />
+                  <Icon icon="mdi:lock-outline" className={styles.helperIcon} />
                   We only read your public repository. No code is stored.
                 </p>
               </div>
@@ -194,36 +206,42 @@ export const DeployPage = observer(() => {
                 <div className={styles.fieldLabelRow}>
                   <p className={styles.label}>
                     Build Technology
-                    <span className={styles.labelHint} aria-hidden='true'>
-                      <Icon icon='mdi:help-circle-outline' />
+                    <span className={styles.labelHint} aria-hidden="true">
+                      <Icon icon="mdi:help-circle-outline" />
                     </span>
                   </p>
                 </div>
 
-                <div className={styles.techGrid} role='list'>
+                <div className={styles.techGrid} role="list">
                   {langs.map((lang) => (
                     <button
                       key={lang.name}
-                      type='button'
+                      type="button"
                       className={`${styles.techCard} ${
                         choosedLanguage === lang.type.toLowerCase()
                           ? styles.techCardSelected
-                          : ''
+                          : ""
                       }`}
                       onClick={() => {
                         setChoosedLanguage(
-                          lang.name === 'Node.js' ? 'node' : lang.name.toLowerCase(),
+                          lang.name === "Node.js"
+                            ? "node"
+                            : lang.name.toLowerCase(),
                         );
                       }}
                     >
-                      <span className={styles.techCheck} aria-hidden='true'>
-                        {choosedLanguage === lang.name && <Icon icon='mdi:check' />}
+                      <span className={styles.techCheck} aria-hidden="true">
+                        {choosedLanguage === lang.name && (
+                          <Icon icon="mdi:check" />
+                        )}
                       </span>
-                      <span className={styles.techIcon} aria-hidden='true'>
+                      <span className={styles.techIcon} aria-hidden="true">
                         <Icon icon={lang.icon} />
                       </span>
                       <span className={styles.techName}>{lang.name}</span>
-                      <span className={styles.techDesc}>{lang.description}</span>
+                      <span className={styles.techDesc}>
+                        {lang.description}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -232,16 +250,16 @@ export const DeployPage = observer(() => {
                 <div className={styles.inputSection}>
                   <p>Key</p>
                   <input
-                    type='text'
-                    placeholder='Key'
+                    type="text"
+                    placeholder="Key"
                     value={envKey}
                     onChange={(e) => {
                       const val = e.target.value;
                       // Если в тексте есть знак "=", разбиваем строку
-                      if (val.includes('=')) {
-                        const [key, ...rest] = val.split('=');
+                      if (val.includes("=")) {
+                        const [key, ...rest] = val.split("=");
                         setEnvKey(key.trim());
-                        setEnvValue(rest.join('=').trim());
+                        setEnvValue(rest.join("=").trim());
                       } else {
                         // Иначе просто обновляем ключ
                         setEnvKey(val);
@@ -252,8 +270,8 @@ export const DeployPage = observer(() => {
                 <div className={styles.inputSection}>
                   <p>Value</p>
                   <input
-                    type='text'
-                    placeholder='Value'
+                    type="text"
+                    placeholder="Value"
                     value={envValue}
                     onChange={(e) => setEnvValue(e.target.value)}
                   />
@@ -263,7 +281,7 @@ export const DeployPage = observer(() => {
                   className={styles.addEnvBtn}
                   onClick={() => addEnvVar()}
                 >
-                  <Icon icon='mdi:plus' />
+                  <Icon icon="mdi:plus" />
                   <p>Add</p>
                 </button>
               </div>
@@ -289,13 +307,13 @@ export const DeployPage = observer(() => {
                 </div>
               )}
               <button
-                type='button'
+                type="button"
                 className={styles.primaryBtn}
                 onClick={() => {
                   postData();
                 }}
               >
-                <Icon icon='mdi:rocket-launch-outline' />
+                <Icon icon="mdi:rocket-launch-outline" />
                 Deploy Project
               </button>
             </div>
