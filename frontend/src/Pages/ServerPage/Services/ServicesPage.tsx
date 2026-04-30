@@ -51,9 +51,9 @@ const ServicesPage = observer(() => {
       );
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const payload = await response.json();
-      const list = Array.isArray(payload?.services) ? payload.services : [];
+      const list: ServiceRow[] = Array.isArray(payload?.services) ? payload.services as ServiceRow[] : [];
       setServices(list);
-      const nextSelected = list.find(item => item.name === selected?.name) || list[0] || null;
+      const nextSelected = list.find((item: ServiceRow) => item.name === selected?.name) || list[0] || null;
       setSelected(nextSelected);
       if (!nextSelected) {
         setLogs([]);
