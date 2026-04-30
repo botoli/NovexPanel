@@ -23,7 +23,9 @@ $color-status-stopped: $color-text-secondary;
   font-size: $font-size-small;
   text-decoration: none;
   border-bottom: 1px solid transparent;
-  transition: color $transition-fast, border-color $transition-fast;
+  transition:
+    color $transition-fast,
+    border-color $transition-fast;
 
   &:hover {
     color: $color-text-primary;
@@ -189,7 +191,11 @@ $color-status-stopped: $color-text-secondary;
   justify-content: center;
   gap: $space-2;
   white-space: nowrap;
-  transition: background $transition-fast, border-color $transition-fast, color $transition-fast, opacity $transition-fast;
+  transition:
+    background $transition-fast,
+    border-color $transition-fast,
+    color $transition-fast,
+    opacity $transition-fast;
 
   &:disabled {
     opacity: 0.5;
