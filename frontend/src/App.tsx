@@ -14,6 +14,8 @@ import Login from './modals/Login/Login';
 import Registration from './modals/Registration/Registration';
 import DomainsPage from './Pages/Domains/DomainsPage';
 import NetworkPage from './Pages/Network/NetworkPage';
+import AIGuardPage from './Pages/AIGuard/AIGuardPage';
+import AutoHealPage from './Pages/AutoHeal/AutoHealPage';
 import { DeploymentDetailPage } from './Pages/ServerPage/Deploy/DeploymentDetailPage/DeploymentDetailPage';
 import { DeploymentsPage } from './Pages/ServerPage/Deploy/DeploymentsPage';
 import { DeployPage } from './Pages/ServerPage/Deploy/DeploymentsPage/Deploy';
@@ -38,6 +40,8 @@ const App = observer(() => {
         <Route path='/network' element={<NetworkPage />} />
         <Route path='/domains' element={<DomainsPage />} />
         <Route path='/settings' element={<SettingsPage />} />
+        <Route path='/ai-guard' element={<AIGuardPage />} />
+        <Route path='/auto-heal' element={<AutoHealPage />} />
         <Route path='/secrets' element={<SecretsPage />} />
 
         <Route path='/servers/:id' element={<ServerPage />}>

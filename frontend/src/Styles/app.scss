@@ -117,20 +117,11 @@ body.ui-no-animations * {
   animation: none !important;
 }
 
-// Global hover polish:
-// - subtle fine-grain texture on interactive elements
-// - no hover movement (no scale/translate/transform jumps)
-:where(button, [role="button"], a, .tab, .tabactive, .actionBtn, .headerBtn, .detailBtn, .deleteBtn, .btn):hover {
-  background-image: $hover-url !important;
-  background-size: 40px !important;
-  background-repeat: repeat !important;
-  background-blend-mode: soft-light !important;
+:where(button, [role="button"], a):hover,
+:where(button, [role="button"], a):active,
+:where(button, [role="button"], a):focus-visible {
   transform: none !important;
-}
-
-:where(button, [role="button"], a, .tab, .tabactive, .actionBtn, .headerBtn, .detailBtn, .deleteBtn, .btn):active,
-:where(button, [role="button"], a, .tab, .tabactive, .actionBtn, .headerBtn, .detailBtn, .deleteBtn, .btn):focus-visible {
-  transform: none !important;
+  background-image: none !important;
 }
 h1 {
   font-size: $font-size-h1;

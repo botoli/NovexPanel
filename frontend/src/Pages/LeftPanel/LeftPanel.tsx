@@ -29,6 +29,10 @@ const LeftPanel = observer(() => {
         return <Icon icon='mdi:shield-network-outline' fontSize='30' />;
       case 'domains':
         return <Icon icon='mdi:domain' fontSize='30' />;
+      case 'ai guard':
+        return <Icon icon='mdi:shield-lock-outline' fontSize='30' />;
+      case 'auto heal':
+        return <Icon icon='mdi:auto-fix' fontSize='30' />;
       case 'settings':
         return <Icon icon='solar:settings-linear' fontSize='30' />;
       default:
@@ -88,7 +92,7 @@ const LeftPanel = observer(() => {
 
         <div className={styles.Tabs}>
           {tabs?.map((tab: Tab) => {
-            const tabPath = `/${tab.name.toLowerCase()}`;
+            const tabPath = tab.path.toLowerCase();
             const isActive = currentPath === '/'
               ? tab.name.toLowerCase() === 'servers'
               : currentPath === tabPath || currentPath.startsWith(tabPath + '/');

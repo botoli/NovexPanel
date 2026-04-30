@@ -1,6 +1,6 @@
 import { Icon } from '@iconify/react';
 import { observer } from 'mobx-react-lite';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import LeftPanel from '../LeftPanel/LeftPanel';
 import { settingsStore, type ThemeMode } from '../../Store/SettingsStore';
 import { workspaceSettingsStore } from '../../Store/WorkspaceSettingsStore';
@@ -29,6 +29,14 @@ const SettingsPage = observer(() => {
   const [memberEmail, setMemberEmail] = useState('');
   const [memberRole, setMemberRole] = useState('developer');
   const [tokenName, setTokenName] = useState('');
+
+  const githubScopes = useMemo(() => ([
+    { scope: 'repo', reason: 'Read repositories and configure deployments.' },
+    { scope: 'read:org', reason: 'Show organizations and team-owned repositories.' },
+    { scope: 'admin:repo_hook', reason: 'Create and validate webhooks for sync jobs.' },
+  ]), []);
+  const [syncState, setSyncState] = useState<'idle' | 'syncing' | 'error' | 'success'>('idle');
+  const [lastSyncAt, setLastSyncAt] = useState<string>('');
 
   useEffect(() => {
     void workspaceSettingsStore.loadMembers();
@@ -113,9 +121,17 @@ const SettingsPage = observer(() => {
                   <div className={styles.grid}>
                     <div className={styles.row}>
                       {githubStore.connection.connected ? <div>Connected as @{githubStore.connection.login}</div> : <div>Not connected</div>}
-                      <button type='button' onClick={() => githubStore.connect()}>Connect</button>
-                      <button type='button' onClick={() => githubStore.loadRepos()}>Sync repos</button>
+                      <button type='button' onClick={() => githubStore.connect()}>Connect via OAuth</button>
+                      <button type='button' onClick={async () => { setSyncState('syncing'); try { await githubStore.loadRepos(); setLastSyncAt(new Date().toISOString()); setSyncState('success'); } catch { setSyncState('error'); } }}>Sync repos</button>
                     </div>
+                    <div className={styles.row}><strong>Permissions preview</strong></div>
+                    {githubScopes.map((item) => <div className={styles.row} key={item.scope}><div>{item.scope}</div><div>{item.reason}</div></div>)}
+                    <div className={styles.row}><div>Connection status</div><div>{githubStore.connection.connected ? 'connected' : 'not connected'}</div></div>
+                    <div className={styles.row}><div>Requested scopes</div><div>{githubStore.connection.scope || 'repo, read:org, admin:repo_hook'}</div></div>
+                    <div className={styles.row}><div>Last sync</div><div>{lastSyncAt ? new Date(lastSyncAt).toLocaleString() : 'never'}</div></div>
+                    <div className={styles.row}><div>Sync state</div><div>{syncState}</div></div>
+                    <div className={styles.row}><strong>Connected repositories</strong></div>
+                    {githubStore.repos.length === 0 ? <div className={styles.row}><div>No repositories connected yet.</div></div> : null}
                     {githubStore.repos.map((repo) => (
                       <div className={styles.row} key={repo.id}>
                         <div>{repo.full_name}</div>
@@ -125,7 +141,8 @@ const SettingsPage = observer(() => {
                     ))}
                     {githubStore.connection.connected ? (
                       <div className={styles.row}>
-                        <button type='button' onClick={() => githubStore.disconnect()}>Disconnect GitHub</button>
+                        <button type='button' onClick={() => githubStore.disconnect()}>Revoke integration</button>
+                        <button type='button' onClick={() => githubStore.connect()}>Reconnect</button>
                       </div>
                     ) : null}
                   </div>

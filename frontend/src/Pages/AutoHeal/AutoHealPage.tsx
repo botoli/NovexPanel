@@ -1,0 +1,42 @@
+import { observer } from 'mobx-react-lite';
+import { useEffect, useState } from 'react';
+import LeftPanel from '../LeftPanel/LeftPanel';
+import { serverMetricsStore } from '../../Store/ServerMetricsStore';
+import { createRule, fetchHistory, fetchRules, type AutoHealRule } from '../../Api/features/autoHeal';
+import styles from './AutoHealPage.module.scss';
+
+const defaultRule: Omit<AutoHealRule, 'id'> = { name:'', metric:'service_down_seconds', condition:'gt', threshold:30, duration_seconds:30, action:'restart', retry_limit:2, cooldown_seconds:300, enabled:true };
+
+const AutoHealPage = observer(() => {
+  const servers = serverMetricsStore.getNowServers();
+  const [serverId, setServerId] = useState<number>(servers[0]?.id ?? 0);
+  const [rules, setRules] = useState<AutoHealRule[]>([]);
+  const [history, setHistory] = useState<Array<{ id:number; rule_name:string; status:string; message:string; created_at:string }>>([]);
+  const [form, setForm] = useState(defaultRule);
+  const [state, setState] = useState<'loading' | 'success' | 'error' | 'empty'>('loading');
+
+  const load = async () => {
+    setState('loading');
+    try {
+      const [r, h] = await Promise.all([fetchRules(serverId), fetchHistory(serverId)]);
+      setRules(r); setHistory(h); setState(r.length ? 'success' : 'empty');
+    } catch { setState('error'); }
+  };
+
+  useEffect(() => { if (serverId) void load(); }, [serverId]);
+
+  const onCreate = async () => {
+    if (!form.name.trim()) return;
+    if (!window.confirm('Create auto-heal rule?')) return;
+    await createRule(serverId, form);
+    setForm(defaultRule);
+    await load();
+  };
+
+  return <div className={styles.page}><LeftPanel /><main className={styles.main}><header className={styles.header}><h1>Auto-Heal Rules</h1><select value={serverId} onChange={(e) => setServerId(Number(e.target.value))}>{servers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></header>
+  <section className={styles.card}><h2>Rule builder</h2><div className={styles.form}><input placeholder='Rule name' value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /><input placeholder='Metric' value={form.metric} onChange={(e) => setForm({ ...form, metric: e.target.value })} /><input type='number' value={form.threshold} onChange={(e) => setForm({ ...form, threshold: Number(e.target.value) })} /><input type='number' value={form.duration_seconds} onChange={(e) => setForm({ ...form, duration_seconds: Number(e.target.value) })} /><select value={form.action} onChange={(e) => setForm({ ...form, action: e.target.value as AutoHealRule['action'] })}><option value='restart'>restart</option><option value='reload'>reload</option><option value='runbook'>runbook</option><option value='alert'>alert</option><option value='rollback_deploy'>rollback deploy</option><option value='block_traffic'>block traffic</option></select><input type='number' value={form.retry_limit} onChange={(e) => setForm({ ...form, retry_limit: Number(e.target.value) })} /><input type='number' value={form.cooldown_seconds} onChange={(e) => setForm({ ...form, cooldown_seconds: Number(e.target.value) })} /><button onClick={() => void onCreate()}>Create rule</button></div></section>
+  <section className={styles.grid}><article className={styles.card}><h2>Rules list</h2>{state === 'loading' ? <p>Loading…</p> : null}{state === 'error' ? <p>Error loading rules.</p> : null}{state === 'empty' ? <p>Empty state: no rules yet.</p> : null}{rules.map((r) => <div key={r.id}>{r.name} · {r.metric} · {r.action} · cooldown {r.cooldown_seconds}s</div>)}</article>
+  <article className={styles.card}><h2>Execution history</h2>{history.length === 0 ? <p>Empty state.</p> : history.map((h) => <div key={h.id}>{h.rule_name} · {h.status} · {h.message}</div>)}</article></section></main></div>;
+});
+
+export default AutoHealPage;

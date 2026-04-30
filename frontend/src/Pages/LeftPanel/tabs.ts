@@ -32,6 +32,16 @@ export const Tabs: Tab[] = [
   },
   {
     id: 5,
+    name: 'AI Guard',
+    path: '/AIGuard',
+  },
+  {
+    id: 6,
+    name: 'Auto Heal',
+    path: '/AutoHeal',
+  },
+  {
+    id: 7,
     name: 'Settings',
     path: '/Settings',
   },
