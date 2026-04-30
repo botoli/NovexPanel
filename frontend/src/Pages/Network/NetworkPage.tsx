@@ -31,6 +31,8 @@ const NetworkPage = observer(() => {
   const [blocked, setBlocked] = useState<Array<{ id:number; ip:string; reason:string; created_at:string }>>([]);
   const [provider, setProvider] = useState<'ufw' | 'iptables'>('ufw');
   const [loading, setLoading] = useState(false);
+  const [connQuery, setConnQuery] = useState('');
+  const [stateFilter, setStateFilter] = useState<'all' | 'ESTAB' | 'TIME-WAIT' | 'CLOSE-WAIT'>('all');
 
   const servers = serverMetricsStore.getNowServers();
 
@@ -90,6 +92,12 @@ const NetworkPage = observer(() => {
     }
     return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
   }, [ports]);
+  const filteredConnections = useMemo(() => connections.filter((item) => {
+    if (stateFilter !== 'all' && (item.state || '').toUpperCase() !== stateFilter) return false;
+    if (!connQuery.trim()) return true;
+    const q = connQuery.toLowerCase();
+    return `${item.remote_ip} ${item.domain} ${item.process} ${item.local_addr}`.toLowerCase().includes(q);
+  }), [connections, connQuery, stateFilter]);
 
   return <div className={styles.page}><LeftPanel /><main className={styles.main}>
     <header className={styles.header}><h1>Network & Firewall</h1><div className={styles.controls}>
@@ -102,9 +110,9 @@ const NetworkPage = observer(() => {
       <article className={styles.card}><h2>Firewall Rules</h2><table><thead><tr><th>Action</th><th>Dir</th><th>Proto</th><th>Port</th><th>Source</th><th>Enabled</th></tr></thead><tbody>{rules.map((r) => <tr key={r.id}><td>{r.action}</td><td>{r.direction}</td><td>{r.protocol}</td><td>{r.port}</td><td>{r.source}</td><td>{r.enabled ? 'yes' : 'no'}</td></tr>)}</tbody></table><div className={styles.quickBtns}><button onClick={() => void createQuickRule('allow', 80)}>Allow 80</button><button onClick={() => void createQuickRule('allow', 443)}>Allow 443</button><button onClick={() => void createQuickRule('deny', 22)}>Deny 22</button></div></article>
       <article className={styles.card}><h2>Alerts</h2><p>Traffic spikes detected: {spikeCount}</p>{alerts.map((a, idx) => <div key={a.key || `${a.ip || 'alert'}-${idx}`} className={styles.alert}>{a.ip ? `${a.ip} — ` : ''}{a.level || 'warning'}: {a.message || `High connection count ${a.connections ?? '-'}`}</div>)}</article>
       <article className={styles.card}><h2>Traffic Timeline</h2><div className={styles.timeline}>{traffic.points.slice(-24).map((p) => <div key={p.timestamp}>{new Date(p.timestamp).toLocaleTimeString()} RX {Math.round(p.rx)} TX {Math.round(p.tx)}</div>)}</div>{traffic.summary ? <div className={styles.alert}>AVG RX/TX: {Math.round(traffic.summary.avg_rx)} / {Math.round(traffic.summary.avg_tx)} · MAX RX/TX: {Math.round(traffic.summary.max_rx)} / {Math.round(traffic.summary.max_tx)}</div> : null}</article>
-      <article className={styles.card}><h2>Blocked IP history</h2>{blocked.slice(0, 20).map((b) => <div key={b.id}>{b.ip} — {b.reason}</div>)}</article>
+      <article className={styles.card}><h2>Blocked IP history</h2>{blocked.length === 0 ? <p className={styles.empty}>No blocked IP events yet.</p> : blocked.slice(0, 20).map((b) => <div key={b.id}>{b.ip} — {b.reason}</div>)}</article>
       <article className={styles.card}><h2>Top Processes by Ports</h2>{topProcesses.length === 0 ? <p>No data.</p> : topProcesses.map(([name, count]) => <div key={name}>{name} — {count}</div>)}</article>
-      <article className={styles.card}><h2>Live Connections</h2><table><thead><tr><th>Remote</th><th>Domain</th><th>Local</th><th>State</th><th>Process</th></tr></thead><tbody>{connections.slice(0, 100).map((c, idx) => <tr key={`${c.remote_ip}-${c.remote_port}-${idx}`}><td>{c.remote_ip}:{c.remote_port}</td><td>{c.domain || '-'}</td><td>{c.local_addr}:{c.local_port}</td><td>{c.state || '-'}</td><td>{c.process || '-'}</td></tr>)}</tbody></table></article>
+      <article className={styles.card}><h2>Live Connections</h2><div className={styles.controls}><input className={styles.input} placeholder='Search by IP/domain/process' value={connQuery} onChange={(e) => setConnQuery(e.target.value)} /><select value={stateFilter} onChange={(e) => setStateFilter(e.target.value as 'all' | 'ESTAB' | 'TIME-WAIT' | 'CLOSE-WAIT')}><option value='all'>All states</option><option value='ESTAB'>ESTAB</option><option value='TIME-WAIT'>TIME-WAIT</option><option value='CLOSE-WAIT'>CLOSE-WAIT</option></select></div>{filteredConnections.length === 0 ? <p className={styles.empty}>No connections match your filter.</p> : <table><thead><tr><th>Remote</th><th>Domain</th><th>Local</th><th>State</th><th>Process</th></tr></thead><tbody>{filteredConnections.slice(0, 100).map((c, idx) => <tr key={`${c.remote_ip}-${c.remote_port}-${idx}`}><td>{c.remote_ip}:{c.remote_port}</td><td>{c.domain || '-'}</td><td>{c.local_addr}:{c.local_port}</td><td>{c.state || '-'}</td><td>{c.process || '-'}</td></tr>)}</tbody></table>}</article>
     </section>{loading ? <div className={styles.loading}>Loading…</div> : null}
   </main></div>;
 });
