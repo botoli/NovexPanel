@@ -44,7 +44,7 @@ func seedStarterRunbooksForServer(db *gorm.DB, userID, serverID uint) error {
 		if err == nil {
 			continue
 		}
-		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return fmt.Errorf("find starter runbook %s: %w", item.Slug, err)
 		}
 

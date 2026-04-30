@@ -403,11 +403,12 @@ func parseIptablesRules(output string) ([]firewallRule, string, string) {
     }
     chain := fields[1]
     direction := ""
-    if chain == "INPUT" {
+    switch chain {
+    case "INPUT":
       direction = "in"
-    } else if chain == "OUTPUT" {
+    case "OUTPUT":
       direction = "out"
-    } else {
+    default:
       continue
     }
 
