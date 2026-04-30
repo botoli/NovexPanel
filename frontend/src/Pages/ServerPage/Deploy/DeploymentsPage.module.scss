@@ -170,183 +170,183 @@ $rhythm-badge-font-size: 11px;
   }
 
   tbody {
-  .tableRow {
-    border-bottom: 1px solid rgba($color-border, 0.5);
-    transition: background-color 0.25s ease;
+    .tableRow {
+      border-bottom: 1px solid rgba($color-border, 0.5);
+      transition: background-color 0.25s ease;
 
-    &:last-child {
-      border-bottom: none;
-    }
+      &:last-child {
+        border-bottom: none;
+      }
 
-    // hover effect
-    &:hover {
+      // hover effect
+      &:hover {
+        td {
+          background-color: rgba($color-text-primary, 0.015);
+        }
+
+        td::before {
+          opacity: 0.09;
+        }
+      }
+
       td {
-        background-color: rgba($color-text-primary, 0.015);
-      }
+        position: relative;
+        overflow: hidden;
 
-      td::before {
-        opacity: 0.09;
-      }
-    }
-
-    td {
-      position: relative;
-      overflow: hidden;
-
-      height: $rhythm-row-height;
-      padding: 0 $card-padding;
-      vertical-align: middle;
-      color: $color-text-primary;
-      line-height: $rhythm-line-height;
-
-      transition:
-        background-color 0.25s ease,
-        border-color 0.25s ease;
-
-      // noise / grain layer
-      &::before {
-        content: '';
-
-        position: absolute;
-        inset: 0;
-
-        opacity: 0;
-        pointer-events: none;
-
-        transition: opacity 0.3s ease;
-
-        background-image: $hover-url;
-        background-size: 42px;
-        background-repeat: repeat;
-
-        mix-blend-mode: soft-light;
-      }
-
-      // 🔹 Язык — бейдж
-      .langBadge {
-        display: inline-flex;
-        align-items: center;
-        min-height: $rhythm-badge-height;
-        padding: 0 $space-3;
-        background: rgba($color-text-secondary, 0.1);
-        border: 1px solid rgba($color-border, 0.8);
-        border-radius: $radius-sm;
-        font-size: $rhythm-badge-font-size;
-        line-height: 1;
-        font-weight: $font-weight-medium;
-        color: $color-text-primary;
-      }
-
-      // 🔹 Иконки в ячейках
-      .cellIcon {
-        width: 14px;
-        height: 14px;
-        margin-right: $space-2;
-        color: $color-text-muted;
+        height: $rhythm-row-height;
+        padding: 0 $card-padding;
         vertical-align: middle;
-        opacity: 0.7;
-      }
-
-      // 🔹 Репозиторий — моноширинный
-      .repoCode {
-        font-family: "JetBrains Mono", "Fira Code", monospace;
-        font-size: $font-size-small;
-        color: $color-text-secondary;
-        background: rgba($color-border, 0.1);
-        padding: $space-1 $space-2;
-        border-radius: $radius-sm;
-        border: 1px solid transparent;
-        transition: border-color 0.2s ease;
-
-        &:hover {
-          border-color: $color-border;
-        }
-      }
-
-      // 🔹 Статус — бейдж с индикатором
-      .statusBadge {
-        display: inline-flex;
-        align-items: center;
-        min-height: $rhythm-badge-height;
-        gap: $space-2;
-        padding: 0 $space-3;
-        border-radius: $radius-full;
-        font-size: $rhythm-badge-font-size;
-        line-height: 1;
-        font-weight: $font-weight-medium;
-        border: 1px solid transparent;
-
-        .statusDot {
-          width: 6px;
-          height: 6px;
-          border-radius: $radius-full;
-          background: currentColor;
-        }
-      }
-
-      .status-online {
-        background: rgba($color-status-online, 0.12);
-        color: $color-status-online;
-        border-color: rgba($color-status-online, 0.3);
-      }
-
-      .status-offline {
-        background: rgba($color-status-offline, 0.12);
-        color: $color-status-offline;
-        border-color: rgba($color-status-offline, 0.3);
-      }
-
-      .status-pending,
-      .status-building,
-      .status-deploying {
-        background: rgba($color-text-secondary, 0.12);
-        color: $color-text-secondary;
-        border-color: rgba($color-text-secondary, 0.3);
-      }
-
-      // 🔹 Ссылка — минималистичная
-      .urlLink {
-        display: inline-flex;
-        align-items: center;
-        gap: $space-2;
         color: $color-text-primary;
-        text-decoration: none;
-        font-size: $font-size-small;
-        border-bottom: 1px dashed transparent;
-        transition: border-color 0.2s ease;
+        line-height: $rhythm-line-height;
 
-        .linkIcon {
-          color: $color-text-muted;
-          font-size: 12px;
-          opacity: 0.8;
-          transition: opacity 0.2s ease;
+        transition:
+          background-color 0.25s ease,
+          border-color 0.25s ease;
+
+        // noise / grain layer
+        &::before {
+          content: "";
+
+          position: absolute;
+          inset: 0;
+
+          opacity: 0;
+          pointer-events: none;
+
+          transition: opacity 0.3s ease;
+
+          background-image: $hover-url;
+          background-size: 42px;
+          background-repeat: repeat;
+
+          mix-blend-mode: soft-light;
         }
 
-        &:hover {
-          border-bottom-color: $color-border-hover;
+        // 🔹 Язык — бейдж
+        .langBadge {
+          display: inline-flex;
+          align-items: center;
+          min-height: $rhythm-badge-height;
+          padding: 0 $space-3;
+          background: rgba($color-text-secondary, 0.1);
+          border: 1px solid rgba($color-border, 0.8);
+          border-radius: $radius-sm;
+          font-size: $rhythm-badge-font-size;
+          line-height: 1;
+          font-weight: $font-weight-medium;
+          color: $color-text-primary;
+        }
 
-          .linkIcon {
-            opacity: 1;
+        // 🔹 Иконки в ячейках
+        .cellIcon {
+          width: 14px;
+          height: 14px;
+          margin-right: $space-2;
+          color: $color-text-muted;
+          vertical-align: middle;
+          opacity: 0.7;
+        }
+
+        // 🔹 Репозиторий — моноширинный
+        .repoCode {
+          font-family: "JetBrains Mono", "Fira Code", monospace;
+          font-size: $font-size-small;
+          color: $color-text-secondary;
+          background: rgba($color-border, 0.1);
+          padding: $space-1 $space-2;
+          border-radius: $radius-sm;
+          border: 1px solid transparent;
+          transition: border-color 0.2s ease;
+
+          &:hover {
+            border-color: $color-border;
           }
         }
-      }
 
-      .urlEmpty {
-        color: $color-text-muted;
-        font-style: italic;
-      }
+        // 🔹 Статус — бейдж с индикатором
+        .statusBadge {
+          display: inline-flex;
+          align-items: center;
+          min-height: $rhythm-badge-height;
+          gap: $space-2;
+          padding: 0 $space-3;
+          border-radius: $radius-full;
+          font-size: $rhythm-badge-font-size;
+          line-height: 1;
+          font-weight: $font-weight-medium;
+          border: 1px solid transparent;
 
-      // 🔹 Кнопка действий
-      &.colActions {
-        display: flex;
-        justify-content: flex-end;
-        gap: $space-2;
-        text-align: right;
-        padding-right: $card-padding;
+          .statusDot {
+            width: 6px;
+            height: 6px;
+            border-radius: $radius-full;
+            background: currentColor;
+          }
+        }
+
+        .status-online {
+          background: rgba($color-status-online, 0.12);
+          color: $color-status-online;
+          border-color: rgba($color-status-online, 0.3);
+        }
+
+        .status-offline {
+          background: rgba($color-status-offline, 0.12);
+          color: $color-status-offline;
+          border-color: rgba($color-status-offline, 0.3);
+        }
+
+        .status-pending,
+        .status-building,
+        .status-deploying {
+          background: rgba($color-text-secondary, 0.12);
+          color: $color-text-secondary;
+          border-color: rgba($color-text-secondary, 0.3);
+        }
+
+        // 🔹 Ссылка — минималистичная
+        .urlLink {
+          display: inline-flex;
+          align-items: center;
+          gap: $space-2;
+          color: $color-text-primary;
+          text-decoration: none;
+          font-size: $font-size-small;
+          border-bottom: 1px dashed transparent;
+          transition: border-color 0.2s ease;
+
+          .linkIcon {
+            color: $color-text-muted;
+            font-size: 12px;
+            opacity: 0.8;
+            transition: opacity 0.2s ease;
+          }
+
+          &:hover {
+            border-bottom-color: $color-border-hover;
+
+            .linkIcon {
+              opacity: 1;
+            }
+          }
+        }
+
+        .urlEmpty {
+          color: $color-text-muted;
+          font-style: italic;
+        }
+
+        // 🔹 Кнопка действий
+        &.colActions {
+          display: flex;
+          justify-content: flex-end;
+          gap: $space-2;
+          text-align: right;
+          padding-right: $card-padding;
+        }
       }
     }
   }
-}
 }
 
 .repoBlock {

@@ -1,13 +1,68 @@
-.page { display: flex; min-height: 100vh; background: var(--color-bg); color: var(--color-text-primary); }
-.main { flex: 1; padding: 24px; }
-.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.controls { display: flex; gap: 8px; }
-.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.card { border: 1px solid var(--color-border); background: var(--color-surface); padding: 12px; }
-.card table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.card th, .card td { border-bottom: 1px solid var(--color-border); padding: 6px; text-align: left; }
-.quickBtns { display: flex; gap: 8px; margin-top: 8px; }
-.alert { border: 1px solid var(--color-border); padding: 6px; margin-top: 6px; }
-.timeline { max-height: 240px; overflow: auto; font-size: 12px; }
-.loading { margin-top: 10px; color: var(--color-text-secondary); }
-button, select { background: var(--color-surface-2); color: var(--color-text-primary); border: 1px solid var(--color-border); padding: 8px; }
+.page {
+  display: flex;
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+}
+.main {
+  margin-left: 210px;
+  flex: 1;
+  padding: 24px;
+}
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.controls {
+  display: flex;
+  gap: 8px;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.card {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  padding: 12px;
+}
+.card table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.card th,
+.card td {
+  border-bottom: 1px solid var(--color-border);
+  padding: 6px;
+  text-align: left;
+}
+.quickBtns {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.alert {
+  border: 1px solid var(--color-border);
+  padding: 6px;
+  margin-top: 6px;
+}
+.timeline {
+  max-height: 240px;
+  overflow: auto;
+  font-size: 12px;
+}
+.loading {
+  margin-top: 10px;
+  color: var(--color-text-secondary);
+}
+button,
+select {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  padding: 8px;
+}
