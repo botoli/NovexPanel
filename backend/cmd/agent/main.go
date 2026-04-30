@@ -146,6 +146,33 @@ type runbookExecutePayload struct {
 	Definition  json.RawMessage `json:"definition"`
 }
 
+type firewallRule struct {
+	Direction   string `json:"direction"`
+	Action      string `json:"action"`
+	Protocol    string `json:"protocol"`
+	Port        string `json:"port"`
+	Source      string `json:"source"`
+	Destination string `json:"destination"`
+	Comment     string `json:"comment"`
+	Enabled     bool   `json:"enabled"`
+}
+
+type certIssuePayload struct {
+	Domains        []string          `json:"domains"`
+	Email          string            `json:"email"`
+	Challenge      string            `json:"challenge"`
+	DNSProvider    string            `json:"dns_provider"`
+	DNSCredentials map[string]string `json:"dns_credentials"`
+	Force          bool              `json:"force"`
+}
+
+type certInstallPayload struct {
+	CertName string `json:"cert_name"`
+	CertPEM  string `json:"cert_pem"`
+	KeyPEM   string `json:"key_pem"`
+	ChainPEM string `json:"chain_pem"`
+}
+
 func (p *deployPayload) normalize() {
 	if p.DeployID == 0 {
 		p.DeployID = p.DeployIDCamel
@@ -876,6 +903,115 @@ func (a *Agent) handleCommand(msg commandMessage) {
 			return
 		}
 		a.sendCommandResponse(msg.RequestID, true, history, "")
+	case "list_open_ports":
+		ports, err := a.listOpenPorts()
+		if err != nil {
+			respondError(err)
+			return
+		}
+		a.sendCommandResponse(msg.RequestID, true, map[string]any{"ports": ports}, "")
+	case "network_connections":
+		var payload struct {
+			Limit int `json:"limit"`
+		}
+		if len(msg.Payload) > 0 {
+			_ = json.Unmarshal(msg.Payload, &payload)
+		}
+		limit := payload.Limit
+		if limit <= 0 {
+			limit = 200
+		}
+		if limit > 1000 {
+			limit = 1000
+		}
+		connections, err := a.listNetworkConnections(limit)
+		if err != nil {
+			respondError(err)
+			return
+		}
+		a.sendCommandResponse(msg.RequestID, true, map[string]any{"connections": connections}, "")
+	case "firewall_list":
+		var payload struct {
+			Provider string `json:"provider"`
+		}
+		if len(msg.Payload) > 0 {
+			_ = json.Unmarshal(msg.Payload, &payload)
+		}
+		result, err := a.firewallList(payload.Provider)
+		if err != nil {
+			respondError(err)
+			return
+		}
+		a.sendCommandResponse(msg.RequestID, true, result, "")
+	case "firewall_snapshot":
+		var payload struct {
+			Provider string `json:"provider"`
+		}
+		if len(msg.Payload) > 0 {
+			_ = json.Unmarshal(msg.Payload, &payload)
+		}
+		result, err := a.firewallSnapshot(payload.Provider)
+		if err != nil {
+			respondError(err)
+			return
+		}
+		a.sendCommandResponse(msg.RequestID, true, result, "")
+	case "firewall_apply":
+		var payload struct {
+			Provider  string          `json:"provider"`
+			Operation string          `json:"operation"`
+			Rule      firewallRule    `json:"rule"`
+			Previous  *firewallRule   `json:"previous_rule"`
+		}
+		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			respondError(fmt.Errorf("invalid payload"))
+			return
+		}
+		result, err := a.firewallApply(payload.Provider, payload.Operation, payload.Rule, payload.Previous)
+		if err != nil {
+			respondError(err)
+			return
+		}
+		a.sendCommandResponse(msg.RequestID, true, result, "")
+	case "firewall_rollback":
+		var payload struct {
+			Provider string          `json:"provider"`
+			Snapshot json.RawMessage `json:"snapshot"`
+		}
+		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			respondError(fmt.Errorf("invalid payload"))
+			return
+		}
+		result, err := a.firewallRollback(payload.Provider, payload.Snapshot)
+		if err != nil {
+			respondError(err)
+			return
+		}
+		a.sendCommandResponse(msg.RequestID, true, result, "")
+	case "cert_issue":
+		var payload certIssuePayload
+		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			respondError(fmt.Errorf("invalid payload"))
+			return
+		}
+		result, err := a.issueCertificate(payload)
+		if err != nil {
+			respondError(err)
+			return
+		}
+		a.sendCommandResponse(msg.RequestID, true, result, "")
+	case "cert_install":
+		var payload certInstallPayload
+		if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+			respondError(fmt.Errorf("invalid payload"))
+			return
+		}
+		result, err := a.installCertificate(payload)
+		if err != nil {
+			respondError(err)
+			return
+		}
+		a.sendCommandResponse(msg.RequestID, true, result, "")
 	case "file_list":
 		var payload struct {
 			Path string `json:"path"`
@@ -3539,7 +3675,7 @@ func isSupportedFilePath(path string) bool {
 	if normalized == "" {
 		return false
 	}
-	allowedPrefixes := []string{"/etc/nginx", "/etc/systemd", "/etc/supervisor", "/opt", "/srv", "/var/www", "/home"}
+	allowedPrefixes := []string{"/etc/nginx", "/etc/systemd", "/etc/supervisor", "/etc/novex", "/etc/letsencrypt", "/opt", "/srv", "/var/www", "/home"}
 	for _, prefix := range allowedPrefixes {
 		if strings.HasPrefix(normalized, prefix) {
 			return true

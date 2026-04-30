@@ -181,7 +181,7 @@ $rhythm-badge-font-size: 11px;
     // hover effect
     &:hover {
       td {
-        background-color: rgba(255, 255, 255, 0.015);
+        background-color: rgba($color-text-primary, 0.015);
       }
 
       td::before {

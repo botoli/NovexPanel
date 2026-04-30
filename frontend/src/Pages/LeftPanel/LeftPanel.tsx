@@ -4,9 +4,9 @@ import { observer } from 'mobx-react-lite';
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
+import { settingsStore } from '../../Store/SettingsStore';
 import styles from './LeftPanel.module.scss';
 import { type Tab, Tabs } from './tabs.ts';
-import { settingsStore } from '../../Store/SettingsStore';
 const LeftPanel = observer(() => {
   const location = useLocation();
   const currentPath = location.pathname;
@@ -25,6 +25,10 @@ const LeftPanel = observer(() => {
         return <Icon icon='material-symbols:deployed-code-sharp' fontSize='30' />;
       case 'activity':
         return <Icon icon='material-symbols:browse-activity-rounded' fontSize='30' />;
+      case 'network':
+        return <Icon icon='mdi:shield-network-outline' fontSize='30' />;
+      case 'domains':
+        return <Icon icon='mdi:domain' fontSize='30' />;
       case 'settings':
         return <Icon icon='solar:settings-linear' fontSize='30' />;
       default:
@@ -71,11 +75,12 @@ const LeftPanel = observer(() => {
             viewBox='0 0 544 513'
             fill='none'
             xmlns='http://www.w3.org/2000/svg'
+            className={styles.logoMark}
           >
-            <rect width='429' height='125' fill='#D9D9D9' fillOpacity='1' />
-            <rect y='193' width='429' height='126' fill='#D9D9D9' fillOpacity='1' />
-            <rect y='387' width='544' height='126' fill='#D9D9D9' fillOpacity='1' />
-            <rect x='429' y='125' width='115' height='194' fill='#D9D9D9' fillOpacity='1' />
+            <rect width='429' height='125' fill='currentColor' />
+            <rect y='193' width='429' height='126' fill='currentColor' />
+            <rect y='387' width='544' height='126' fill='currentColor' />
+            <rect x='429' y='125' width='115' height='194' fill='currentColor' />
           </svg>
 
           <h1>NOVEX</h1>

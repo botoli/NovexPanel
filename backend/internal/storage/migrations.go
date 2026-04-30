@@ -33,6 +33,14 @@ func runMigrations(db *gorm.DB) error {
 		&models.FileOpAuditLog{},
 		&models.SecretVaultItem{},
 		&models.SecretVaultAuditLog{},
+		&models.FirewallRule{},
+		&models.FirewallAuditLog{},
+		&models.FirewallBlockEvent{},
+		&models.DomainBinding{},
+		&models.TLSCertificate{},
+		&models.TLSCertificateHistory{},
+		&models.TLSRenewalLog{},
+		&models.DomainAuditLog{},
 	); err != nil {
 		return fmt.Errorf("automigrate schema: %w", err)
 	}

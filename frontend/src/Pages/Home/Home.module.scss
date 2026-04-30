@@ -916,7 +916,7 @@
   position: fixed;
   inset: 0;
   z-index: $z-modal + 1;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba($color-bg, 0.6);
   display: grid;
   place-items: center;
   padding: $space-4;

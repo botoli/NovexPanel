@@ -21,6 +21,16 @@ export const Tabs: Tab[] = [
     path: '/Activity',
   },
   {
+    id: 3,
+    name: 'Network',
+    path: '/Network',
+  },
+  {
+    id: 4,
+    name: 'Domains',
+    path: '/Domains',
+  },
+  {
     id: 5,
     name: 'Settings',
     path: '/Settings',

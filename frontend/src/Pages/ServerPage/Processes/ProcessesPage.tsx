@@ -541,7 +541,7 @@ const ProcessesPage = observer(() => {
               <div>
                 <strong>{confirm.name}</strong> (PID {confirm.pid})
               </div>
-              <div style={{ marginTop: 8, color: 'rgba(255,255,255,0.75)' }}>
+              <div className={styles.confirmHint}>
                 {confirm.action === 'kill'
                   ? 'This will forcibly terminate the process.'
                   : confirm.action === 'restart'

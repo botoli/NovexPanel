@@ -1,54 +1,259 @@
-:root {
-  --fo-bg: var(--color-bg, #0f1115);
-  --fo-surface: var(--color-bg-secondary, #151922);
-  --fo-border: var(--color-border, #252b36);
-  --fo-text: var(--color-text-primary, #d8dee9);
+@use "../../../Styles/Variables.scss" as *;
+
+@keyframes pageIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.page { padding: 16px; color: var(--fo-text); display: grid; gap: 12px; }
-.header, .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.layout { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; }
-.card { background: var(--fo-surface); border: 1px solid var(--fo-border); border-radius: 10px; padding: 12px; }
-.list { display: grid; gap: 6px; max-height: 320px; overflow: auto; }
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page {
+  padding: $space-5;
+  display: grid;
+  gap: $space-4;
+  color: $color-text-primary;
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba($color-text-primary, 0.05), transparent 60%),
+    $color-bg;
+  min-height: 100%;
+  animation: pageIn 0.35s ease both;
+}
+
+.header,
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-2;
+  flex-wrap: wrap;
+}
+
+.titleBlock {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+}
+
+.subtitle {
+  margin: 0;
+  color: $color-text-secondary;
+  font-size: $font-size-body;
+}
+
+.quickPaths {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2;
+}
+
+.quickPathBtn {
+  border: 1px solid rgba($color-border, 0.8);
+  border-radius: $radius-full;
+  background: $color-surface-2;
+  color: $color-text-secondary;
+  padding: 4px 12px;
+  font-size: $font-size-small;
+  cursor: pointer;
+  transition: border-color $transition-base, color $transition-base, background-color $transition-base;
+
+  &:hover {
+    border-color: $color-border-hover;
+    color: $color-text-primary;
+    background: rgba($color-text-primary, 0.04);
+  }
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  gap: $space-4;
+}
+
+.card {
+  background: $color-surface;
+  border: $border-default;
+  border-radius: $radius-lg;
+  padding: $space-4;
+  box-shadow: $shadow-sm;
+  display: grid;
+  gap: $space-3;
+  animation: cardIn 0.45s ease both;
+}
+
+.list {
+  display: grid;
+  gap: $space-2;
+  max-height: 360px;
+  overflow: auto;
+}
+
 .listItem {
-  border: 1px solid var(--fo-border);
-  border-radius: 8px;
-  background: var(--fo-bg);
-  color: var(--fo-text);
-  padding: 8px;
+  border: 1px solid rgba($color-border, 0.8);
+  border-radius: $radius-md;
+  background: $color-bg;
+  color: $color-text-primary;
+  padding: $space-2 $space-3;
   text-align: left;
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  cursor: pointer;
+  transition: border-color $transition-base, background-color $transition-base;
+
+  &:hover {
+    border-color: $color-border-hover;
+    background: rgba($color-text-primary, 0.04);
+  }
 }
-.input, .select, .btn, .btnPrimary {
-  border: 1px solid var(--fo-border);
-  border-radius: 8px;
-  background: var(--fo-bg);
-  color: var(--fo-text);
-  padding: 8px 10px;
+
+.fileItem {
+  font-size: $font-size-body;
 }
-.btnPrimary { background: var(--fo-surface); }
-.diffGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.label { margin-bottom: 6px; font-size: 12px; opacity: 0.8; }
+
+.listItemActive {
+  border-color: rgba($color-status-online, 0.6);
+  box-shadow: 0 0 0 1px rgba($color-status-online, 0.2);
+}
+
+.listTag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: $radius-full;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border: 1px solid rgba($color-text-secondary, 0.35);
+  color: $color-text-secondary;
+  background: rgba($color-text-secondary, 0.08);
+}
+
+.tagDir {
+  border-color: rgba($color-status-online, 0.45);
+  color: $color-status-online;
+  background: rgba($color-status-online, 0.08);
+}
+
+.tagFile {
+  border-color: rgba($color-text-secondary, 0.35);
+}
+
+.listName {
+  font-weight: $font-weight-medium;
+}
+
+.input,
+.select,
+.btn,
+.btnPrimary {
+  height: $btn-height;
+  border: $border-default;
+  border-radius: $btn-radius;
+  background: $color-bg;
+  color: $color-text-primary;
+  padding: 0 $space-3;
+  font-size: $btn-font-size;
+  transition: border-color $transition-base, background-color $transition-base;
+
+  &:hover {
+    border-color: $color-border-hover;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.btnPrimary {
+  background: $btn-primary-bg;
+  color: $btn-primary-text;
+  border-color: rgba($btn-primary-bg, 0.3);
+
+  &:hover {
+    border-color: rgba($btn-primary-bg, 0.5);
+  }
+}
+
+.diffGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: $space-3;
+}
+
+.label {
+  margin-bottom: $space-2;
+  font-size: $font-size-small;
+  color: $color-text-secondary;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .code {
-  border: 1px solid var(--fo-border);
-  border-radius: 8px;
-  background: var(--fo-bg);
-  padding: 8px;
+  border: 1px solid rgba($color-border, 0.8);
+  border-radius: $radius-md;
+  background: $color-bg;
+  padding: $space-3;
   max-height: 360px;
   overflow: auto;
   white-space: pre-wrap;
   word-break: break-word;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
+  color: $color-text-secondary;
 }
+
 .editor {
   width: 100%;
   min-height: 360px;
-  border: 1px solid var(--fo-border);
-  border-radius: 8px;
-  background: var(--fo-bg);
-  color: var(--fo-text);
-  padding: 8px;
+  border: 1px solid rgba($color-border, 0.8);
+  border-radius: $radius-md;
+  background: $color-bg;
+  color: $color-text-primary;
+  padding: $space-3;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
   resize: vertical;
+}
+
+.emptyState {
+  padding: $space-4;
+  text-align: center;
+  color: $color-text-secondary;
+  border: 1px dashed rgba($color-border, 0.7);
+  border-radius: $radius-md;
+  background: rgba($color-text-primary, 0.02);
+}
+
+@media (max-width: 1100px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .diffGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page,
+  .card {
+    animation: none;
+  }
 }

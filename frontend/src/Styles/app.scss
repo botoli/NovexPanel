@@ -1,5 +1,5 @@
 @use "./Variables.scss" as *;
-
+@use "sass:color";
 // Импорт шрифта Inter
 @import "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap";
 
@@ -14,6 +14,70 @@ html {
   height: 100%;
   margin: 0;
   padding: 0;
+}
+
+
+
+:root {
+  --color-bg: #{$color-bg};
+  --color-bg-rgb:
+    #{color.channel($color-bg, "red", $space: rgb)},
+    #{color.channel($color-bg, "green", $space: rgb)},
+    #{color.channel($color-bg, "blue", $space: rgb)};
+
+  --color-surface: #{$color-surface};
+  --color-surface-rgb:
+    #{color.channel($color-surface, "red", $space: rgb)},
+    #{color.channel($color-surface, "green", $space: rgb)},
+    #{color.channel($color-surface, "blue", $space: rgb)};
+
+  --color-surface-2: #{$color-surface-2};
+  --color-surface-2-rgb:
+    #{color.channel($color-surface-2, "red", $space: rgb)},
+    #{color.channel($color-surface-2, "green", $space: rgb)},
+    #{color.channel($color-surface-2, "blue", $space: rgb)};
+
+  --color-border: #{$color-border};
+  --color-border-rgb:
+    #{color.channel($color-border, "red", $space: rgb)},
+    #{color.channel($color-border, "green", $space: rgb)},
+    #{color.channel($color-border, "blue", $space: rgb)};
+
+  --color-text-primary: #{$color-text-primary};
+  --color-text-primary-rgb:
+    #{color.channel($color-text-primary, "red", $space: rgb)},
+    #{color.channel($color-text-primary, "green", $space: rgb)},
+    #{color.channel($color-text-primary, "blue", $space: rgb)};
+
+  --color-text-secondary: #{$color-text-secondary};
+  --color-text-secondary-rgb:
+    #{color.channel($color-text-secondary, "red", $space: rgb)},
+    #{color.channel($color-text-secondary, "green", $space: rgb)},
+    #{color.channel($color-text-secondary, "blue", $space: rgb)};
+
+  --color-status-online: #{$color-status-online};
+  --color-status-online-rgb:
+    #{color.channel($color-status-online, "red", $space: rgb)},
+    #{color.channel($color-status-online, "green", $space: rgb)},
+    #{color.channel($color-status-online, "blue", $space: rgb)};
+
+  --color-status-offline: #{$color-status-offline};
+  --color-status-offline-rgb:
+    #{color.channel($color-status-offline, "red", $space: rgb)},
+    #{color.channel($color-status-offline, "green", $space: rgb)},
+    #{color.channel($color-status-offline, "blue", $space: rgb)};
+
+  --color-status-idle: #{$color-status-idle};
+  --color-status-idle-rgb:
+    #{color.channel($color-status-idle, "red", $space: rgb)},
+    #{color.channel($color-status-idle, "green", $space: rgb)},
+    #{color.channel($color-status-idle, "blue", $space: rgb)};
+
+  --color-hover: #{$color-hover};
+  --color-active: #{$color-active};
+
+  --btn-primary-bg: #{$btn-primary-bg};
+  --btn-primary-text: #{$btn-primary-text};
 }
 
 body {
@@ -45,7 +109,7 @@ body {
 // - Light: invert the whole app (keeps existing dark palette usable).
 body.theme-light #root {
   filter: invert(1) hue-rotate(180deg);
-  background: #ffffff;
+  background: $btn-primary-bg;
 }
 
 body.ui-no-animations * {

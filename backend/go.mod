@@ -11,6 +11,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/joho/godotenv v1.5.1
+	github.com/miekg/dns v1.1.61
 	github.com/shirou/gopsutil/v3 v3.24.5
 	golang.org/x/crypto v0.24.0
 	gorm.io/datatypes v1.2.1

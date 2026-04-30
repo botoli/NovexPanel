@@ -67,7 +67,7 @@
     min-height: 132px;
     border-radius: $radius-lg;
     border: $border-default;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+    background: linear-gradient(180deg, rgba($color-text-primary, 0.03) 0%, rgba($color-text-primary, 0.01) 100%);
     color: $color-text-primary;
     padding: 0 $space-5;
     display: inline-flex;
@@ -84,7 +84,7 @@
 
     &:hover {
         border-color: $color-border-hover;
-        background: rgba(255, 255, 255, 0.04);
+        background: rgba($color-text-primary, 0.04);
     }
 
     &:focus-visible {
@@ -110,7 +110,7 @@
 }
 
 .registerBtn {
-    border-color: rgba(255, 255, 255, 0.16);
+    border-color: rgba($color-text-primary, 0.16);
 }
 
 .loginIcon,

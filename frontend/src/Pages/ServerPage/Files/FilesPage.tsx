@@ -1,10 +1,10 @@
 import { observer } from 'mobx-react-lite';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { API_BASE } from '../../../Api/api';
-import { useCurrentServer } from '../../../Store/ServerStore';
-import { tokenStore } from '../../../Store/TokenStore';
-import { toastStore } from '../../../Store/ToastStore';
 import { Confirm } from '../../../modals/Confirm/Confirm';
+import { useCurrentServer } from '../../../Store/ServerStore';
+import { toastStore } from '../../../Store/ToastStore';
+import { tokenStore } from '../../../Store/TokenStore';
 import styles from './FilesPage.module.scss';
 
 type FileItem = { name: string; path: string; type: 'file' | 'dir'; };
@@ -12,7 +12,9 @@ type FileItem = { name: string; path: string; type: 'file' | 'dir'; };
 const providerByPath = (path: string): string => {
   const v = path.toLowerCase();
   if (v.includes('nginx')) return 'nginx';
-  if (v.includes('docker-compose') || v.endsWith('.yml') || v.endsWith('.yaml')) return 'docker-compose';
+  if (v.includes('docker-compose') || v.endsWith('.yml') || v.endsWith('.yaml')) {
+    return 'docker-compose';
+  }
   if (v.includes('/systemd/') || v.endsWith('.service')) return 'systemd';
   if (v.endsWith('.env')) return 'env';
   if (v.endsWith('.json')) return 'json';
@@ -21,8 +23,17 @@ const providerByPath = (path: string): string => {
   return 'generic';
 };
 
+const normalizePath = (path: string): string => {
+  const trimmed = path.trim();
+  if (!trimmed) return '/';
+  if (trimmed === '~') return '/home';
+  if (trimmed.startsWith('~/')) return `/home/${trimmed.slice(2)}`;
+  return trimmed;
+};
+
 const FilesPage = observer(() => {
   const { serverId } = useCurrentServer();
+  const quickPaths = ['/etc', '/var', '/home', '/root'];
   const [currentPath, setCurrentPath] = useState('/etc');
   const [items, setItems] = useState<FileItem[]>([]);
   const [selectedFile, setSelectedFile] = useState<string>('');
@@ -37,21 +48,39 @@ const FilesPage = observer(() => {
   const [confirmRollback, setConfirmRollback] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const authHeaders = useMemo(() => ({ Authorization: `Bearer ${tokenStore.getToken()}` }), []);
+  const buildAuthHeaders = () => ({ Authorization: `Bearer ${tokenStore.getToken()}` });
 
   const loadTree = async (path = currentPath) => {
     if (!Number.isFinite(serverId)) return;
-    const resp = await fetch(`${API_BASE}/servers/${serverId}/files/tree?path=${encodeURIComponent(path)}`, { headers: authHeaders });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const payload = await resp.json();
-    setCurrentPath(payload.path || path);
-    setItems(Array.isArray(payload.items) ? payload.items : []);
+    const normalized = normalizePath(path);
+    if (normalized !== path.trim()) {
+      setCurrentPath(normalized);
+      if (path.trim().startsWith('~')) {
+        toastStore.push(
+          'info',
+          '"~" expanded to /home. Use an absolute path for other users.',
+          'File Ops',
+        );
+      }
+    }
+    try {
+      const resp = await fetch(
+        `${API_BASE}/servers/${serverId}/files/tree?path=${encodeURIComponent(normalized)}`,
+        { headers: buildAuthHeaders() },
+      );
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const payload = await resp.json();
+      setCurrentPath(payload.path || normalized);
+      setItems(Array.isArray(payload.items) ? payload.items : []);
+    } catch (e) {
+      toastStore.push('error', e instanceof Error ? e.message : 'Failed to load path', 'File Ops');
+    }
   };
 
   const lockFile = async (path: string) => {
     const resp = await fetch(`${API_BASE}/servers/${serverId}/files/lock`, {
       method: 'POST',
-      headers: { ...authHeaders, 'Content-Type': 'application/json' },
+      headers: { ...buildAuthHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ path }),
     });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -61,7 +90,10 @@ const FilesPage = observer(() => {
 
   const loadFile = async (path: string) => {
     if (!Number.isFinite(serverId)) return;
-    const resp = await fetch(`${API_BASE}/servers/${serverId}/files/content?path=${encodeURIComponent(path)}`, { headers: authHeaders });
+    const resp = await fetch(
+      `${API_BASE}/servers/${serverId}/files/content?path=${encodeURIComponent(path)}`,
+      { headers: buildAuthHeaders() },
+    );
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const payload = await resp.json();
     setSelectedFile(path);
@@ -74,14 +106,19 @@ const FilesPage = observer(() => {
 
   const loadHistory = async () => {
     if (!selectedFile) return;
-    const resp = await fetch(`${API_BASE}/servers/${serverId}/files/history?path=${encodeURIComponent(selectedFile)}`, { headers: authHeaders });
+    const resp = await fetch(
+      `${API_BASE}/servers/${serverId}/files/history?path=${encodeURIComponent(selectedFile)}`,
+      { headers: buildAuthHeaders() },
+    );
     if (!resp.ok) return;
     const payload = await resp.json();
     setHistory(Array.isArray(payload) ? payload : []);
   };
 
   const loadAudit = async () => {
-    const resp = await fetch(`${API_BASE}/servers/${serverId}/files/audit`, { headers: authHeaders });
+    const resp = await fetch(`${API_BASE}/servers/${serverId}/files/audit`, {
+      headers: buildAuthHeaders(),
+    });
     if (!resp.ok) return;
     const payload = await resp.json();
     setAudit(Array.isArray(payload) ? payload : []);
@@ -102,7 +139,7 @@ const FilesPage = observer(() => {
     if (!selectedFile) return;
     const resp = await fetch(`${API_BASE}/servers/${serverId}/files/validate`, {
       method: 'POST',
-      headers: { ...authHeaders, 'Content-Type': 'application/json' },
+      headers: { ...buildAuthHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ provider, path: selectedFile, content: editedContent }),
     });
     const payload = await resp.json().catch(() => ({}));
@@ -116,7 +153,7 @@ const FilesPage = observer(() => {
     try {
       const resp = await fetch(`${API_BASE}/servers/${serverId}/files/apply`, {
         method: 'POST',
-        headers: { ...authHeaders, 'Content-Type': 'application/json' },
+        headers: { ...buildAuthHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({
           provider,
           path: selectedFile,
@@ -140,7 +177,7 @@ const FilesPage = observer(() => {
   const rollback = async (versionId: number) => {
     const resp = await fetch(`${API_BASE}/servers/${serverId}/files/rollback`, {
       method: 'POST',
-      headers: { ...authHeaders, 'Content-Type': 'application/json' },
+      headers: { ...buildAuthHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ path: selectedFile, version_id: versionId }),
     });
     const payload = await resp.json().catch(() => ({}));
@@ -154,46 +191,101 @@ const FilesPage = observer(() => {
     if (!selectedFile || !lockToken) return;
     await fetch(`${API_BASE}/servers/${serverId}/files/unlock`, {
       method: 'POST',
-      headers: { ...authHeaders, 'Content-Type': 'application/json' },
+      headers: { ...buildAuthHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ path: selectedFile, lock_token: lockToken }),
     });
     setLockToken('');
   };
 
-  useEffect(() => () => { void unlock(); }, [selectedFile, lockToken]);
+  useEffect(() => () => {
+    void unlock();
+  }, [selectedFile, lockToken]);
 
   if (!Number.isFinite(serverId)) return null;
 
   return (
     <div className={styles.page}>
       <div className={styles.header}>
-        <h2>File Ops</h2>
-        <div className={styles.row}>
-          <input className={styles.input} value={currentPath} onChange={e => setCurrentPath(e.target.value)} />
-          <button type='button' className={styles.btn} onClick={() => void loadTree(currentPath)}>Browse</button>
+        <div className={styles.titleBlock}>
+          <h2>File Ops</h2>
+          <p className={styles.subtitle}>Browse, edit, and validate configuration files.</p>
         </div>
+        <div className={styles.row}>
+          <input
+            className={styles.input}
+            value={currentPath}
+            onChange={e => setCurrentPath(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                void loadTree(currentPath);
+              }
+            }}
+          />
+          <button type='button' className={styles.btn} onClick={() => void loadTree(currentPath)}>
+            Browse
+          </button>
+        </div>
+      </div>
+
+      <div className={styles.quickPaths}>
+        {quickPaths.map(path => (
+          <button
+            key={path}
+            type='button'
+            className={styles.quickPathBtn}
+            onClick={() => {
+              setCurrentPath(path);
+              void loadTree(path);
+            }}
+          >
+            {path}
+          </button>
+        ))}
       </div>
 
       <div className={styles.layout}>
         <section className={styles.card}>
           <h3>File Browser</h3>
           <div className={styles.list}>
-            {items.map(item => (
-              <button
-                key={item.path}
-                type='button'
-                className={styles.listItem}
-                onClick={() => {
-                  if (item.type === 'dir') {
-                    void loadTree(item.path);
-                  } else {
-                    void loadFile(item.path).catch((e) => toastStore.push('error', e instanceof Error ? e.message : 'Open file failed', 'File Ops'));
-                  }
-                }}
-              >
-                {item.type === 'dir' ? 'DIR' : 'FILE'} {item.name}
-              </button>
-            ))}
+            {items.length === 0
+              ? <div className={styles.emptyState}>No files found for this path.</div>
+              : items.map(item => (
+                <button
+                  key={item.path}
+                  type='button'
+                  title={item.path}
+                  className={`${styles.listItem} ${styles.fileItem} ${
+                    selectedFile === item.path ? styles.listItemActive : ''
+                  }`}
+                  onClick={() => {
+                    if (item.type === 'dir') {
+                      setSelectedFile('');
+                      setOriginalContent('');
+                      setEditedContent('');
+                      setChecksum('');
+                      setValidation(null);
+                      void loadTree(item.path);
+                    } else {
+                      void loadFile(item.path).catch((e) =>
+                        toastStore.push(
+                          'error',
+                          e instanceof Error ? e.message : 'Open file failed',
+                          'File Ops',
+                        )
+                      );
+                    }
+                  }}
+                >
+                  <span
+                    className={`${styles.listTag} ${
+                      item.type === 'dir' ? styles.tagDir : styles.tagFile
+                    }`}
+                  >
+                    {item.type === 'dir' ? 'DIR' : 'FILE'}
+                  </span>
+                  <span className={styles.listName}>{item.name}</span>
+                </button>
+              ))}
           </div>
         </section>
 
@@ -201,7 +293,12 @@ const FilesPage = observer(() => {
           <h3>Editor</h3>
           <div className={styles.row}>
             <label>Provider</label>
-            <select value={provider} className={styles.select} onChange={e => setProvider(e.target.value)}>
+            <select
+              value={provider}
+              className={styles.select}
+              onChange={e => setProvider(e.target.value)}
+              disabled={!selectedFile}
+            >
               <option value='generic'>generic</option>
               <option value='nginx'>nginx</option>
               <option value='docker-compose'>docker-compose</option>
@@ -212,21 +309,55 @@ const FilesPage = observer(() => {
               <option value='toml'>toml</option>
               <option value='conf'>conf</option>
             </select>
-            <button type='button' className={styles.btn} disabled={!selectedFile} onClick={() => void validate().catch((e) => toastStore.push('error', e instanceof Error ? e.message : 'Validation failed', 'File Ops'))}>Validate</button>
-            <button type='button' className={styles.btnPrimary} disabled={!selectedFile || loading} onClick={() => void apply().catch((e) => toastStore.push('error', e instanceof Error ? e.message : 'Apply failed', 'File Ops'))}>
+            <button
+              type='button'
+              className={styles.btn}
+              disabled={!selectedFile}
+              onClick={() =>
+                void validate().catch((e) =>
+                  toastStore.push(
+                    'error',
+                    e instanceof Error ? e.message : 'Validation failed',
+                    'File Ops',
+                  )
+                )}
+            >
+              Validate
+            </button>
+            <button
+              type='button'
+              className={styles.btnPrimary}
+              disabled={!selectedFile || loading}
+              onClick={() =>
+                void apply().catch((e) =>
+                  toastStore.push(
+                    'error',
+                    e instanceof Error ? e.message : 'Apply failed',
+                    'File Ops',
+                  )
+                )}
+            >
               {loading ? 'Applying...' : 'Apply'}
             </button>
           </div>
-          <div className={styles.diffGrid}>
-            <div>
-              <div className={styles.label}>Before</div>
-              <pre className={styles.code}>{originalContent}</pre>
-            </div>
-            <div>
-              <div className={styles.label}>After</div>
-              <textarea className={styles.editor} value={editedContent} onChange={e => setEditedContent(e.target.value)} />
-            </div>
-          </div>
+          {selectedFile
+            ? (
+              <div className={styles.diffGrid}>
+                <div>
+                  <div className={styles.label}>Before</div>
+                  <pre className={styles.code}>{originalContent}</pre>
+                </div>
+                <div>
+                  <div className={styles.label}>After</div>
+                  <textarea
+                    className={styles.editor}
+                    value={editedContent}
+                    onChange={e => setEditedContent(e.target.value)}
+                  />
+                </div>
+              </div>
+            )
+            : <div className={styles.emptyState}>Select a file to view and edit its contents.</div>}
         </section>
       </div>
 
@@ -239,7 +370,12 @@ const FilesPage = observer(() => {
           <h3>History Timeline</h3>
           <div className={styles.list}>
             {history.map(row => (
-              <button key={row.id} type='button' className={styles.listItem} onClick={() => setConfirmRollback(row.id)}>
+              <button
+                key={row.id}
+                type='button'
+                className={styles.listItem}
+                onClick={() => setConfirmRollback(row.id)}
+              >
                 v{row.id} {new Date(row.created_at).toLocaleString()} {row.checksum.slice(0, 8)}
               </button>
             ))}
@@ -252,7 +388,8 @@ const FilesPage = observer(() => {
         <div className={styles.list}>
           {audit.map(item => (
             <div key={item.id} className={styles.listItem}>
-              [{item.provider}] {item.path} {item.action} {item.success ? 'ok' : `failed: ${item.message || 'error'}`}
+              [{item.provider}] {item.path} {item.action}{' '}
+              {item.success ? 'ok' : `failed: ${item.message || 'error'}`}
             </div>
           ))}
         </div>
@@ -270,7 +407,11 @@ const FilesPage = observer(() => {
           try {
             await rollback(confirmRollback);
           } catch (e) {
-            toastStore.push('error', e instanceof Error ? e.message : 'Rollback failed', 'File Ops');
+            toastStore.push(
+              'error',
+              e instanceof Error ? e.message : 'Rollback failed',
+              'File Ops',
+            );
           } finally {
             setConfirmRollback(null);
           }

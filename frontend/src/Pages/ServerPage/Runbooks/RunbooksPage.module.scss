@@ -1,55 +1,216 @@
-:root {
-  --rb-bg: var(--color-bg, #0f1115);
-  --rb-surface: var(--color-bg-secondary, #151922);
-  --rb-border: var(--color-border, #252b36);
-  --rb-text: var(--color-text-primary, #d8dee9);
-  --rb-muted: var(--color-text-secondary, #9ba4b4);
+@use "../../../Styles/Variables.scss" as *;
+
+@keyframes pageIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .page {
-  padding: 16px;
-  color: var(--rb-text);
+  padding: $space-5;
+  display: grid;
+  gap: $space-4;
+  color: $color-text-primary;
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba($color-text-primary, 0.05), transparent 60%),
+    $color-bg;
+  min-height: 100%;
+  animation: pageIn 0.35s ease both;
 }
 
-.topRow, .filters {
+.topRow {
   display: flex;
-  gap: 12px;
-  align-items: center;
-  margin-bottom: 12px;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: $space-4;
+  flex-wrap: wrap;
+
+  h2 {
+    margin: 0;
+  }
 }
 
-.btn, .input, .select {
-  background: var(--rb-surface);
-  color: var(--rb-text);
-  border: 1px solid var(--rb-border);
-  border-radius: 8px;
-  padding: 8px 12px;
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-3;
+  align-items: center;
+  padding: $space-3 $space-4;
+  border: $border-default;
+  border-radius: $radius-lg;
+  background: $color-surface;
+  box-shadow: $shadow-sm;
+  animation: cardIn 0.4s ease both;
+}
+
+.btn {
+  height: $btn-height;
+  padding: 0 $btn-padding-x;
+  border-radius: $btn-radius;
+  border: 1px solid rgba($btn-primary-bg, 0.24);
+  background: $btn-primary-bg;
+  color: $btn-primary-text;
+  font-size: $btn-font-size;
+  font-weight: $btn-font-weight;
+  cursor: pointer;
+  transition: transform $transition-base, box-shadow $transition-base, border-color $transition-base;
+
+  &:hover {
+    border-color: rgba($btn-primary-bg, 0.4);
+    box-shadow: 0 8px 20px rgba($color-bg, 0.35);
+    transform: translateY(-1px);
+  }
+}
+
+.input,
+.select {
+  min-width: 220px;
+  height: 40px;
+  padding: 0 $space-3;
+  border-radius: $radius-md;
+  border: $border-default;
+  background: $color-bg;
+  color: $color-text-primary;
+  font-size: $font-size-body;
+  transition: border-color $transition-base, background-color $transition-base;
+
+  &:focus {
+    outline: none;
+    border-color: $color-border-hover;
+    background: rgba($color-text-primary, 0.02);
+  }
 }
 
 .tableWrap {
-  border: 1px solid var(--rb-border);
-  border-radius: 10px;
-  overflow: hidden;
+  border: $border-default;
+  border-radius: $radius-lg;
+  overflow: auto;
+  background: $color-surface;
+  box-shadow: $shadow-sm;
+  animation: cardIn 0.45s ease both;
 }
 
 .table {
   width: 100%;
+  min-width: 640px;
   border-collapse: collapse;
+
+  thead {
+    background: rgba($color-text-primary, 0.03);
+  }
+
+  th {
+    text-align: left;
+    padding: $space-3 $space-4;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: $color-text-secondary;
+    border-bottom: 1px solid rgba($color-border, 0.7);
+  }
+
+  td {
+    padding: $space-3 $space-4;
+    border-bottom: 1px solid rgba($color-border, 0.7);
+  }
 }
 
-.table th, .table td {
-  text-align: left;
-  padding: 10px;
-  border-bottom: 1px solid var(--rb-border);
+.tableRow {
+  transition: background-color $transition-base;
+
+  &:hover {
+    background: rgba($color-text-primary, 0.04);
+  }
 }
 
 .link {
-  color: var(--rb-text);
+  color: $color-text-primary;
+  font-weight: $font-weight-medium;
+  transition: color $transition-base;
+
+  &:hover {
+    color: $color-status-online;
+  }
 }
 
 .badge {
-  border: 1px solid var(--rb-border);
-  border-radius: 999px;
-  padding: 2px 8px;
-  color: var(--rb-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1;
+  border: 1px solid rgba($color-text-primary, 0.14);
+  border-radius: $radius-full;
+  padding: 2px 10px;
+  font-size: $font-size-small;
+  text-transform: lowercase;
+}
+
+.badgeSuccess {
+  border-color: rgba($color-status-online, 0.55);
+  color: $color-status-online;
+  background: rgba($color-status-online, 0.08);
+}
+
+.badgeRunning {
+  border-color: rgba($color-status-idle, 0.5);
+  color: $color-status-idle;
+  background: rgba($color-status-idle, 0.08);
+}
+
+.badgeFailed {
+  border-color: rgba($color-status-offline, 0.6);
+  color: $color-status-offline;
+  background: rgba($color-status-offline, 0.1);
+}
+
+.badgeIdle {
+  border-color: rgba($color-text-secondary, 0.4);
+  color: $color-text-secondary;
+  background: rgba($color-text-secondary, 0.08);
+}
+
+.emptyCell {
+  padding: $space-5;
+  text-align: center;
+  color: $color-text-secondary;
+}
+
+@media (max-width: 900px) {
+  .topRow {
+    align-items: flex-start;
+  }
+
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .input,
+  .select {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page,
+  .filters,
+  .tableWrap {
+    animation: none;
+  }
 }

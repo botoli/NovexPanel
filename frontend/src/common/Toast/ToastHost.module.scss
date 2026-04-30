@@ -1,3 +1,5 @@
+@use "../../Styles/Variables.scss" as *;
+
 .host {
   position: fixed;
   right: 16px;
@@ -14,11 +16,11 @@
   gap: 10px;
   padding: 10px 12px;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(20, 20, 20, 0.92);
-  color: #f2f2f2;
+  border: 1px solid rgba($color-text-primary, 0.08);
+  background: rgba($color-surface, 0.92);
+  color: $color-text-primary;
   backdrop-filter: blur(10px);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 12px 30px rgba($color-bg, 0.35);
 }
 
 .icon {
@@ -61,16 +63,16 @@
 
 .close:hover {
   opacity: 1;
-  background: rgba(255, 255, 255, 0.06);
+  background: $color-hover;
 }
 
 .toneInfo {
-  border-left: 3px solid #2dd4bf;
+  border-left: 3px solid $color-status-idle;
 }
 .toneSuccess {
-  border-left: 3px solid #22c55e;
+  border-left: 3px solid $color-status-online;
 }
 .toneError {
-  border-left: 3px solid #ef4444;
+  border-left: 3px solid $color-status-offline;
 }
 

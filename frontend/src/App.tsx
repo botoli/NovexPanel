@@ -8,21 +8,23 @@ import MetricsPage from './Pages/ServerPage/Metrics/MetricsPage';
 import ProcessesPage from './Pages/ServerPage/Processes/ProcessesPage';
 import ServerPage from './Pages/ServerPage/ServerPage';
 import './Styles/app.scss';
+import { ToastHost } from './common/Toast/ToastHost';
 import Account from './modals/Account/Account';
 import Login from './modals/Login/Login';
 import Registration from './modals/Registration/Registration';
+import DomainsPage from './Pages/Domains/DomainsPage';
+import NetworkPage from './Pages/Network/NetworkPage';
 import { DeploymentDetailPage } from './Pages/ServerPage/Deploy/DeploymentDetailPage/DeploymentDetailPage';
 import { DeploymentsPage } from './Pages/ServerPage/Deploy/DeploymentsPage';
 import { DeployPage } from './Pages/ServerPage/Deploy/DeploymentsPage/Deploy';
-import { TerminalPage } from './Pages/ServerPage/Terminal/Terminal';
-import { ToastHost } from './common/Toast/ToastHost';
-import { settingsStore } from './Store/SettingsStore';
-import SettingsPage from './Pages/Settings/SettingsPage';
-import RunbooksPage from './Pages/ServerPage/Runbooks/RunbooksPage';
-import RunbookDetailPage from './Pages/ServerPage/Runbooks/RunbookDetailPage';
-import ServicesPage from './Pages/ServerPage/Services/ServicesPage';
 import FilesPage from './Pages/ServerPage/Files/FilesPage';
+import RunbookDetailPage from './Pages/ServerPage/Runbooks/RunbookDetailPage';
+import RunbooksPage from './Pages/ServerPage/Runbooks/RunbooksPage';
 import SecretsPage from './Pages/ServerPage/Secrets/SecretsPage';
+import ServicesPage from './Pages/ServerPage/Services/ServicesPage';
+import { TerminalPage } from './Pages/ServerPage/Terminal/Terminal';
+import SettingsPage from './Pages/Settings/SettingsPage';
+import { settingsStore } from './Store/SettingsStore';
 
 const App = observer(() => {
   useLoadServers();
@@ -33,6 +35,8 @@ const App = observer(() => {
       <ToastHost />
       <Routes>
         <Route path='/' element={<HomePage />} />
+        <Route path='/network' element={<NetworkPage />} />
+        <Route path='/domains' element={<DomainsPage />} />
         <Route path='/settings' element={<SettingsPage />} />
         <Route path='/secrets' element={<SecretsPage />} />
 

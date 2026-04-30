@@ -40,18 +40,22 @@ const RANGE_OPTIONS: Array<{ value: RangeOption; label: string; }> = [
 ];
 
 const AXIS_TICK_STYLE = {
-  fill: 'rgba(255,255,255,0.45)',
+  fill: 'rgba(var(--color-text-primary-rgb), 0.45)',
   fontSize: '11px',
   letterSpacing: '0.02em',
 };
 
 const CHART_TOOLTIP_STYLE = {
-  background: 'rgba(6,6,6,0.98)',
-  border: '1px solid rgba(255,255,255,0.08)',
+  background: 'rgba(var(--color-surface-rgb), 0.98)',
+  border: '1px solid rgba(var(--color-text-primary-rgb), 0.08)',
   borderRadius: 10,
-  color: '#fff',
-  boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
+  color: 'var(--color-text-primary)',
+  boxShadow: '0 8px 24px rgba(var(--color-bg-rgb), 0.45)',
 };
+
+const GRID_STROKE = 'rgba(var(--color-text-primary-rgb), 0.05)';
+const CURSOR_STROKE = 'rgba(var(--color-text-primary-rgb), 0.12)';
+const LABEL_COLOR = 'rgba(var(--color-text-primary-rgb), 0.66)';
 
 const getRangeInterval = (range: RangeOption): string => {
   switch (range) {
@@ -372,7 +376,7 @@ const MetricsPage = observer(() => {
                         <stop offset='100%' stopColor='var(--chart-fill)' stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid vertical={false} stroke='rgba(255,255,255,0.05)' />
+                    <CartesianGrid vertical={false} stroke={GRID_STROKE} />
                     <XAxis
                       dataKey='t'
                       axisLine={false}
@@ -388,9 +392,9 @@ const MetricsPage = observer(() => {
                       width={28}
                     />
                     <Tooltip
-                      cursor={{ stroke: 'rgba(255,255,255,0.12)', strokeWidth: 1 }}
+                      cursor={{ stroke: CURSOR_STROKE, strokeWidth: 1 }}
                       contentStyle={CHART_TOOLTIP_STYLE}
-                      labelStyle={{ color: 'rgba(255,255,255,0.66)' }}
+                      labelStyle={{ color: LABEL_COLOR }}
                     />
                     <Area
                       type='monotone'
@@ -430,7 +434,7 @@ const MetricsPage = observer(() => {
                         <stop offset='100%' stopColor='var(--chart-fill)' stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid vertical={false} stroke='rgba(255,255,255,0.05)' />
+                    <CartesianGrid vertical={false} stroke={GRID_STROKE} />
                     <XAxis
                       dataKey='t'
                       axisLine={false}
@@ -446,9 +450,9 @@ const MetricsPage = observer(() => {
                       width={28}
                     />
                     <Tooltip
-                      cursor={{ stroke: 'rgba(255,255,255,0.12)', strokeWidth: 1 }}
+                      cursor={{ stroke: CURSOR_STROKE, strokeWidth: 1 }}
                       contentStyle={CHART_TOOLTIP_STYLE}
-                      labelStyle={{ color: 'rgba(255,255,255,0.66)' }}
+                      labelStyle={{ color: LABEL_COLOR }}
                     />
                     <Area
                       type='monotone'
@@ -489,7 +493,7 @@ const MetricsPage = observer(() => {
                         <stop offset='100%' stopColor='var(--chart-fill)' stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid vertical={false} stroke='rgba(255,255,255,0.05)' />
+                    <CartesianGrid vertical={false} stroke={GRID_STROKE} />
                     <XAxis
                       dataKey='t'
                       axisLine={false}
@@ -505,9 +509,9 @@ const MetricsPage = observer(() => {
                       width={28}
                     />
                     <Tooltip
-                      cursor={{ stroke: 'rgba(255,255,255,0.12)', strokeWidth: 1 }}
+                      cursor={{ stroke: CURSOR_STROKE, strokeWidth: 1 }}
                       contentStyle={CHART_TOOLTIP_STYLE}
-                      labelStyle={{ color: 'rgba(255,255,255,0.66)' }}
+                      labelStyle={{ color: LABEL_COLOR }}
                     />
                     <Area
                       type='monotone'
@@ -559,7 +563,7 @@ const MetricsPage = observer(() => {
                         <stop offset='100%' stopColor='var(--chart-fill-2)' stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid vertical={false} stroke='rgba(255,255,255,0.05)' />
+                    <CartesianGrid vertical={false} stroke={GRID_STROKE} />
                     <XAxis
                       dataKey='t'
                       axisLine={false}
@@ -574,9 +578,9 @@ const MetricsPage = observer(() => {
                       width={28}
                     />
                     <Tooltip
-                      cursor={{ stroke: 'rgba(255,255,255,0.12)', strokeWidth: 1 }}
+                      cursor={{ stroke: CURSOR_STROKE, strokeWidth: 1 }}
                       contentStyle={CHART_TOOLTIP_STYLE}
-                      labelStyle={{ color: 'rgba(255,255,255,0.66)' }}
+                      labelStyle={{ color: LABEL_COLOR }}
                     />
                     <Area
                       type='monotone'

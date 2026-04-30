@@ -276,3 +276,121 @@ type SecretVaultAuditLog struct {
 	Message   string    `gorm:"size:1024" json:"message"`
 	CreatedAt time.Time `gorm:"index" json:"created_at"`
 }
+
+type FirewallRule struct {
+	ID          uint      `gorm:"primaryKey" json:"id"`
+	UserID      uint      `gorm:"index;not null" json:"user_id"`
+	ServerID    uint      `gorm:"index;not null" json:"server_id"`
+	Provider    string    `gorm:"size:32;index;not null" json:"provider"`
+	Direction   string    `gorm:"size:8;index;not null" json:"direction"`
+	Action      string    `gorm:"size:16;index;not null" json:"action"`
+	Protocol    string    `gorm:"size:8;index;not null" json:"protocol"`
+	Port        string    `gorm:"size:32;index" json:"port"`
+	Source      string    `gorm:"size:128" json:"source"`
+	Destination string    `gorm:"size:128" json:"destination"`
+	Comment     string    `gorm:"size:255" json:"comment"`
+	Enabled     bool      `gorm:"default:true" json:"enabled"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+type FirewallAuditLog struct {
+	ID        uint           `gorm:"primaryKey" json:"id"`
+	UserID    uint           `gorm:"index;not null" json:"user_id"`
+	ServerID  uint           `gorm:"index;not null" json:"server_id"`
+	RuleID    *uint          `gorm:"index" json:"rule_id"`
+	Provider  string         `gorm:"size:32;index;not null" json:"provider"`
+	Action    string         `gorm:"size:40;index;not null" json:"action"`
+	Success   bool           `gorm:"default:false" json:"success"`
+	Message   string         `gorm:"size:1024" json:"message"`
+	Snapshot  datatypes.JSON `gorm:"type:jsonb;default:'{}'" json:"snapshot"`
+	CreatedAt time.Time      `gorm:"index" json:"created_at"`
+}
+
+type FirewallBlockEvent struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	UserID    uint      `gorm:"index;not null" json:"user_id"`
+	ServerID  uint      `gorm:"index;not null" json:"server_id"`
+	RuleID    *uint     `gorm:"index" json:"rule_id"`
+	Provider  string    `gorm:"size:32;index" json:"provider"`
+	IP        string    `gorm:"size:80;index" json:"ip"`
+	Action    string    `gorm:"size:16;index;not null" json:"action"`
+	CreatedAt time.Time `gorm:"index" json:"created_at"`
+}
+
+type DomainBinding struct {
+	ID               uint      `gorm:"primaryKey" json:"id"`
+	UserID           uint      `gorm:"index;not null" json:"user_id"`
+	ServerID         uint      `gorm:"index;not null" json:"server_id"`
+	Domain           string    `gorm:"size:253;index;not null" json:"domain"`
+	Service          string    `gorm:"size:180" json:"service"`
+	Port             int       `gorm:"default:0" json:"port"`
+	Protocol         string    `gorm:"size:8;default:'http'" json:"protocol"`
+	CertificateID    *uint     `gorm:"index" json:"certificate_id"`
+	AutoRenew        bool      `gorm:"default:true" json:"auto_renew"`
+	Status           string    `gorm:"size:32;index;not null" json:"status"`
+	ValidationErrors string    `gorm:"type:text" json:"validation_errors"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}
+
+type TLSCertificate struct {
+	ID                  uint       `gorm:"primaryKey" json:"id"`
+	UserID              uint       `gorm:"index;not null" json:"user_id"`
+	ServerID            uint       `gorm:"index;not null" json:"server_id"`
+	Domains             string     `gorm:"size:1024;index" json:"domains"`
+	Issuer              string     `gorm:"size:255" json:"issuer"`
+	Serial              string     `gorm:"size:120" json:"serial"`
+	NotBefore           time.Time  `json:"not_before"`
+	NotAfter            time.Time  `json:"not_after"`
+	Fingerprint         string     `gorm:"size:128;index" json:"fingerprint"`
+	BundleEnc           string     `gorm:"type:text;not null" json:"-"`
+	BundleDEK           string     `gorm:"type:text;not null" json:"-"`
+	BundleNonce         string     `gorm:"size:64;not null" json:"-"`
+	ChallengeType       string     `gorm:"size:16" json:"challenge_type"`
+	DNSProvider         string     `gorm:"size:64" json:"dns_provider"`
+	DNSCredentialsEnc   string     `gorm:"type:text" json:"-"`
+	DNSCredentialsDEK   string     `gorm:"type:text" json:"-"`
+	DNSCredentialsNonce string     `gorm:"size:64" json:"-"`
+	AutoRenew           bool       `gorm:"default:true" json:"auto_renew"`
+	RenewalFailures     int        `gorm:"default:0" json:"renewal_failures"`
+	LastRenewedAt       *time.Time `json:"last_renewed_at"`
+	NextRenewAt         *time.Time `gorm:"index" json:"next_renew_at"`
+	Status              string     `gorm:"size:32;index;not null" json:"status"`
+	CreatedAt           time.Time  `json:"created_at"`
+	UpdatedAt           time.Time  `json:"updated_at"`
+}
+
+type TLSCertificateHistory struct {
+	ID            uint      `gorm:"primaryKey" json:"id"`
+	CertificateID uint      `gorm:"index;not null" json:"certificate_id"`
+	BundleEnc     string    `gorm:"type:text;not null" json:"-"`
+	BundleDEK     string    `gorm:"type:text;not null" json:"-"`
+	BundleNonce   string    `gorm:"size:64;not null" json:"-"`
+	Issuer        string    `gorm:"size:255" json:"issuer"`
+	Serial        string    `gorm:"size:120" json:"serial"`
+	NotAfter      time.Time `json:"not_after"`
+	Fingerprint   string    `gorm:"size:128" json:"fingerprint"`
+	CreatedAt     time.Time `gorm:"index" json:"created_at"`
+}
+
+type TLSRenewalLog struct {
+	ID            uint      `gorm:"primaryKey" json:"id"`
+	CertificateID uint      `gorm:"index;not null" json:"certificate_id"`
+	Status        string    `gorm:"size:16;index;not null" json:"status"`
+	Message       string    `gorm:"size:1024" json:"message"`
+	Attempt       int       `gorm:"default:1" json:"attempt"`
+	CreatedAt     time.Time `gorm:"index" json:"created_at"`
+}
+
+type DomainAuditLog struct {
+	ID          uint           `gorm:"primaryKey" json:"id"`
+	UserID      uint           `gorm:"index;not null" json:"user_id"`
+	ServerID    uint           `gorm:"index;not null" json:"server_id"`
+	Domain      string         `gorm:"size:253;index" json:"domain"`
+	Action      string         `gorm:"size:40;index;not null" json:"action"`
+	Success     bool           `gorm:"default:false" json:"success"`
+	Message     string         `gorm:"size:1024" json:"message"`
+	PayloadJSON datatypes.JSON `gorm:"type:jsonb;default:'{}'" json:"payload_json"`
+	CreatedAt   time.Time      `gorm:"index" json:"created_at"`
+}

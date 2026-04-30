@@ -2,9 +2,14 @@ import { useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
-import { tokenStore } from '../../../Store/TokenStore';
 import { settingsStore } from '../../../Store/SettingsStore';
+import { tokenStore } from '../../../Store/TokenStore';
 const WS_BASE = import.meta.env.VITE_WS_URL || 'ws://localhost:8380';
+
+const getCssVar = (name: string) => {
+  if (typeof window === 'undefined') return '';
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+};
 
 export const TerminalPage = () => {
   const { id } = useParams();
@@ -14,7 +19,7 @@ export const TerminalPage = () => {
   const fitAddonRef = useRef<FitAddon | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const pendingInputRef = useRef<string>('');
-  const onDataDisposableRef = useRef<{ dispose: () => void } | null>(null);
+  const onDataDisposableRef = useRef<{ dispose: () => void; } | null>(null);
   const lastInputRef = useRef<{ data: string; at: number; }>({ data: '', at: 0 });
 
   useEffect(() => {
@@ -46,9 +51,13 @@ export const TerminalPage = () => {
 
     // 1. Создать терминал
     const themeMode = settingsStore.state.terminalTheme;
+    const background = getCssVar('--color-bg');
+    const foreground = getCssVar('--color-text-primary');
+    const mutedForeground = getCssVar('--color-text-secondary');
+    const accent = getCssVar('--color-status-online');
     const terminalTheme = themeMode === 'classic'
-      ? { background: '#000000', foreground: '#ffffff', cursor: '#ffffff' }
-      : { background: '#000000', foreground: '#f0f0f0', cursor: '#2DD4BF' };
+      ? { background, foreground, cursor: foreground }
+      : { background, foreground: mutedForeground, cursor: accent };
     const term = new Terminal({
       cursorBlink: true,
       fontSize: settingsStore.state.terminalFontSize || 14,
@@ -138,7 +147,10 @@ export const TerminalPage = () => {
         case 'connected':
           return;
         case 'terminal_opened': {
-          if (msg.server_id !== undefined && typeof msg.server_id === 'number' && msg.server_id !== serverId) {
+          if (
+            msg.server_id !== undefined && typeof msg.server_id === 'number'
+            && msg.server_id !== serverId
+          ) {
             return;
           }
           const sessionId = typeof msg.session_id === 'string' ? msg.session_id : null;
@@ -204,7 +216,7 @@ export const TerminalPage = () => {
       const now = performance.now();
       if (data.length === 1) {
         const last = lastInputRef.current;
-        if (last.data === data && now-last.at < 8) {
+        if (last.data === data && now - last.at < 8) {
           return;
         }
         lastInputRef.current = { data, at: now };
